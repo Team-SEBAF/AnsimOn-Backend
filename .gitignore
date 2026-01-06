@@ -1,0 +1,32 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# ---- Envs / secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Poetry / venv ----
+.venv/
+# (만약 poetry가 in-project venv가 아니라면 캐시 경로에 생기지만, 보통 커밋 안 함)
+
+# ---- OS / editor ----
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# ---- logs ----
+*.log
