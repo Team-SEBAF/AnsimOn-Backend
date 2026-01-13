@@ -18,3 +18,7 @@ class SignUpEmailRequest(BaseRequest):
 class VerifyEmailRequest(BaseRequest):
     email: str = Field(..., description="이메일", examples=["user999@example.com"])
     code: str = Field(..., description="인증 코드", examples=["123456"])
+
+
+class ResendEmailVerificationRequest(BaseRequest):
+    email: str = Field(..., description="이메일", examples=["user999@example.com"])

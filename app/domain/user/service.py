@@ -68,5 +68,14 @@ class UserService:
             is_verified=True,
         )
 
+    def resend_email_verification(self, req: schemas.ResendEmailVerificationRequest):
+        cognito, secret_hash = self._init(req.email)
+
+        cognito.resend_confirmation_code(
+            ClientId=settings.COGNITO_CLIENT_ID,
+            SecretHash=secret_hash,
+            Username=req.email,
+        )
+
 
 user_service = UserService()
