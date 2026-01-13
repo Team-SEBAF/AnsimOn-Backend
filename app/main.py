@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
 
-from app.core.database import engine
+from app.core.exception_handlers import register_exception_handlers
 from app.core.settings import settings
+from app.domain.user.endpoints import router as user_router
 
 app = FastAPI(title="AnsimOn Backend")
 
@@ -17,13 +17,18 @@ app.add_middleware(
 )
 
 
-@app.get("/check")
-def check():
-    return {"ok": True, "env": settings.env}
+# @app.get("/check")
+# def check():
+#     return {"ok": True, "env": settings.env}
 
 
-@app.get("/health/db")
-def health_db():
-    with engine.connect() as conn:
-        conn.execute(text("SELECT 1"))
-    return {"db": "ok"}
+# @app.get("/health/db")
+# def health_db():
+#     with engine.connect() as conn:
+#         conn.execute(text("SELECT 1"))
+#     return {"db": "ok"}
+
+# 예외 핸들러 등록
+register_exception_handlers(app)
+
+app.include_router(user_router)
