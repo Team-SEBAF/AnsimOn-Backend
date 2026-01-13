@@ -6,18 +6,24 @@ from botocore.exceptions import ClientError
 from app.core.aws import get_cognito_client
 from app.core.settings import settings
 from app.domain.user import schemas, utils
-from app.domain.user.exception import handle_cognito_signup_error
+from app.domain.user.exception import handle_cognito_signup_error, handle_cognito_verify_email_error
 
 
 class UserService:
-    def signup_email(self, req: schemas.SignUpEmailRequest) -> schemas.SignUpEmailResponse:
+    @staticmethod
+    def _init(email: str):
         cognito = get_cognito_client()
 
         secret_hash = utils.get_secret_hash(
-            username=req.email,
+            username=email,
             client_id=settings.COGNITO_CLIENT_ID,
             client_secret=settings.COGNITO_CLIENT_SECRET,
         )
+
+        return cognito, secret_hash
+
+    def signup_email(self, req: schemas.SignUpEmailRequest) -> schemas.SignUpEmailResponse:
+        cognito, secret_hash = self._init(req.email)
 
         try:
             resp = cognito.sign_up(
@@ -31,7 +37,6 @@ class UserService:
                     {"Name": "birthdate", "Value": req.birthdate.isoformat()},
                 ],
             )
-            print(resp)
         except ClientError as e:
             raise handle_cognito_signup_error(e)
 
@@ -43,6 +48,24 @@ class UserService:
             birthdate=req.birthdate,
             is_legal_representative=req.is_legal_representative,
             created_at=datetime.datetime.now(datetime.timezone.utc),
+        )
+
+    def verify_email(self, req: schemas.VerifyEmailRequest) -> schemas.VerifyEmailResponse:
+        cognito, secret_hash = self._init(req.email)
+
+        try:
+            cognito.confirm_sign_up(
+                ClientId=settings.COGNITO_CLIENT_ID,
+                SecretHash=secret_hash,
+                Username=req.email,
+                ConfirmationCode=req.code,
+            )
+        except ClientError as e:
+            raise handle_cognito_verify_email_error(e)
+
+        return schemas.VerifyEmailResponse(
+            email=req.email,
+            is_verified=True,
         )
 
 

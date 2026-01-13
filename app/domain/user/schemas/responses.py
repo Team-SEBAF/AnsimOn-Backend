@@ -24,3 +24,8 @@ class SignUpEmailResponse(BaseResponse):
         description="생성 시간 (ISO 8601, timezone-aware)",
         examples=[datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)],
     )
+
+
+class VerifyEmailResponse(BaseResponse):
+    email: str = Field(..., description="이메일", examples=["user999@example.com"])
+    is_verified: bool = Field(..., description="이메일 인증 여부", examples=[True])

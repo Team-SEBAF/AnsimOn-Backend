@@ -13,3 +13,8 @@ class SignUpEmailRequest(BaseRequest):
         ..., description="생년월일 (YYYY-MM-DD)", examples=[datetime.date(2000, 1, 1)]
     )
     is_legal_representative: bool = Field(..., description="법정 대리인인지 여부", examples=[False])
+
+
+class VerifyEmailRequest(BaseRequest):
+    email: str = Field(..., description="이메일", examples=["user999@example.com"])
+    code: str = Field(..., description="인증 코드", examples=["123456"])

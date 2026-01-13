@@ -40,3 +40,31 @@ def handle_cognito_signup_error(e: ClientError):
         message="회원가입 처리 중 오류가 발생했습니다.",
         status_code=500,
     )
+
+
+def handle_cognito_verify_email_error(e: ClientError):
+    code = e.response["Error"]["Code"]
+
+    if code == "CodeMismatchException":
+        raise CodeException(
+            code="INVALID_CODE",
+            message="인증 코드가 일치하지 않습니다.",
+            status_code=400,
+        )
+
+    if code == "ExpiredCodeException":
+        raise CodeException(
+            code="EXPIRED_CODE",
+            message="인증 코드가 만료되었습니다.",
+            status_code=400,
+        )
+
+    # 나머지는 서버 에러
+    raise CodeException(
+        code="INTERNAL_SERVER_ERROR",
+        message="인증 처리 중 오류가 발생했습니다.",
+        status_code=500,
+    )
+
+
+__all__ = ["handle_cognito_signup_error", "handle_cognito_verify_email_error"]
