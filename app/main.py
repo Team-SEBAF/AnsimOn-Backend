@@ -10,7 +10,7 @@ app = FastAPI(title="AnsimOn Backend")
 # 우선 로컬 개발용만 허용 (나중에 환경변수로 빼기)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

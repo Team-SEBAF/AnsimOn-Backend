@@ -3,11 +3,11 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.settings import settings
 
-if not settings.database_url:
+if not settings.DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set")
 
 engine = create_engine(
-    settings.database_url,
+    settings.DATABASE_URL,
     pool_pre_ping=True,
 )
 
