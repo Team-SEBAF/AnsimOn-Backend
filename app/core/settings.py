@@ -11,11 +11,15 @@ class Settings(BaseSettings):
     )
 
     env: str = Field(default="local", alias="ENV")
-    cors_origins: list[str] = Field(
+    CORS_ORIGINS: list[str] = Field(
         default_factory=lambda: ["http://localhost:3000"], alias="CORS_ORIGINS"
     )
-    database_url: str | None = Field(default=None, alias="DATABASE_URL")
-    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    DATABASE_URL: str | None = Field(default=None, alias="DATABASE_URL")
+    LOG_LEVEL: str = Field(default="INFO", alias="LOG_LEVEL")
+    AWS_REGION: str | None = Field(default=None, alias="AWS_REGION")
+    COGNITO_CLIENT_ID: str | None = Field(default=None, alias="COGNITO_CLIENT_ID")
+    COGNITO_USER_POOL_ID: str | None = Field(default=None, alias="COGNITO_USER_POOL_ID")
+    COGNITO_CLIENT_SECRET: str | None = Field(default=None, alias="COGNITO_CLIENT_SECRET")
 
 
 settings = Settings()
