@@ -1,10 +1,17 @@
-from .requests import ResendEmailVerificationRequest, SignUpEmailRequest, VerifyEmailRequest
-from .responses import SignUpEmailResponse, VerifyEmailResponse
+from .requests import (
+    LoginEmailRequest,
+    ResendEmailVerificationRequest,
+    SignUpEmailRequest,
+    VerifyEmailRequest,
+)
+from .responses import LoginEmailResponse, SignUpEmailResponse, VerifyEmailResponse
 
 __all__ = [
     "SignUpEmailRequest",
     "SignUpEmailResponse",
-    "ResendEmailVerificationRequest",
     "VerifyEmailRequest",
     "VerifyEmailResponse",
+    "ResendEmailVerificationRequest",
+    "LoginEmailRequest",
+    "LoginEmailResponse",
 ]

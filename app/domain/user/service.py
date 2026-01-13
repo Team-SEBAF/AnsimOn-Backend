@@ -6,7 +6,11 @@ from botocore.exceptions import ClientError
 from app.core.aws import get_cognito_client
 from app.core.settings import settings
 from app.domain.user import schemas, utils
-from app.domain.user.exception import handle_cognito_signup_error, handle_cognito_verify_email_error
+from app.domain.user.exception import (
+    handle_cognito_login_email_error,
+    handle_cognito_signup_error,
+    handle_cognito_verify_email_error,
+)
 
 
 class UserService:
@@ -75,6 +79,32 @@ class UserService:
             ClientId=settings.COGNITO_CLIENT_ID,
             SecretHash=secret_hash,
             Username=req.email,
+        )
+
+    def login_email(self, req: schemas.LoginEmailRequest) -> schemas.LoginEmailResponse:
+        cognito, secret_hash = self._init(req.email)
+
+        try:
+            resp = cognito.initiate_auth(
+                ClientId=settings.COGNITO_CLIENT_ID,
+                AuthFlow="USER_PASSWORD_AUTH",
+                AuthParameters={
+                    "USERNAME": req.email,
+                    "PASSWORD": req.password,
+                    "SECRET_HASH": secret_hash,
+                },
+            )
+        except ClientError as e:
+            raise handle_cognito_login_email_error(e)
+
+        auth = resp["AuthenticationResult"]
+
+        return schemas.LoginEmailResponse(
+            access_token=auth["AccessToken"],
+            id_token=auth["IdToken"],
+            refresh_token=auth["RefreshToken"],
+            expires_in=int(auth["ExpiresIn"]),
+            token_type=auth["TokenType"],
         )
 
 

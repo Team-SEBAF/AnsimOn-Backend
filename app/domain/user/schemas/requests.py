@@ -22,3 +22,8 @@ class VerifyEmailRequest(BaseRequest):
 
 class ResendEmailVerificationRequest(BaseRequest):
     email: str = Field(..., description="이메일", examples=["user999@example.com"])
+
+
+class LoginEmailRequest(BaseRequest):
+    email: str = Field(..., description="이메일", examples=["user999@example.com"])
+    password: str = Field(..., description="비밀번호", examples=["SecurePass123!"])

@@ -39,3 +39,13 @@ def signup_email_verify(request: schemas.VerifyEmailRequest):
 def resend_email_verification(request: schemas.ResendEmailVerificationRequest):
     user_service.resend_email_verification(request)
     return JSONResponse(status_code=200, content={"message": "인증 코드가 재전송되었습니다."})
+
+
+@router.post(
+    "/signup/email/login",
+    summary="이메일 로그인",
+    description="이메일 로그인을 수행합니다.",
+    response_model=schemas.LoginEmailResponse,
+)
+def login_email(request: schemas.LoginEmailRequest):
+    return user_service.login_email(request)

@@ -67,4 +67,34 @@ def handle_cognito_verify_email_error(e: ClientError):
     )
 
 
-__all__ = ["handle_cognito_signup_error", "handle_cognito_verify_email_error"]
+def handle_cognito_login_email_error(e: ClientError):
+    code = e.response["Error"]["Code"]
+    print(code)
+
+    if code == "UserNotFoundException":
+        raise CodeException(
+            code="USER_NOT_FOUND",
+            message="사용자를 찾을 수 없습니다.",
+            status_code=404,
+        )
+
+    if code == "NotAuthorizedException":
+        raise CodeException(
+            code="INVALID_CREDENTIALS",
+            message="잘못된 이메일 또는 비밀번호입니다.",
+            status_code=401,
+        )
+
+    # 나머지는 서버 에러
+    raise CodeException(
+        code="INTERNAL_SERVER_ERROR",
+        message="인증 처리 중 오류가 발생했습니다.",
+        status_code=500,
+    )
+
+
+__all__ = [
+    "handle_cognito_signup_error",
+    "handle_cognito_verify_email_error",
+    "handle_cognito_login_email_error",
+]
