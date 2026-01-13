@@ -5,6 +5,12 @@ class BaseException(Exception):
         self.status_code = status_code
 
 
+class CodeException(BaseException):
+    def __init__(self, code: str, message: str, status_code: int):
+        super().__init__(message, status_code)
+        self.code = code
+
+
 class BadRequestException(BaseException):
     def __init__(self, message: str):
         super().__init__(message, 400)
@@ -32,6 +38,7 @@ class InternalServerErrorException(BaseException):
 
 __all__ = [
     "BaseException",
+    "CodeException",
     "BadRequestException",
     "UnauthorizedException",
     "ForbiddenException",
