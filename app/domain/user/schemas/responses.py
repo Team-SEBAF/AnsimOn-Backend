@@ -42,3 +42,7 @@ class LoginEmailResponse(BaseResponse):
         description="토큰 타입",
         examples=["Bearer"],
     )
+
+
+class MeResponse(BaseResponse, UserDTO):
+    pass

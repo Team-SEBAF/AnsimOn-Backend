@@ -4,7 +4,7 @@ from .requests import (
     SignUpEmailRequest,
     VerifyEmailRequest,
 )
-from .responses import LoginEmailResponse, SignUpEmailResponse, VerifyEmailResponse
+from .responses import LoginEmailResponse, MeResponse, SignUpEmailResponse, VerifyEmailResponse
 
 __all__ = [
     "SignUpEmailRequest",
@@ -14,4 +14,5 @@ __all__ = [
     "ResendEmailVerificationRequest",
     "LoginEmailRequest",
     "LoginEmailResponse",
+    "MeResponse",
 ]

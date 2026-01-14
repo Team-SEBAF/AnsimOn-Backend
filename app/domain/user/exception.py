@@ -69,7 +69,6 @@ def handle_cognito_verify_email_error(e: ClientError):
 
 def handle_cognito_login_email_error(e: ClientError):
     code = e.response["Error"]["Code"]
-    print(code)
 
     if code == "UserNotFoundException":
         raise CodeException(

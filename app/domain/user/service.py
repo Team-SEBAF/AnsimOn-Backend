@@ -6,6 +6,7 @@ from botocore.exceptions import ClientError
 from app.core.aws import get_cognito_client
 from app.core.settings import settings
 from app.domain.user import schemas, utils
+from app.domain.user.dependency import handle_cognito_access_token_error
 from app.domain.user.exception import (
     handle_cognito_login_email_error,
     handle_cognito_signup_error,
@@ -47,7 +48,7 @@ class UserService:
         return schemas.SignUpEmailResponse(
             user_sub=UUID(resp["UserSub"]),
             email=req.email,
-            is_verified=resp["UserConfirmed"],  # 거의 항상 False
+            is_verified=resp["UserConfirmed"],
             name=req.name,
             birthdate=req.birthdate,
             is_legal_representative=req.is_legal_representative,
@@ -105,6 +106,31 @@ class UserService:
             refresh_token=auth["RefreshToken"],
             expires_in=int(auth["ExpiresIn"]),
             token_type=auth["TokenType"],
+        )
+
+    def get_me(self, access_token: str) -> schemas.MeResponse:
+        cognito = get_cognito_client()
+
+        try:
+            resp = cognito.get_user(AccessToken=access_token)
+
+            print(resp)
+
+        except ClientError as e:
+            raise handle_cognito_access_token_error(e)
+
+        # Cognito attribute list → dict 변환
+        attrs = {attr["Name"]: attr["Value"] for attr in resp["UserAttributes"]}
+
+        return schemas.MeResponse(
+            user_sub=UUID(attrs.get("sub")),
+            email=attrs.get("email"),
+            is_verified=attrs.get("email_verified") == "true",
+            name=attrs.get("name"),
+            birthdate=attrs.get("birthdate"),
+            # TODO: 일단 임시값 리턴하고 DB 연결하면 처리
+            is_legal_representative=False,
+            created_at=datetime.datetime.now(datetime.timezone.utc),
         )
 
 

@@ -1,7 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials
 
 from app.domain.user import schemas
+from app.domain.user.dependency import bearer_scheme
 from app.domain.user.service import user_service
 
 router = APIRouter(
@@ -21,17 +23,17 @@ def signup_email(request: schemas.SignUpEmailRequest):
 
 
 @router.post(
-    "/signup/email/verify",
+    "/verify-email",
     summary="이메일 회원가입 인증",
     description="이메일 회원가입 인증 코드를 검증합니다.",
     response_model=schemas.VerifyEmailResponse,
 )
-def signup_email_verify(request: schemas.VerifyEmailRequest):
+def verify_email(request: schemas.VerifyEmailRequest):
     return user_service.verify_email(request)
 
 
 @router.post(
-    "/signup/email/resend-verification",
+    "/resend-email-verification",
     summary="이메일 회원가입 인증 코드 재전송",
     description="이메일 회원가입 인증 코드를 재전송합니다.",
     status_code=200,
@@ -42,10 +44,20 @@ def resend_email_verification(request: schemas.ResendEmailVerificationRequest):
 
 
 @router.post(
-    "/signup/email/login",
+    "/login/email",
     summary="이메일 로그인",
     description="이메일 로그인을 수행합니다.",
     response_model=schemas.LoginEmailResponse,
 )
 def login_email(request: schemas.LoginEmailRequest):
     return user_service.login_email(request)
+
+
+@router.get(
+    "/me",
+    summary="내 정보 조회",
+    description="내 정보를 조회합니다.",
+    response_model=schemas.MeResponse,
+)
+def get_me(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
+    return user_service.get_me(access_token=credentials.credentials)
