@@ -1,7 +1,7 @@
 from botocore.exceptions import ClientError
 from fastapi.security import HTTPBearer
 
-from app.base import CodeException
+from app.base import CodeException, InternalServerErrorException
 
 bearer_scheme = HTTPBearer()
 
@@ -17,10 +17,8 @@ def handle_cognito_access_token_error(e: ClientError):
         )
 
     # 나머지는 서버 에러
-    raise CodeException(
-        code="INTERNAL_SERVER_ERROR",
-        message="액세스 토큰 검증 중 오류가 발생했습니다.",
-        status_code=500,
+    raise InternalServerErrorException(
+        message="액세스 토큰 검증 중 서버 에러가 발생했습니다.",
     )
 
 

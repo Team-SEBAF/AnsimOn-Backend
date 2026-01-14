@@ -1,6 +1,6 @@
 from botocore.exceptions import ClientError
 
-from app.base import CodeException
+from app.base import CodeException, InternalServerErrorException
 
 
 def handle_cognito_signup_error(e: ClientError):
@@ -35,10 +35,8 @@ def handle_cognito_signup_error(e: ClientError):
         )
 
     # 나머지는 서버 에러
-    raise CodeException(
-        code="INTERNAL_SERVER_ERROR",
-        message="회원가입 처리 중 오류가 발생했습니다.",
-        status_code=500,
+    raise InternalServerErrorException(
+        message="회원가입 처리 중 서버 에러가 발생했습니다.",
     )
 
 
@@ -60,10 +58,8 @@ def handle_cognito_verify_email_error(e: ClientError):
         )
 
     # 나머지는 서버 에러
-    raise CodeException(
-        code="INTERNAL_SERVER_ERROR",
-        message="인증 처리 중 오류가 발생했습니다.",
-        status_code=500,
+    raise InternalServerErrorException(
+        message="인증 처리 중 서버 에러가 발생했습니다.",
     )
 
 
@@ -85,10 +81,8 @@ def handle_cognito_login_email_error(e: ClientError):
         )
 
     # 나머지는 서버 에러
-    raise CodeException(
-        code="INTERNAL_SERVER_ERROR",
-        message="인증 처리 중 오류가 발생했습니다.",
-        status_code=500,
+    raise InternalServerErrorException(
+        message="이메일 로그인 처리 중 서버 에러가 발생했습니다.",
     )
 
 
