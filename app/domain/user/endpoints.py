@@ -83,3 +83,15 @@ def update_me(
 ):
     user_service._verify_access_token(access_token=credentials.credentials)
     return user_service.update_me(request, access_token=credentials.credentials)
+
+
+@router.post(
+    "/logout",
+    summary="로그아웃",
+    description="로그아웃을 수행합니다.",
+    status_code=200,
+)
+def logout(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
+    user_service._verify_access_token(access_token=credentials.credentials)
+    user_service.logout(access_token=credentials.credentials)
+    return JSONResponse(status_code=200, content={"message": "로그아웃되었습니다."})

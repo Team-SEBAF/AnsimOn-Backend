@@ -184,5 +184,23 @@ class UserService:
         # 업데이트 후 최신 정보 다시 조회해서 반환
         return self.get_me(access_token=access_token)
 
+    def logout(self, access_token: str):
+        cognito = get_cognito_client()
+
+        try:
+            cognito.global_sign_out(
+                AccessToken=access_token,
+            )
+        except ClientError as e:
+            code = e.response["Error"]["Code"]
+            if code == "NotAuthorizedException":
+                # 이미 만료됐거나 무효한 토큰
+                # → 로그아웃은 idempotent 하게 성공 처리해도 됨
+                return
+
+            raise InternalServerErrorException(
+                message="로그아웃 처리 중 서버 에러가 발생했습니다.",
+            )
+
 
 user_service = UserService()
