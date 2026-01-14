@@ -27,6 +27,17 @@ class UserService:
 
         return cognito, secret_hash
 
+    @staticmethod
+    def _verify_access_token(access_token: str) -> bool:
+        cognito = get_cognito_client()
+
+        try:
+            cognito.get_user(AccessToken=access_token)
+        except ClientError as e:
+            raise handle_cognito_access_token_error(e)
+
+        return True
+
     def signup_email(self, req: schemas.SignUpEmailRequest) -> schemas.SignUpEmailResponse:
         cognito, secret_hash = self._init(req.email)
 
@@ -113,8 +124,6 @@ class UserService:
 
         try:
             resp = cognito.get_user(AccessToken=access_token)
-
-            print(resp)
 
         except ClientError as e:
             raise handle_cognito_access_token_error(e)

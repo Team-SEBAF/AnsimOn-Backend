@@ -28,7 +28,11 @@ def signup_email(request: schemas.SignUpEmailRequest):
     description="이메일 회원가입 인증 코드를 검증합니다.",
     response_model=schemas.VerifyEmailResponse,
 )
-def verify_email(request: schemas.VerifyEmailRequest):
+def verify_email(
+    request: schemas.VerifyEmailRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+):
+    user_service._verify_access_token(access_token=credentials.credentials)
     return user_service.verify_email(request)
 
 
@@ -38,7 +42,11 @@ def verify_email(request: schemas.VerifyEmailRequest):
     description="이메일 회원가입 인증 코드를 재전송합니다.",
     status_code=200,
 )
-def resend_email_verification(request: schemas.ResendEmailVerificationRequest):
+def resend_email_verification(
+    request: schemas.ResendEmailVerificationRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+):
+    user_service._verify_access_token(access_token=credentials.credentials)
     user_service.resend_email_verification(request)
     return JSONResponse(status_code=200, content={"message": "인증 코드가 재전송되었습니다."})
 
