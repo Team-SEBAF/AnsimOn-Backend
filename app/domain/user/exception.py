@@ -86,8 +86,26 @@ def handle_cognito_login_email_error(e: ClientError):
     )
 
 
+def handle_cognito_refresh_token_error(e: ClientError):
+    code = e.response["Error"]["Code"]
+    print(e.response["Error"]["Message"])
+
+    if code == "NotAuthorizedException":
+        raise CodeException(
+            code="INVALID_REFRESH_TOKEN",
+            message="리프레시 토큰이 유효하지 않거나 만료되었습니다. 다시 로그인해 주세요.",
+            status_code=401,
+        )
+
+    # 나머지는 서버 에러
+    raise InternalServerErrorException(
+        message="리프레시 토큰 재발급 처리 중 서버 에러가 발생했습니다.",
+    )
+
+
 __all__ = [
     "handle_cognito_signup_error",
     "handle_cognito_verify_email_error",
     "handle_cognito_login_email_error",
+    "handle_cognito_refresh_token_error",
 ]

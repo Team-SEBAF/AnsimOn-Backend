@@ -2,6 +2,7 @@ import datetime
 from uuid import UUID
 
 from botocore.exceptions import ClientError
+from jose import jwt
 
 from app.base import InternalServerErrorException
 from app.core.aws import get_cognito_client
@@ -10,6 +11,7 @@ from app.domain.user import schemas, utils
 from app.domain.user.dependency import handle_cognito_access_token_error
 from app.domain.user.exception import (
     handle_cognito_login_email_error,
+    handle_cognito_refresh_token_error,
     handle_cognito_signup_error,
     handle_cognito_verify_email_error,
 )
@@ -201,6 +203,44 @@ class UserService:
             raise InternalServerErrorException(
                 message="로그아웃 처리 중 서버 에러가 발생했습니다.",
             )
+
+    def refresh_token(
+        self,
+        request: schemas.RefreshTokenRequest,
+    ) -> schemas.RefreshTokenResponse:
+        cognito = get_cognito_client()
+
+        # ID 토큰으로부터 username 추출
+        payload = jwt.get_unverified_claims(request.id_token)
+        username = payload["cognito:username"]
+
+        # refresh_token에는 username 대신 client_id를 사용해 secret_hash 계산
+        secret_hash = utils.get_secret_hash(
+            username=username,
+            client_id=settings.COGNITO_CLIENT_ID,
+            client_secret=settings.COGNITO_CLIENT_SECRET,
+        )
+
+        try:
+            resp = cognito.initiate_auth(
+                ClientId=settings.COGNITO_CLIENT_ID,
+                AuthFlow="REFRESH_TOKEN_AUTH",
+                AuthParameters={
+                    "REFRESH_TOKEN": request.refresh_token,
+                    "SECRET_HASH": secret_hash,
+                },
+            )
+        except ClientError as e:
+            raise handle_cognito_refresh_token_error(e)
+
+        auth = resp["AuthenticationResult"]
+
+        return schemas.RefreshTokenResponse(
+            access_token=auth["AccessToken"],
+            id_token=auth["IdToken"],
+            expires_in=int(auth["ExpiresIn"]),
+            token_type=auth["TokenType"],
+        )
 
 
 user_service = UserService()

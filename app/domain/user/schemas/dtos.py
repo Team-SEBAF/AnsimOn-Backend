@@ -1,4 +1,5 @@
 import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, Field
@@ -21,4 +22,27 @@ class UserDTO:
         ...,
         description="생성 시간 (ISO 8601, timezone-aware)",
         examples=[datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)],
+    )
+
+
+class TokenDTO:
+    access_token: str = Field(
+        ...,
+        description="액세스 토큰 (JWT)",
+        examples=["eyJraWQiOiJLT1pB..."],
+    )
+    id_token: str = Field(
+        ...,
+        description="ID 토큰 (JWT)",
+        examples=["eyJraWQiOiJLT1pB..."],
+    )
+    expires_in: int = Field(
+        ...,
+        description="액세스 토큰 만료 시간 (초)",
+        examples=[3600],
+    )
+    token_type: Literal["Bearer"] = Field(
+        "Bearer",
+        description="액세스 토큰 타입",
+        examples=["Bearer"],
     )

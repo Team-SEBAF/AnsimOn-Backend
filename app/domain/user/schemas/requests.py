@@ -37,3 +37,8 @@ class UpdateMeRequest(BaseRequest):
     is_legal_representative: bool | None = Field(
         None, description="법정 대리인인지 여부", examples=[False]
     )
+
+
+class RefreshTokenRequest(BaseRequest):
+    id_token: str = Field(..., description="ID 토큰", examples=["eyJjdHkiOiJKV1Qi..."])
+    refresh_token: str = Field(..., description="리프레시 토큰", examples=["eyJjdHkiOiJKV1Qi..."])

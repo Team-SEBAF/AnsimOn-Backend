@@ -95,3 +95,17 @@ def logout(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
     user_service._verify_access_token(access_token=credentials.credentials)
     user_service.logout(access_token=credentials.credentials)
     return JSONResponse(status_code=200, content={"message": "로그아웃되었습니다."})
+
+
+@router.post(
+    "/token/refresh",
+    summary="리프레시 토큰으로 새 액세스 토큰과 ID 토큰 발급",
+    description="리프레시 토큰을 사용해 새 액세스 토큰과 ID 토큰을 발급받습니다.",
+    response_model=schemas.RefreshTokenResponse,
+)
+def refresh_token(
+    request: schemas.RefreshTokenRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+):
+    user_service._verify_access_token(access_token=credentials.credentials)
+    return user_service.refresh_token(request)
