@@ -3,6 +3,7 @@ from uuid import UUID
 
 from botocore.exceptions import ClientError
 
+from app.base import InternalServerErrorException
 from app.core.aws import get_cognito_client
 from app.core.settings import settings
 from app.domain.user import schemas, utils
@@ -141,6 +142,47 @@ class UserService:
             is_legal_representative=False,
             created_at=datetime.datetime.now(datetime.timezone.utc),
         )
+
+    def update_me(
+        self,
+        request: schemas.UpdateMeRequest,
+        access_token: str,
+    ) -> schemas.MeResponse:
+        cognito = get_cognito_client()
+
+        attributes: list[dict[str, str]] = []
+
+        if request.name is not None:
+            attributes.append({"Name": "name", "Value": request.name})
+
+        if request.birthdate is not None:
+            attributes.append(
+                {
+                    "Name": "birthdate",
+                    "Value": request.birthdate.isoformat(),  # YYYY-MM-DD
+                }
+            )
+
+        # TODO: 일단 패스하고 DB 연결하면 처리
+        if request.is_legal_representative is not None:
+            pass
+
+        # 변경할 값이 없으면 그냥 현재 정보 리턴
+        if not attributes:
+            return self.get_me(access_token=access_token)
+
+        try:
+            cognito.update_user_attributes(
+                AccessToken=access_token,
+                UserAttributes=attributes,
+            )
+        except ClientError:
+            raise InternalServerErrorException(
+                message="내 정보 수정 처리 중 서버 에러가 발생했습니다.",
+            )
+
+        # 업데이트 후 최신 정보 다시 조회해서 반환
+        return self.get_me(access_token=access_token)
 
 
 user_service = UserService()

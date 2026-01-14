@@ -69,3 +69,17 @@ def login_email(request: schemas.LoginEmailRequest):
 )
 def get_me(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
     return user_service.get_me(access_token=credentials.credentials)
+
+
+@router.patch(
+    "/me",
+    summary="내 정보 수정",
+    description="내 정보를 수정합니다.",
+    response_model=schemas.MeResponse,
+)
+def update_me(
+    request: schemas.UpdateMeRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+):
+    user_service._verify_access_token(access_token=credentials.credentials)
+    return user_service.update_me(request, access_token=credentials.credentials)
