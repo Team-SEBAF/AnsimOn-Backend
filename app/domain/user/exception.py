@@ -80,6 +80,13 @@ def handle_cognito_login_email_error(e: ClientError):
             status_code=401,
         )
 
+    if code == "UserNotConfirmedException":
+        raise CodeException(
+            code="USER_NOT_CONFIRMED",
+            message="이메일 인증이 완료되지 않았습니다. 이메일 인증을 완료한 후 다시 시도해 주세요.",
+            status_code=400,
+        )
+
     # 나머지는 서버 에러
     raise InternalServerErrorException(
         message="이메일 로그인 처리 중 서버 에러가 발생했습니다.",
@@ -88,7 +95,6 @@ def handle_cognito_login_email_error(e: ClientError):
 
 def handle_cognito_refresh_token_error(e: ClientError):
     code = e.response["Error"]["Code"]
-    print(e.response["Error"]["Message"])
 
     if code == "NotAuthorizedException":
         raise CodeException(

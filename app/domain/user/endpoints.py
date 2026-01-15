@@ -30,9 +30,7 @@ def signup_email(request: schemas.SignUpEmailRequest):
 )
 def verify_email(
     request: schemas.VerifyEmailRequest,
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ):
-    user_service._verify_access_token(access_token=credentials.credentials)
     return user_service.verify_email(request)
 
 
@@ -44,9 +42,7 @@ def verify_email(
 )
 def resend_email_verification(
     request: schemas.ResendEmailVerificationRequest,
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ):
-    user_service._verify_access_token(access_token=credentials.credentials)
     user_service.resend_email_verification(request)
     return JSONResponse(status_code=200, content={"message": "인증 코드가 재전송되었습니다."})
 
