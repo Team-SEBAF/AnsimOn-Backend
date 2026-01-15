@@ -101,7 +101,5 @@ def logout(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
 )
 def refresh_token(
     request: schemas.RefreshTokenRequest,
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ):
-    user_service._verify_access_token(access_token=credentials.credentials)
     return user_service.refresh_token(request)
