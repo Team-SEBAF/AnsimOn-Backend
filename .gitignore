@@ -30,3 +30,8 @@ build/
 
 # ---- logs ----
 *.log
+
+# ---- Lambda / deployment ----
+/package
+lambda.zip
+requirements.txt

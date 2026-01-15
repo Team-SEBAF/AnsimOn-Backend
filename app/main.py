@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from mangum import Mangum
 
 from app.core.exception_handlers import register_exception_handlers
 from app.core.settings import settings
@@ -16,13 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# @app.get("/check")
-# def check():
-#     return {"ok": True, "env": settings.env}
-
-
-# @app.get("/health/db")
+# @app.get("/db-test")
 # def health_db():
 #     with engine.connect() as conn:
 #         conn.execute(text("SELECT 1"))
@@ -32,3 +27,5 @@ app.add_middleware(
 register_exception_handlers(app)
 
 app.include_router(user_router)
+
+handler = Mangum(app)
