@@ -4,45 +4,17 @@ from uuid import UUID
 from botocore.exceptions import ClientError
 from jose import jwt
 
-from app.base import InternalServerErrorException
+import app.domain.user.errors as user_errors
+from app.core.auth import AuthUser, fetch_auth_user_by_access_token, get_cognito_secret_hash
 from app.core.aws import get_cognito_client
 from app.core.settings import settings
-from app.domain.user import schemas, utils
-from app.domain.user.dependency import handle_cognito_access_token_error
-from app.domain.user.exception import (
-    handle_cognito_login_email_error,
-    handle_cognito_refresh_token_error,
-    handle_cognito_signup_error,
-    handle_cognito_verify_email_error,
-)
+from app.domain.user import schemas
 
 
 class UserService:
-    @staticmethod
-    def _init(email: str):
-        cognito = get_cognito_client()
-
-        secret_hash = utils.get_secret_hash(
-            username=email,
-            client_id=settings.COGNITO_CLIENT_ID,
-            client_secret=settings.COGNITO_CLIENT_SECRET,
-        )
-
-        return cognito, secret_hash
-
-    @staticmethod
-    def _verify_access_token(access_token: str) -> bool:
-        cognito = get_cognito_client()
-
-        try:
-            cognito.get_user(AccessToken=access_token)
-        except ClientError as e:
-            raise handle_cognito_access_token_error(e)
-
-        return True
-
     def signup_email(self, req: schemas.SignUpEmailRequest) -> schemas.SignUpEmailResponse:
-        cognito, secret_hash = self._init(req.email)
+        cognito = get_cognito_client()
+        secret_hash = get_cognito_secret_hash(req.email)
 
         try:
             resp = cognito.sign_up(
@@ -57,20 +29,21 @@ class UserService:
                 ],
             )
         except ClientError as e:
-            raise handle_cognito_signup_error(e)
+            raise user_errors.handle_signup_email_error(e)
 
         return schemas.SignUpEmailResponse(
             user_sub=UUID(resp["UserSub"]),
             email=req.email,
-            is_verified=resp["UserConfirmed"],
+            email_verified=resp["UserConfirmed"],
             name=req.name,
             birthdate=req.birthdate,
-            is_legal_representative=req.is_legal_representative,
+            is_legal_representative=req.is_legal_representative,  # TODO
             created_at=datetime.datetime.now(datetime.timezone.utc),
         )
 
     def verify_email(self, req: schemas.VerifyEmailRequest) -> schemas.VerifyEmailResponse:
-        cognito, secret_hash = self._init(req.email)
+        cognito = get_cognito_client()
+        secret_hash = get_cognito_secret_hash(req.email)
 
         try:
             cognito.confirm_sign_up(
@@ -80,15 +53,16 @@ class UserService:
                 ConfirmationCode=req.code,
             )
         except ClientError as e:
-            raise handle_cognito_verify_email_error(e)
+            raise user_errors.handle_verify_email_error(e)
 
         return schemas.VerifyEmailResponse(
             email=req.email,
-            is_verified=True,
+            email_verified=True,
         )
 
     def resend_email_verification(self, req: schemas.ResendEmailVerificationRequest):
-        cognito, secret_hash = self._init(req.email)
+        cognito = get_cognito_client()
+        secret_hash = get_cognito_secret_hash(req.email)
 
         cognito.resend_confirmation_code(
             ClientId=settings.COGNITO_CLIENT_ID,
@@ -97,7 +71,8 @@ class UserService:
         )
 
     def login_email(self, req: schemas.LoginEmailRequest) -> schemas.LoginEmailResponse:
-        cognito, secret_hash = self._init(req.email)
+        cognito = get_cognito_client()
+        secret_hash = get_cognito_secret_hash(req.email)
 
         try:
             resp = cognito.initiate_auth(
@@ -110,7 +85,7 @@ class UserService:
                 },
             )
         except ClientError as e:
-            raise handle_cognito_login_email_error(e)
+            raise user_errors.handle_login_email_error(e)
 
         auth = resp["AuthenticationResult"]
 
@@ -122,24 +97,13 @@ class UserService:
             token_type=auth["TokenType"],
         )
 
-    def get_me(self, access_token: str) -> schemas.MeResponse:
-        cognito = get_cognito_client()
-
-        try:
-            resp = cognito.get_user(AccessToken=access_token)
-
-        except ClientError as e:
-            raise handle_cognito_access_token_error(e)
-
-        # Cognito attribute list → dict 변환
-        attrs = {attr["Name"]: attr["Value"] for attr in resp["UserAttributes"]}
-
+    def get_me(self, current_user: AuthUser) -> schemas.MeResponse:
         return schemas.MeResponse(
-            user_sub=UUID(attrs.get("sub")),
-            email=attrs.get("email"),
-            is_verified=attrs.get("email_verified") == "true",
-            name=attrs.get("name"),
-            birthdate=attrs.get("birthdate"),
+            user_sub=current_user.user_sub,
+            email=current_user.email,
+            email_verified=current_user.email_verified,
+            name=current_user.name,
+            birthdate=current_user.birthdate,
             # TODO: 일단 임시값 리턴하고 DB 연결하면 처리
             is_legal_representative=False,
             created_at=datetime.datetime.now(datetime.timezone.utc),
@@ -148,7 +112,7 @@ class UserService:
     def update_me(
         self,
         request: schemas.UpdateMeRequest,
-        access_token: str,
+        current_user: AuthUser,
     ) -> schemas.MeResponse:
         cognito = get_cognito_client()
 
@@ -171,27 +135,23 @@ class UserService:
 
         # 변경할 값이 없으면 그냥 현재 정보 리턴
         if not attributes:
-            return self.get_me(access_token=access_token)
+            return self.get_me(current_user=current_user)
 
-        try:
-            cognito.update_user_attributes(
-                AccessToken=access_token,
-                UserAttributes=attributes,
-            )
-        except ClientError:
-            raise InternalServerErrorException(
-                message="내 정보 수정 처리 중 서버 에러가 발생했습니다.",
-            )
+        cognito.update_user_attributes(
+            AccessToken=current_user.access_token,
+            UserAttributes=attributes,
+        )
 
         # 업데이트 후 최신 정보 다시 조회해서 반환
-        return self.get_me(access_token=access_token)
+        new_current_user = fetch_auth_user_by_access_token(current_user.access_token)
+        return self.get_me(current_user=new_current_user)
 
-    def logout(self, access_token: str):
+    def logout(self, current_user: AuthUser):
         cognito = get_cognito_client()
 
         try:
             cognito.global_sign_out(
-                AccessToken=access_token,
+                AccessToken=current_user.access_token,
             )
         except ClientError as e:
             code = e.response["Error"]["Code"]
@@ -200,9 +160,7 @@ class UserService:
                 # → 로그아웃은 idempotent 하게 성공 처리해도 됨
                 return
 
-            raise InternalServerErrorException(
-                message="로그아웃 처리 중 서버 에러가 발생했습니다.",
-            )
+            raise
 
     def refresh_token(
         self,
@@ -214,12 +172,7 @@ class UserService:
         payload = jwt.get_unverified_claims(request.id_token)
         username = payload["cognito:username"]
 
-        # refresh_token에는 username 대신 client_id를 사용해 secret_hash 계산
-        secret_hash = utils.get_secret_hash(
-            username=username,
-            client_id=settings.COGNITO_CLIENT_ID,
-            client_secret=settings.COGNITO_CLIENT_SECRET,
-        )
+        secret_hash = get_cognito_secret_hash(username=username)
 
         try:
             resp = cognito.initiate_auth(
@@ -231,7 +184,7 @@ class UserService:
                 },
             )
         except ClientError as e:
-            raise handle_cognito_refresh_token_error(e)
+            raise user_errors.handle_refresh_token_error(e)
 
         auth = resp["AuthenticationResult"]
 

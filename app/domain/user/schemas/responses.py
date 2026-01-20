@@ -11,7 +11,7 @@ class SignUpEmailResponse(BaseResponse, UserDTO):
 
 class VerifyEmailResponse(BaseResponse):
     email: str = Field(..., description="이메일", examples=["user999@example.com"])
-    is_verified: bool = Field(..., description="이메일 인증 여부", examples=[True])
+    email_verified: bool = Field(..., description="이메일 인증 여부", examples=[True])
 
 
 class LoginEmailResponse(BaseResponse, TokenDTO):

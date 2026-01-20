@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
-from fastapi.security import HTTPAuthorizationCredentials
 
+import app.domain.user.errors as user_errors
+from app.base import BaseSuccessResponse
+from app.core.auth import AuthUser, get_current_user
 from app.domain.user import schemas
-from app.domain.user.dependency import bearer_scheme
 from app.domain.user.service import user_service
 
 router = APIRouter(
@@ -17,6 +17,7 @@ router = APIRouter(
     summary="이메일 회원가입",
     description="이메일 회원가입을 수행합니다.",
     response_model=schemas.SignUpEmailResponse,
+    responses=user_errors.SIGNUP_EMAIL_ERRORS_RESPONSES,
 )
 def signup_email(request: schemas.SignUpEmailRequest):
     return user_service.signup_email(request)
@@ -27,6 +28,7 @@ def signup_email(request: schemas.SignUpEmailRequest):
     summary="이메일 회원가입 인증",
     description="이메일 회원가입 인증 코드를 검증합니다.",
     response_model=schemas.VerifyEmailResponse,
+    responses=user_errors.VERIFY_EMAIL_ERRORS_RESPONSES,
 )
 def verify_email(
     request: schemas.VerifyEmailRequest,
@@ -39,12 +41,13 @@ def verify_email(
     summary="이메일 회원가입 인증 코드 재전송",
     description="이메일 회원가입 인증 코드를 재전송합니다.",
     status_code=200,
+    response_model=BaseSuccessResponse,
 )
 def resend_email_verification(
     request: schemas.ResendEmailVerificationRequest,
 ):
     user_service.resend_email_verification(request)
-    return JSONResponse(status_code=200, content={"message": "인증 코드가 재전송되었습니다."})
+    return BaseSuccessResponse(message="인증 코드가 재전송되었습니다.")
 
 
 @router.post(
@@ -52,6 +55,7 @@ def resend_email_verification(
     summary="이메일 로그인",
     description="이메일 로그인을 수행합니다.",
     response_model=schemas.LoginEmailResponse,
+    responses=user_errors.LOGIN_EMAIL_ERRORS_RESPONSES,
 )
 def login_email(request: schemas.LoginEmailRequest):
     return user_service.login_email(request)
@@ -63,8 +67,8 @@ def login_email(request: schemas.LoginEmailRequest):
     description="내 정보를 조회합니다.",
     response_model=schemas.MeResponse,
 )
-def get_me(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
-    return user_service.get_me(access_token=credentials.credentials)
+def get_me(current_user: AuthUser = Depends(get_current_user)):
+    return user_service.get_me(current_user=current_user)
 
 
 @router.patch(
@@ -75,10 +79,9 @@ def get_me(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
 )
 def update_me(
     request: schemas.UpdateMeRequest,
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    current_user: AuthUser = Depends(get_current_user),
 ):
-    user_service._verify_access_token(access_token=credentials.credentials)
-    return user_service.update_me(request, access_token=credentials.credentials)
+    return user_service.update_me(request, current_user=current_user)
 
 
 @router.post(
@@ -86,11 +89,11 @@ def update_me(
     summary="로그아웃",
     description="로그아웃을 수행합니다.",
     status_code=200,
+    response_model=BaseSuccessResponse,
 )
-def logout(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
-    user_service._verify_access_token(access_token=credentials.credentials)
-    user_service.logout(access_token=credentials.credentials)
-    return JSONResponse(status_code=200, content={"message": "로그아웃되었습니다."})
+def logout(current_user: AuthUser = Depends(get_current_user)):
+    user_service.logout(current_user=current_user)
+    return BaseSuccessResponse(message="로그아웃되었습니다.")
 
 
 @router.post(
@@ -98,6 +101,7 @@ def logout(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
     summary="리프레시 토큰으로 새 액세스 토큰과 ID 토큰 발급",
     description="리프레시 토큰을 사용해 새 액세스 토큰과 ID 토큰을 발급받습니다.",
     response_model=schemas.RefreshTokenResponse,
+    responses=user_errors.REFRESH_TOKEN_ERRORS_RESPONSES,
 )
 def refresh_token(
     request: schemas.RefreshTokenRequest,

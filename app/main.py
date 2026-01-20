@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
-from app.core.exception_handlers import register_exception_handlers
+from app.base.base_error import register_exception_handlers
 from app.core.settings import settings
 from app.domain.user.endpoints import router as user_router
 
@@ -10,7 +10,7 @@ root_path = "/prod" if settings.env == "prod" else ""
 
 app = FastAPI(title="AnsimOn Backend", root_path=root_path)
 
-# 우선 로컬 개발용만 허용 (나중에 환경변수로 빼기)
+# 우선 로컬 개발용만 허용
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,

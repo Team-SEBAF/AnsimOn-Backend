@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict
 def snake_to_camel(snake_str: str) -> str:
     """snake_case를 camelCase로 변환
 
-    예: user_name -> userName, is_verified -> isVerified
+    예: user_name -> userName, email_verified -> isVerified
     """
     components = snake_str.split("_")
     return components[0] + "".join(x.title() for x in components[1:])
