@@ -69,8 +69,8 @@ def login_email(request: schemas.LoginEmailRequest):
     description="내 정보를 조회합니다.",
     response_model=schemas.MeResponse,
 )
-def get_me(current_user: AuthUser = Depends(get_current_user)):
-    return user_service.get_me(current_user=current_user)
+def get_me(current_user: AuthUser = Depends(get_current_user), db: Session = Depends(get_db)):
+    return user_service.get_me(current_user, db)
 
 
 @router.patch(
@@ -82,8 +82,9 @@ def get_me(current_user: AuthUser = Depends(get_current_user)):
 def update_me(
     request: schemas.UpdateMeRequest,
     current_user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    return user_service.update_me(request, current_user=current_user)
+    return user_service.update_me(request, current_user, db)
 
 
 @router.post(
@@ -94,7 +95,7 @@ def update_me(
     response_model=BaseSuccessResponse,
 )
 def logout(current_user: AuthUser = Depends(get_current_user)):
-    user_service.logout(current_user=current_user)
+    user_service.logout(current_user)
     return BaseSuccessResponse(message="로그아웃되었습니다.")
 
 

@@ -16,6 +16,9 @@ class ComplaintRepository:
     def get(self, complaint_id: UUID) -> Complaint | None:
         return self.db.query(Complaint).filter(Complaint.complaint_id == complaint_id).first()
 
+    def get_by_user_sub(self, user_sub: str) -> Complaint | None:
+        return self.db.query(Complaint).filter(Complaint.user_sub == user_sub).first()
+
     def update(
         self,
         complaint: Complaint,
@@ -25,4 +28,5 @@ class ComplaintRepository:
             if not hasattr(complaint, key):
                 raise ValueError(f"Invalid field: {key}")
             setattr(complaint, key, value)
+
         return complaint

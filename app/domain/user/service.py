@@ -1,18 +1,34 @@
-import datetime
-from uuid import UUID
-
 from botocore.exceptions import ClientError
+from fastapi import HTTPException
 from jose import jwt
+from sqlalchemy.orm import Session
 
-import app.domain.user.errors as user_errors
 from app.core.auth import AuthUser, fetch_auth_user_by_access_token, get_cognito_secret_hash
 from app.core.aws import get_cognito_client
 from app.core.settings import settings
-from app.domain.user import schemas
+from app.domain.complaint import Complaint, ComplaintRepository, ComplaintStep
+from app.domain.user import User, UserRepository, schemas
+from app.domain.user import errors as user_errors
 
 
 class UserService:
-    def signup_email(self, req: schemas.SignUpEmailRequest) -> schemas.SignUpEmailResponse:
+    def _get_db_user(
+        self,
+        db: Session,
+        user_sub: str,
+    ) -> User:
+        user_repo = UserRepository(db)
+        db_user = user_repo.get(user_sub)
+        if not db_user:
+            raise HTTPException(
+                status_code=404,
+                detail="데이터베이스에서 해당 사용자 정보를 찾을 수 없습니다.",
+            )
+        return db_user
+
+    def signup_email(
+        self, req: schemas.SignUpEmailRequest, db: Session
+    ) -> schemas.SignUpEmailResponse:
         cognito = get_cognito_client()
         secret_hash = get_cognito_secret_hash(req.email)
 
@@ -31,14 +47,36 @@ class UserService:
         except ClientError as e:
             raise user_errors.handle_signup_email_error(e)
 
+        user_sub = resp["UserSub"]
+
+        user_repo = UserRepository(db)
+        user = user_repo.create(
+            User(
+                user_sub=user_sub,
+                is_legal_representative=req.is_legal_representative,
+            )
+        )
+
+        complaint_repo = ComplaintRepository(db)
+        complaint_repo.create(
+            Complaint(
+                user_sub=user_sub,
+                name=f"{req.name}님의 고소장",
+                step=ComplaintStep.EVIDENCE,
+            )
+        )
+
+        db.commit()
+        db.refresh(user)
+
         return schemas.SignUpEmailResponse(
-            user_sub=UUID(resp["UserSub"]),
+            user_sub=user_sub,
             email=req.email,
-            email_verified=resp["UserConfirmed"],
+            email_verified=False,
             name=req.name,
             birthdate=req.birthdate,
-            is_legal_representative=req.is_legal_representative,  # TODO
-            created_at=datetime.datetime.now(datetime.timezone.utc),
+            is_legal_representative=user.is_legal_representative,
+            created_at=user.created_at,
         )
 
     def verify_email(self, req: schemas.VerifyEmailRequest) -> schemas.VerifyEmailResponse:
@@ -97,54 +135,64 @@ class UserService:
             token_type=auth["TokenType"],
         )
 
-    def get_me(self, current_user: AuthUser) -> schemas.MeResponse:
+    def get_me(self, current_user: AuthUser, db: Session) -> schemas.MeResponse:
+        db_user = self._get_db_user(db, current_user.user_sub)
+
+        complaint_repo = ComplaintRepository(db)
+        db_complaint = complaint_repo.get_by_user_sub(current_user.user_sub)
+
         return schemas.MeResponse(
             user_sub=current_user.user_sub,
             email=current_user.email,
             email_verified=current_user.email_verified,
             name=current_user.name,
             birthdate=current_user.birthdate,
-            # TODO: 일단 임시값 리턴하고 DB 연결하면 처리
-            is_legal_representative=False,
-            created_at=datetime.datetime.now(datetime.timezone.utc),
+            is_legal_representative=db_user.is_legal_representative,
+            created_at=db_user.created_at,
+            complaint_id=db_complaint.complaint_id,
         )
 
     def update_me(
         self,
         request: schemas.UpdateMeRequest,
         current_user: AuthUser,
+        db: Session,
     ) -> schemas.MeResponse:
         cognito = get_cognito_client()
 
-        attributes: list[dict[str, str]] = []
+        cognito_attributes: list[dict[str, str]] = []
 
         if request.name is not None:
-            attributes.append({"Name": "name", "Value": request.name})
+            cognito_attributes.append({"Name": "name", "Value": request.name})
 
         if request.birthdate is not None:
-            attributes.append(
+            cognito_attributes.append(
                 {
                     "Name": "birthdate",
                     "Value": request.birthdate.isoformat(),  # YYYY-MM-DD
                 }
             )
 
-        # TODO: 일단 패스하고 DB 연결하면 처리
+        if cognito_attributes:
+            cognito.update_user_attributes(
+                AccessToken=current_user.access_token,
+                UserAttributes=cognito_attributes,
+            )
+
         if request.is_legal_representative is not None:
-            pass
+            db_user = self._get_db_user(db, current_user.user_sub)
 
-        # 변경할 값이 없으면 그냥 현재 정보 리턴
-        if not attributes:
-            return self.get_me(current_user=current_user)
+            user_repo = UserRepository(db)
+            user_repo.update(
+                db_user,
+                {"is_legal_representative": request.is_legal_representative},
+            )
 
-        cognito.update_user_attributes(
-            AccessToken=current_user.access_token,
-            UserAttributes=attributes,
-        )
+            db.commit()
 
         # 업데이트 후 최신 정보 다시 조회해서 반환
         new_current_user = fetch_auth_user_by_access_token(current_user.access_token)
-        return self.get_me(current_user=new_current_user)
+        return self.get_me(new_current_user, db)
 
     def logout(self, current_user: AuthUser):
         cognito = get_cognito_client()

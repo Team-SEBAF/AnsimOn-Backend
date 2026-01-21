@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import UUID, Field
 
 from app.base import BaseResponse
 
@@ -24,6 +24,9 @@ class LoginEmailResponse(BaseResponse, TokenDTO):
 
 
 class MeResponse(BaseResponse, UserDTO):
+    complaint_id: UUID = Field(
+        ..., description="고소장 ID", examples=[UUID("123e4567-e89b-12d3-a456-426614174000")]
+    )
     pass
 
 
