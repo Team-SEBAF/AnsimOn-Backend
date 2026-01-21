@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
 import app.domain.user.errors as user_errors
 from app.base import BaseSuccessResponse
 from app.core.auth import AuthUser, get_current_user
+from app.core.database import get_db
 from app.domain.user import schemas
 from app.domain.user.service import user_service
 
@@ -19,8 +21,8 @@ router = APIRouter(
     response_model=schemas.SignUpEmailResponse,
     responses=user_errors.SIGNUP_EMAIL_ERRORS_RESPONSES,
 )
-def signup_email(request: schemas.SignUpEmailRequest):
-    return user_service.signup_email(request)
+def signup_email(request: schemas.SignUpEmailRequest, db: Session = Depends(get_db)):
+    return user_service.signup_email(request, db)
 
 
 @router.post(

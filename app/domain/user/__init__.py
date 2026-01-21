@@ -1,4 +1,4 @@
-from .repos.user_repository import User
+from .models.user_model import User
 from .service import user_service
 
 __all__ = [

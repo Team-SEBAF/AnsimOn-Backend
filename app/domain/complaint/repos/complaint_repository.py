@@ -1,40 +1,28 @@
-from datetime import datetime
-from enum import Enum
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from sqlalchemy import DateTime, String
-from sqlalchemy import Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
+from sqlalchemy.orm import Session
 
-from app.base.base_db import Base
+from app.domain.complaint.models.complaint_model import Complaint
 
 
-class ComplaintStep(str, Enum):
-    """고소장 작성 단계"""
+class ComplaintRepository:
+    def __init__(self, db: Session):
+        self.db = db
 
-    EVIDENCE = "EVIDENCE"
-    TIMELINE = "TIMELINE"
-    DOCUMENT = "DOCUMENT"
-    COMPLETE = "COMPLETE"
+    def create(self, complaint: Complaint) -> Complaint:
+        self.db.add(complaint)
+        return complaint
 
+    def get(self, complaint_id: UUID) -> Complaint | None:
+        return self.db.query(Complaint).filter(Complaint.complaint_id == complaint_id).first()
 
-class Complaint(Base):
-    __tablename__ = "complaints"
-
-    complaint_id: Mapped[UUID] = mapped_column(
-        PostgresUUID[UUID](as_uuid=True),
-        primary_key=True,
-        default=uuid4,
-    )
-    user_sub: Mapped[str] = mapped_column(String(36), nullable=False)
-    name: Mapped[str] = mapped_column(String(20), nullable=False)
-    step: Mapped[ComplaintStep] = mapped_column(
-        SQLEnum(ComplaintStep, native_enum=False, length=20),
-        nullable=False,
-        default=ComplaintStep.EVIDENCE,
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    def update(
+        self,
+        complaint: Complaint,
+        values: dict[str, object],
+    ) -> Complaint:
+        for key, value in values.items():
+            if not hasattr(complaint, key):
+                raise ValueError(f"Invalid field: {key}")
+            setattr(complaint, key, value)
+        return complaint

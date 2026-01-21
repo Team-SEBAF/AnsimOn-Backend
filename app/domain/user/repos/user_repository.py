@@ -1,23 +1,27 @@
-from datetime import datetime
+from sqlalchemy.orm import Session
 
-from sqlalchemy import Boolean, DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
-
-from app.base.base_db import Base
+from app.domain.user.models.user_model import User
 
 
-class User(Base):
-    __tablename__ = "users"
+# TODO: CRUD 같은 기본 메소드들을 BaseRepository에 뺄까 고민중... 왜 GPT는 반대하는거지?
+class UserRepository:
+    def __init__(self, db: Session):
+        self.db = db
 
-    user_sub: Mapped[str] = mapped_column(String(36), primary_key=True)
-    is_legal_representative: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=False,
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
+    def create(self, user: User) -> User:
+        self.db.add(user)
+        return user
+
+    def get(self, user_sub: str) -> User | None:
+        return self.db.query(User).filter(User.user_sub == user_sub).first()
+
+    def update(
+        self,
+        user: User,
+        values: dict[str, object],
+    ) -> User:
+        for key, value in values.items():
+            if not hasattr(user, key):
+                raise ValueError(f"Invalid field: {key}")
+            setattr(user, key, value)
+        return user

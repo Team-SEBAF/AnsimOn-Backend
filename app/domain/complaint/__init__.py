@@ -1,4 +1,4 @@
-from .repos.complaint_repository import Complaint
+from .models.complaint_model import Complaint
 
 __all__ = [
     "Complaint",
