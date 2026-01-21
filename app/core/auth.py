@@ -2,7 +2,6 @@ import base64
 import hashlib
 import hmac
 from dataclasses import dataclass
-from uuid import UUID
 
 from botocore.exceptions import ClientError
 from fastapi import Depends
@@ -29,7 +28,7 @@ def get_cognito_secret_hash(username: str):
 @dataclass
 class AuthUser:
     access_token: str
-    user_sub: UUID
+    user_sub: str
     email: str
     email_verified: bool
     name: str
@@ -63,7 +62,7 @@ def parse_auth_user_from_cognito(
 
     return AuthUser(
         access_token=access_token,
-        user_sub=UUID(attrs["sub"]),
+        user_sub=attrs["sub"],
         email=attrs["email"],
         email_verified=attrs["email_verified"] == "true",
         name=attrs.get("name"),

@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -28,8 +28,9 @@ class Complaint(Base):
         primary_key=True,
         default=uuid4,
     )
-    user_sub: Mapped[str] = mapped_column(String(36), nullable=False)
-    name: Mapped[str] = mapped_column(String(20), nullable=False)
+    user_sub: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.user_sub", ondelete="CASCADE"), nullable=False
+    )
     step: Mapped[ComplaintStep] = mapped_column(
         SQLEnum(ComplaintStep, native_enum=False, length=20),
         nullable=False,

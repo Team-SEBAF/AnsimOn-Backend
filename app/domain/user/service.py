@@ -56,17 +56,17 @@ class UserService:
                 is_legal_representative=req.is_legal_representative,
             )
         )
+        db.flush()  # 현재 session에 쌓인 변경 사항을 DB에 반영 (트랜잭션 종료는 아님)
 
         complaint_repo = ComplaintRepository(db)
         complaint_repo.create(
             Complaint(
                 user_sub=user_sub,
-                name=f"{req.name}님의 고소장",
                 step=ComplaintStep.EVIDENCE,
             )
         )
 
-        db.commit()
+        db.commit()  # 트랜잭션을 성공적으로 확정하고 종료
         db.refresh(user)
 
         return schemas.SignUpEmailResponse(
