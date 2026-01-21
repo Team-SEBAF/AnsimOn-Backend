@@ -20,7 +20,7 @@ class BaseErrorResponse(BaseModel):
 
 
 class CodeException(Exception):
-    def __init__(self, *, code: Enum, message: str, status_code: int):
+    def __init__(self, *, code: Enum | str, message: str, status_code: int):
         super().__init__(message)  # instance.args[0]으로 접근 가능
         self.status_code = status_code
         self.code = code  # Enum
@@ -56,7 +56,7 @@ def register_exception_handlers(app):
         return JSONResponse(
             status_code=exc.status_code,
             content=BaseErrorResponse(
-                code=exc.code.value,
+                code=exc.code.value if isinstance(exc.code, Enum) else exc.code,
                 message=exc.message,
             ).model_dump(),
         )
