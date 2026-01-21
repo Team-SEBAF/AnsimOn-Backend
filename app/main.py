@@ -19,12 +19,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# @app.get("/db-test")
-# def health_db():
-#     with engine.connect() as conn:
-#         conn.execute(text("SELECT 1"))
-#     return {"db": "ok"}
-
 # 예외 핸들러 등록
 register_exception_handlers(app)
 

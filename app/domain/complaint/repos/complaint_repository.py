@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
-from app.core.database import Base
+from app.base.base_db import Base
 
 
 class ComplaintStep(str, Enum):
