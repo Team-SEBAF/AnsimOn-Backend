@@ -2,7 +2,7 @@ import datetime
 
 from pydantic import Field
 
-from app.base import BaseRequest
+from app.base.base_request import BaseRequest
 
 
 class SignUpEmailRequest(BaseRequest):

@@ -1,6 +1,8 @@
-from pydantic import UUID, Field
+from uuid import UUID
 
-from app.base import BaseResponse
+from pydantic import Field
+
+from app.base.base_response import BaseResponse
 
 from .dtos import TokenDTO, UserDTO
 

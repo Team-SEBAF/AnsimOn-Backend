@@ -8,7 +8,7 @@ from botocore.exceptions import ClientError
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.base import CodeException
+from app.base.base_error import CodeException
 from app.core.aws import get_cognito_client
 from app.core.settings import settings
 

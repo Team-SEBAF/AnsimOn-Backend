@@ -2,8 +2,7 @@ from enum import Enum
 
 from botocore.exceptions import ClientError
 
-from app.base import CodeException
-from app.base.base_error import BaseErrorResponse
+from app.base.base_error import BaseErrorResponse, CodeException
 
 
 class SignupErrorCode(str, Enum):
