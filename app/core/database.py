@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.core.settings import settings
 
@@ -19,3 +19,8 @@ SessionLocal = sessionmaker(
     autoflush=False,
     bind=engine,
 )
+
+# Base = 모든 모델의 기본 클래스
+Base = declarative_base()
+
+# 모든 모델을 import하여 alembic metadata에 등록
