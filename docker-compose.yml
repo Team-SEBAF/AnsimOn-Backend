@@ -2,14 +2,14 @@ version: "3.9"
 
 services:
   postgres:
-    image: postgres:16
-    container_name: ansimon-postgres
+    image: postgres:16.11
+    container_name: ansimon-local-postgres
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: ansimon
+      POSTGRES_USER: ansimon
+      POSTGRES_PASSWORD: 123
+      POSTGRES_DB: ansimon_local
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
