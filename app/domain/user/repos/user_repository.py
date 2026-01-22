@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from app.domain.user.models.user_model import User
 
 
-# TODO: CRUD 같은 기본 메소드들을 BaseRepository에 뺄까 고민중... 왜 GPT는 반대하는거지?
 class UserRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -17,7 +16,7 @@ class UserRepository:
 
     def update(
         self,
-        user: User,
+        user: User,  # sub로 조회해서 업데이트 하는 게 PostgreSQL에 적절하지 않다나 뭐라나...
         values: dict[str, object],
     ) -> User:
         for key, value in values.items():

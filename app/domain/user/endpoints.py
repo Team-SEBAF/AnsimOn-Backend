@@ -21,7 +21,9 @@ router = APIRouter(
     response_model=schemas.SignUpEmailResponse,
     responses=user_errors.SIGNUP_EMAIL_ERRORS_RESPONSES,
 )
-def signup_email(request: schemas.SignUpEmailRequest, db: Session = Depends(get_db)):
+def signup_email(
+    request: schemas.SignUpEmailRequest, db: Session = Depends(get_db)
+):  # 한 API 실행 내에서 DB Session이 유지되도록 엔드포인트 레이어에서 생성해서 전달 + 사용 (서비스 레이어에서 생성하지 않음)
     return user_service.signup_email(request, db)
 
 
