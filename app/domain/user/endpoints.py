@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 import app.domain.user.errors as user_errors
 from app.base import BaseSuccessResponse
 from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
+from app.core.settings import settings
 from app.domain.user import schemas
 from app.domain.user.service import user_service
 
@@ -112,3 +113,20 @@ def refresh_token(
     request: schemas.RefreshTokenRequest,
 ):
     return user_service.refresh_token(request)
+
+
+@router.delete(
+    "/dev/users",
+    summary="회원 탈퇴 (개발자용)",
+    description="회원 탈퇴를 수행합니다.",
+    status_code=204,
+)
+def delete_dev_user(email: str, db: Session = Depends(get_db)):
+    if settings.env != "dev":
+        raise HTTPException(
+            status_code=403,
+            detail="이 API는 개발 환경에서만 사용할 수 있습니다.",
+        )
+
+    user_service.delete_dev_user(email, db)
+    # 204는 No Content 상태 코드로, 응답 없음

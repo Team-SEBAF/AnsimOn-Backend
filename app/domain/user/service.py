@@ -241,5 +241,33 @@ class UserService:
             token_type=auth["TokenType"],
         )
 
+    def delete_dev_user(self, email: str, db: Session):
+        cognito = get_cognito_client()
+
+        try:
+            resp = cognito.admin_get_user(
+                UserPoolId=settings.COGNITO_USER_POOL_ID,
+                Username=email,
+            )
+        except ClientError as e:
+            code = e.response["Error"]["Code"]
+            if code == "UserNotFoundException":
+                raise HTTPException(
+                    status_code=404,
+                    detail="Cognito에서 해당 사용자 정보를 찾을 수 없습니다.",
+                )
+            raise
+
+        user_sub = next((attr["Value"] for attr in resp["UserAttributes"] if attr["Name"] == "sub"))
+
+        user_repo = UserRepository(db)
+        user_repo.delete_by_user_sub(user_sub)
+        db.commit()
+
+        cognito.admin_delete_user(
+            UserPoolId=settings.COGNITO_USER_POOL_ID,
+            Username=email,
+        )
+
 
 user_service = UserService()

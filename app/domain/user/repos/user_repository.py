@@ -24,3 +24,8 @@ class UserRepository:
                 raise ValueError(f"Invalid field: {key}")
             setattr(user, key, value)
         return user
+
+    def delete_by_user_sub(self, user_sub: str):
+        user = self.db.query(User).filter(User.user_sub == user_sub).one_or_none()
+        if user:
+            self.db.delete(user)
