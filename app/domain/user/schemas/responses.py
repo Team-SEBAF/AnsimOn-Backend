@@ -1,6 +1,7 @@
+import datetime
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AwareDatetime, Field
 
 from app.base.base_response import BaseResponse
 
@@ -26,6 +27,11 @@ class LoginEmailResponse(BaseResponse, TokenDTO):
 
 
 class MeResponse(BaseResponse, UserDTO):
+    created_at: AwareDatetime = Field(
+        ...,
+        description="생성 시간 (ISO 8601, timezone-aware)",
+        examples=[datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)],
+    )
     complaint_id: UUID = Field(
         ..., description="고소장 ID", examples=[UUID("123e4567-e89b-12d3-a456-426614174000")]
     )

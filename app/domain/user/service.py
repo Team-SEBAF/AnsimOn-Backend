@@ -26,9 +26,7 @@ class UserService:
             )
         return db_user
 
-    def signup_email(
-        self, req: schemas.SignUpEmailRequest, db: Session
-    ) -> schemas.SignUpEmailResponse:
+    def signup_email(self, req: schemas.SignUpEmailRequest) -> schemas.SignUpEmailResponse:
         cognito = get_cognito_client()
         secret_hash = get_cognito_secret_hash(req.email)
 
@@ -47,34 +45,12 @@ class UserService:
         except ClientError as e:
             raise user_errors.handle_signup_email_error(e)
 
-        user_sub = resp["UserSub"]
-
-        user_repo = UserRepository(db)
-        user = user_repo.create(
-            User(
-                user_sub=user_sub,
-            )
-        )
-        db.flush()  # 현재 session에 쌓인 변경 사항을 DB에 반영 (트랜잭션 종료는 아님)
-
-        complaint_repo = ComplaintRepository(db)
-        complaint_repo.create(
-            Complaint(
-                user_sub=user_sub,
-                step=ComplaintStep.EVIDENCE,
-            )
-        )
-
-        db.commit()  # 트랜잭션을 성공적으로 확정하고 종료
-        db.refresh(user)
-
         return schemas.SignUpEmailResponse(
-            user_sub=user_sub,
+            user_sub=resp["UserSub"],
             email=req.email,
             email_verified=False,
             name=req.name,
             birthdate=req.birthdate,
-            created_at=user.created_at,
         )
 
     def verify_email(self, req: schemas.VerifyEmailRequest) -> schemas.VerifyEmailResponse:
@@ -106,7 +82,9 @@ class UserService:
             Username=req.email,
         )
 
-    def login_email(self, req: schemas.LoginEmailRequest) -> schemas.LoginEmailResponse:
+    def login_email(
+        self, req: schemas.LoginEmailRequest, db: Session
+    ) -> schemas.LoginEmailResponse:
         cognito = get_cognito_client()
         secret_hash = get_cognito_secret_hash(req.email)
 
@@ -124,6 +102,32 @@ class UserService:
             raise user_errors.handle_login_email_error(e)
 
         auth = resp["AuthenticationResult"]
+
+        user_repo = UserRepository(db)
+        user = user_repo.get_by_email(req.email)
+        if not user:
+            # 이메일 인증 후 최초 로그인 시에만 수행
+            payload = jwt.get_unverified_claims(auth["IdToken"])
+            user_sub = payload["sub"]
+
+            user = user_repo.create(
+                User(
+                    user_sub=user_sub,
+                    email=req.email,
+                )
+            )
+            db.flush()  # 현재 session에 쌓인 변경 사항을 DB에 반영 (트랜잭션 종료는 아님)
+
+            complaint_repo = ComplaintRepository(db)
+            complaint_repo.create(
+                Complaint(
+                    user_sub=user_sub,
+                    step=ComplaintStep.EVIDENCE,
+                )
+            )
+
+            db.commit()  # 트랜잭션을 성공적으로 확정하고 종료
+            db.refresh(user)
 
         return schemas.LoginEmailResponse(
             access_token=auth["AccessToken"],
@@ -175,18 +179,6 @@ class UserService:
                 AccessToken=current_user.access_token,
                 UserAttributes=cognito_attributes,
             )
-
-        # 법정 대리인 여부 컬럼 제거 -> 이후에 db에 저장할 users 정보는 이런 식으로
-        # if request.is_legal_representative is not None:
-        #     db_user = self._get_db_user(db, current_user.user_sub)
-
-        #     user_repo = UserRepository(db)
-        #     user_repo.update(
-        #         db_user,
-        #         {"is_legal_representative": request.is_legal_representative},
-        #     )
-
-        #     db.commit()
 
         # 업데이트 후 최신 정보 다시 조회해서 반환
         new_current_user = fetch_auth_user_by_access_token(current_user.access_token)

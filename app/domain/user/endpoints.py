@@ -23,9 +23,9 @@ router = APIRouter(
     responses=user_errors.SIGNUP_EMAIL_ERRORS_RESPONSES,
 )
 def signup_email(
-    request: schemas.SignUpEmailRequest, db: Session = Depends(get_db)
+    request: schemas.SignUpEmailRequest,
 ):  # 한 API 실행 내에서 DB Session이 유지되도록 엔드포인트 레이어에서 생성해서 전달 + 사용 (서비스 레이어에서 생성하지 않음)
-    return user_service.signup_email(request, db)
+    return user_service.signup_email(request)
 
 
 @router.post(
@@ -62,8 +62,8 @@ def resend_email_verification(
     response_model=schemas.LoginEmailResponse,
     responses=user_errors.LOGIN_EMAIL_ERRORS_RESPONSES,
 )
-def login_email(request: schemas.LoginEmailRequest):
-    return user_service.login_email(request)
+def login_email(request: schemas.LoginEmailRequest, db: Session = Depends(get_db)):
+    return user_service.login_email(request, db)
 
 
 @router.get(
