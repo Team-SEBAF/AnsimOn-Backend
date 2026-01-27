@@ -6,7 +6,7 @@ from app.base.base_error import register_exception_handlers
 from app.core.settings import settings
 from app.domain.user.endpoints import router as user_router
 
-root_path = "/prod" if settings.env == "prod" else ""
+root_path = f"/{settings.env}"
 
 app = FastAPI(title="AnsimOn Backend", root_path=root_path)
 
