@@ -17,7 +17,6 @@ class UserDTO(BaseModel):
     birthdate: datetime.date = Field(
         ..., description="생년월일 (YYYY-MM-DD)", examples=[datetime.date(2000, 1, 1)]
     )
-    is_legal_representative: bool = Field(..., description="법정 대리인인지 여부", examples=[False])
     created_at: AwareDatetime = Field(
         ...,
         description="생성 시간 (ISO 8601, timezone-aware)",

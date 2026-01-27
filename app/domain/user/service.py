@@ -53,7 +53,6 @@ class UserService:
         user = user_repo.create(
             User(
                 user_sub=user_sub,
-                is_legal_representative=req.is_legal_representative,
             )
         )
         db.flush()  # 현재 session에 쌓인 변경 사항을 DB에 반영 (트랜잭션 종료는 아님)
@@ -75,7 +74,6 @@ class UserService:
             email_verified=False,
             name=req.name,
             birthdate=req.birthdate,
-            is_legal_representative=user.is_legal_representative,
             created_at=user.created_at,
         )
 
@@ -147,7 +145,6 @@ class UserService:
             email_verified=current_user.email_verified,
             name=current_user.name,
             birthdate=current_user.birthdate,
-            is_legal_representative=db_user.is_legal_representative,
             created_at=db_user.created_at,
             complaint_id=db_complaint.complaint_id,
         )
@@ -179,16 +176,17 @@ class UserService:
                 UserAttributes=cognito_attributes,
             )
 
-        if request.is_legal_representative is not None:
-            db_user = self._get_db_user(db, current_user.user_sub)
+        # 법정 대리인 여부 컬럼 제거 -> 이후에 db에 저장할 users 정보는 이런 식으로
+        # if request.is_legal_representative is not None:
+        #     db_user = self._get_db_user(db, current_user.user_sub)
 
-            user_repo = UserRepository(db)
-            user_repo.update(
-                db_user,
-                {"is_legal_representative": request.is_legal_representative},
-            )
+        #     user_repo = UserRepository(db)
+        #     user_repo.update(
+        #         db_user,
+        #         {"is_legal_representative": request.is_legal_representative},
+        #     )
 
-            db.commit()
+        #     db.commit()
 
         # 업데이트 후 최신 정보 다시 조회해서 반환
         new_current_user = fetch_auth_user_by_access_token(current_user.access_token)
