@@ -4,6 +4,7 @@ from mangum import Mangum
 
 from app.base.base_error import register_exception_handlers
 from app.core.settings import settings
+from app.dev.endpoints import router as dev_router
 from app.domain.user.endpoints import router as user_router
 
 root_path = f"/{settings.env}"
@@ -22,6 +23,7 @@ app.add_middleware(
 # 예외 핸들러 등록
 register_exception_handlers(app)
 
+app.include_router(dev_router)
 app.include_router(user_router)
 
 handler = Mangum(app)
