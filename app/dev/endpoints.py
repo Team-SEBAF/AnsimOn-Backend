@@ -2,15 +2,37 @@ from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.base.base_response import BaseSuccessResponse
 from app.core.aws import get_cognito_client
 from app.core.database import get_db
 from app.core.settings import settings
+from app.dev.utils import _check_dev_environment, _get_dev_db_instance, rds
 from app.domain.user.repos.user_repository import UserRepository
 
 router = APIRouter(
     prefix="/api/v1/dev",
     tags=["Dev (개발용)"],
 )
+
+
+@router.post(
+    "/db/start",
+    summary="Dev DB 시작",
+    description="Dev DB를 시작합니다. 실행에 5~10분 소요됩니다.",
+)
+def start_dev_db():
+    _check_dev_environment()
+
+    db = _get_dev_db_instance()
+    db_id = db["DBInstanceIdentifier"]
+    status = db["DBInstanceStatus"]
+
+    if status == "stopped":
+        rds.start_db_instance(DBInstanceIdentifier=db_id)
+
+    return BaseSuccessResponse(
+        message="Dev DB 시작 요청을 전송했습니다.",
+    )
 
 
 @router.delete(
@@ -20,11 +42,7 @@ router = APIRouter(
     status_code=204,
 )
 def delete_dev_user(email: str, db: Session = Depends(get_db)):
-    if settings.env != "dev":
-        raise HTTPException(
-            status_code=403,
-            detail="이 API는 개발 환경에서만 사용할 수 있습니다.",
-        )
+    _check_dev_environment()
 
     cognito = get_cognito_client()
 
