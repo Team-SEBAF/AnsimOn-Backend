@@ -23,7 +23,9 @@ app.add_middleware(
 # 예외 핸들러 등록
 register_exception_handlers(app)
 
-app.include_router(dev_router)
+if settings.env == "dev":
+    app.include_router(dev_router)
+
 app.include_router(user_router)
 
 handler = Mangum(app)

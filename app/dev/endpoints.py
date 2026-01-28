@@ -26,7 +26,7 @@ class DevDbStatusResponse(BaseResponse):
 @router.post(
     "/db/start",
     summary="Dev DB 시작",
-    description="Dev DB를 시작합니다. 실행에 5~10분 소요됩니다.",
+    description="Dev DB를 시작합니다. 대략 5~10분 소요됩니다. 시작 중에는 status API 에서 unavailable 상태로 나타날 수 있습니다.",
     response_model=BaseSuccessResponse,
 )
 def start_dev_db():
@@ -40,7 +40,7 @@ def start_dev_db():
         rds.start_db_instance(DBInstanceIdentifier=db_id)
 
     return BaseSuccessResponse(
-        message="Dev DB 시작 요청을 전송했습니다.",
+        message="Dev DB 시작 요청을 전송했습니다. 대략 5~10분 소요됩니다. 시작 중에는 status API 에서 unavailable 상태로 나타날 수 있습니다.",
     )
 
 
@@ -63,7 +63,7 @@ def get_dev_db_status(db: Session = Depends(get_db)):
 @router.post(
     "/db/stop",
     summary="Dev DB 중지",
-    description="Dev DB를 중지합니다. 중지에 1~2분 소요됩니다.",
+    description="Dev DB를 중지합니다. 대략 5~10분 소요됩니다. 중지 중에는 status API 에서 unavailable 상태로 나타날 수 있습니다.",
     response_model=BaseSuccessResponse,
 )
 def stop_dev_db():
@@ -77,7 +77,7 @@ def stop_dev_db():
         rds.stop_db_instance(DBInstanceIdentifier=db_id)
 
     return BaseSuccessResponse(
-        message="Dev DB 중지 요청을 전송했습니다.",
+        message="Dev DB 중지 요청을 전송했습니다. 대략 5~10분 소요됩니다. 중지 중에는 status API 에서 unavailable 상태로 나타날 수 있습니다.",
     )
 
 

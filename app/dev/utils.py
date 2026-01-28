@@ -5,8 +5,7 @@ from app.core.settings import settings
 
 
 def _check_dev_environment():
-    # if settings.env != "dev":
-    if settings.env != "prod":  # TODO: prod에서 잠시 테스트
+    if settings.env != "dev":
         raise HTTPException(
             status_code=403,
             detail="이 API는 개발 환경에서만 사용할 수 있습니다.",
