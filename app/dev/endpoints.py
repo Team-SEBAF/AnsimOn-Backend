@@ -1,8 +1,10 @@
+from typing import Literal
+
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.base.base_response import BaseSuccessResponse
+from app.base.base_response import BaseResponse, BaseSuccessResponse
 from app.core.aws import get_cognito_client
 from app.core.database import get_db
 from app.core.settings import settings
@@ -15,10 +17,15 @@ router = APIRouter(
 )
 
 
+class DevDbStatusResponse(BaseResponse):
+    status: Literal["available", "stopped", "starting", "stopping"]
+
+
 @router.post(
     "/db/start",
     summary="Dev DB 시작",
     description="Dev DB를 시작합니다. 실행에 5~10분 소요됩니다.",
+    response_model=BaseSuccessResponse,
 )
 def start_dev_db():
     _check_dev_environment()
@@ -32,6 +39,41 @@ def start_dev_db():
 
     return BaseSuccessResponse(
         message="Dev DB 시작 요청을 전송했습니다.",
+    )
+
+
+@router.get(
+    "/db/status",
+    summary="Dev DB 실행 여부 조회",
+    description="Dev DB가 실행 중인지 여부를 조회합니다.",
+    response_model=DevDbStatusResponse,
+)
+def get_dev_db_status():
+    _check_dev_environment()
+
+    db = _get_dev_db_instance()
+    return {"status": db["DBInstanceStatus"]}
+
+
+@router.post(
+    "/db/stop",
+    summary="Dev DB 중지",
+    description="Dev DB를 중지합니다. 중지에 1~2분 소요됩니다.",
+    response_model=BaseSuccessResponse,
+)
+def stop_dev_db():
+    if settings.env != "dev":
+        raise HTTPException(403, "이 API는 개발 환경에서만 사용할 수 있습니다.")
+
+    db = _get_dev_db_instance()
+    db_id = db["DBInstanceIdentifier"]
+    status = db["DBInstanceStatus"]
+
+    if status == "available":
+        rds.stop_db_instance(DBInstanceIdentifier=db_id)
+
+    return BaseSuccessResponse(
+        message="Dev DB 중지 요청을 전송했습니다.",
     )
 
 
