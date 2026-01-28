@@ -67,8 +67,7 @@ def get_dev_db_status(db: Session = Depends(get_db)):
     response_model=BaseSuccessResponse,
 )
 def stop_dev_db():
-    if settings.env != "dev":
-        raise HTTPException(403, "이 API는 개발 환경에서만 사용할 수 있습니다.")
+    _check_dev_environment()
 
     db = _get_dev_db_instance()
     db_id = db["DBInstanceIdentifier"]
