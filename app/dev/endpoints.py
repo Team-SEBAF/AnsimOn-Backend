@@ -2,6 +2,8 @@ from typing import Literal
 
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.base.base_response import BaseResponse, BaseSuccessResponse
@@ -18,7 +20,7 @@ router = APIRouter(
 
 
 class DevDbStatusResponse(BaseResponse):
-    status: Literal["available", "stopped", "starting", "stopping"]
+    status: Literal["available", "unavailable"]
 
 
 @router.post(
@@ -48,11 +50,14 @@ def start_dev_db():
     description="Dev DB가 실행 중인지 여부를 조회합니다.",
     response_model=DevDbStatusResponse,
 )
-def get_dev_db_status():
+def get_dev_db_status(db: Session = Depends(get_db)):
     _check_dev_environment()
 
-    db = _get_dev_db_instance()
-    return {"status": db["DBInstanceStatus"]}
+    try:
+        db.execute(text("SELECT 1"))  # 테이블 없이도 실행 가능
+        return DevDbStatusResponse(status="available")
+    except OperationalError:
+        return DevDbStatusResponse(status="unavailable")
 
 
 @router.post(
