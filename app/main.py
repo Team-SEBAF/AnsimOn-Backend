@@ -4,9 +4,10 @@ from mangum import Mangum
 
 from app.base.base_error import register_exception_handlers
 from app.core.settings import settings
+from app.dev.endpoints import router as dev_router
 from app.domain.user.endpoints import router as user_router
 
-root_path = "/prod" if settings.env == "prod" else ""
+root_path = f"/{settings.env}"
 
 app = FastAPI(title="AnsimOn Backend", root_path=root_path)
 
@@ -21,6 +22,9 @@ app.add_middleware(
 
 # 예외 핸들러 등록
 register_exception_handlers(app)
+
+if settings.env == "dev":
+    app.include_router(dev_router)
 
 app.include_router(user_router)
 

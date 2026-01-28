@@ -2,7 +2,7 @@ import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, Field
+from pydantic import BaseModel, Field
 
 
 class UserDTO(BaseModel):
@@ -16,12 +16,6 @@ class UserDTO(BaseModel):
     name: str = Field(..., description="이름", examples=["홍길동"])
     birthdate: datetime.date = Field(
         ..., description="생년월일 (YYYY-MM-DD)", examples=[datetime.date(2000, 1, 1)]
-    )
-    is_legal_representative: bool = Field(..., description="법정 대리인인지 여부", examples=[False])
-    created_at: AwareDatetime = Field(
-        ...,
-        description="생성 시간 (ISO 8601, timezone-aware)",
-        examples=[datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)],
     )
 
 

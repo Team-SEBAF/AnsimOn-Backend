@@ -14,6 +14,9 @@ class UserRepository:
     def get(self, user_sub: str) -> User | None:
         return self.db.query(User).filter(User.user_sub == user_sub).first()
 
+    def get_by_email(self, email: str) -> User | None:
+        return self.db.query(User).filter(User.email == email).first()
+
     def update(
         self,
         user: User,  # sub로 조회해서 업데이트 하는 게 PostgreSQL에 적절하지 않다나 뭐라나...
@@ -24,3 +27,8 @@ class UserRepository:
                 raise ValueError(f"Invalid field: {key}")
             setattr(user, key, value)
         return user
+
+    def delete_by_user_sub(self, user_sub: str):
+        user = self.db.query(User).filter(User.user_sub == user_sub).one_or_none()
+        if user:
+            self.db.delete(user)
