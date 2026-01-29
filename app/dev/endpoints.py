@@ -63,7 +63,7 @@ def get_dev_db_status(db: Session = Depends(get_db)):
 @router.post(
     "/db/stop",
     summary="Dev DB 중지",
-    description="Dev DB를 중지합니다. 대략 8~15분 소요됩니다. 중지 중에는 status API 에서 unavailable 상태로 나타날 수 있습니다.",
+    description="Dev DB를 중지합니다. 대략 8~15분 소요됩니다. 중지 중에는 status API 에서 available 상태로 나타날 수 있습니다.",
     response_model=BaseSuccessResponse,
 )
 def stop_dev_db():
@@ -77,7 +77,7 @@ def stop_dev_db():
         _get_rds_client().stop_db_instance(DBInstanceIdentifier=db_id)
 
     return BaseSuccessResponse(
-        message="Dev DB 중지 요청을 전송했습니다. 대략 8~15분 소요됩니다. 중지 중에는 status API 에서 unavailable 상태로 나타날 수 있습니다.",
+        message="Dev DB 중지 요청을 전송했습니다. 대략 8~15분 소요됩니다. 중지 중에는 status API 에서 available 상태로 나타날 수 있습니다.",
     )
 
 
