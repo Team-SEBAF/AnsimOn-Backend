@@ -1,5 +1,4 @@
 from botocore.exceptions import ClientError
-from fastapi import HTTPException
 from jose import jwt
 from sqlalchemy.orm import Session
 
@@ -12,20 +11,6 @@ from app.domain.user import errors as user_errors
 
 
 class UserService:
-    def _get_db_user(
-        self,
-        db: Session,
-        user_sub: str,
-    ) -> User:
-        user_repo = UserRepository(db)
-        db_user = user_repo.get(user_sub)
-        if not db_user:
-            raise HTTPException(
-                status_code=404,
-                detail="데이터베이스에서 해당 사용자 정보를 찾을 수 없습니다.",
-            )
-        return db_user
-
     def signup_email(self, req: schemas.SignUpEmailRequest) -> schemas.SignUpEmailResponse:
         cognito = get_cognito_client()
         secret_hash = get_cognito_secret_hash(req.email)
@@ -82,9 +67,7 @@ class UserService:
             Username=req.email,
         )
 
-    def login_email(
-        self, req: schemas.LoginEmailRequest, db: Session
-    ) -> schemas.LoginEmailResponse:
+    def login_email(self, req: schemas.LoginEmailRequest) -> schemas.LoginEmailResponse:
         cognito = get_cognito_client()
         secret_hash = get_cognito_secret_hash(req.email)
 
@@ -103,32 +86,6 @@ class UserService:
 
         auth = resp["AuthenticationResult"]
 
-        user_repo = UserRepository(db)
-        user = user_repo.get_by_email(req.email)
-        if not user:
-            # 이메일 인증 후 최초 로그인 시에만 수행
-            payload = jwt.get_unverified_claims(auth["IdToken"])
-            user_sub = payload["sub"]
-
-            user = user_repo.create(
-                User(
-                    user_sub=user_sub,
-                    email=req.email,
-                )
-            )
-            db.flush()  # 현재 session에 쌓인 변경 사항을 DB에 반영 (트랜잭션 종료는 아님)
-
-            complaint_repo = ComplaintRepository(db)
-            complaint_repo.create(
-                Complaint(
-                    user_sub=user_sub,
-                    step=ComplaintStep.EVIDENCE,
-                )
-            )
-
-            db.commit()  # 트랜잭션을 성공적으로 확정하고 종료
-            db.refresh(user)
-
         return schemas.LoginEmailResponse(
             access_token=auth["AccessToken"],
             id_token=auth["IdToken"],
@@ -138,9 +95,31 @@ class UserService:
         )
 
     def get_me(self, current_user: AuthUser, db: Session) -> schemas.MeResponse:
-        db_user = self._get_db_user(db, current_user.user_sub)
-
+        user_repo = UserRepository(db)
         complaint_repo = ComplaintRepository(db)
+
+        db_user = user_repo.get(current_user.user_sub)
+
+        # 아직 데이터베이스에 저장되지 않은 경우
+        if not db_user:
+            db_user = user_repo.create(
+                User(
+                    user_sub=current_user.user_sub,
+                    email=current_user.email,
+                )
+            )
+            db.flush()  # 현재 session에 쌓인 변경 사항을 DB에 반영 (트랜잭션 종료는 아님)
+
+            complaint_repo.create(
+                Complaint(
+                    user_sub=current_user.user_sub,
+                    step=ComplaintStep.EVIDENCE,
+                )
+            )
+
+            db.commit()  # 트랜잭션을 성공적으로 확정하고 종료
+            db.refresh(db_user)
+
         db_complaint = complaint_repo.get_by_user_sub(current_user.user_sub)
 
         return schemas.MeResponse(

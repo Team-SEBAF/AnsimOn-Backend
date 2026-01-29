@@ -61,8 +61,8 @@ def resend_email_verification(
     response_model=schemas.LoginEmailResponse,
     responses=user_errors.LOGIN_EMAIL_ERRORS_RESPONSES,
 )
-def login_email(request: schemas.LoginEmailRequest, db: Session = Depends(get_db)):
-    return user_service.login_email(request, db)
+def login_email(request: schemas.LoginEmailRequest):
+    return user_service.login_email(request)
 
 
 @router.get(
