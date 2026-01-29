@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     AWS_REGION: str
+    AWS_PROFILE: str | None = None
     COGNITO_CLIENT_ID: str
     COGNITO_USER_POOL_ID: str
     COGNITO_CLIENT_SECRET: str

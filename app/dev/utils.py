@@ -12,7 +12,12 @@ def _check_dev_environment():
         )
 
 
-rds = boto3.client("rds")
+def _get_rds_client():
+    return boto3.client(
+        "rds",
+        region_name=settings.AWS_REGION,
+    )
+
 
 DEV_DB_TAGS = {
     "Env": "dev",
@@ -26,6 +31,7 @@ def _match_tags(tag_list: list[dict]) -> bool:
 
 
 def _get_dev_db_instance():
+    rds = _get_rds_client()
     resp = rds.describe_db_instances()
 
     for db in resp["DBInstances"]:
