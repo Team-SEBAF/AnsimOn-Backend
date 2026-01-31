@@ -56,8 +56,8 @@ def resend_email_verification(
 
 @router.post(
     "/login/email",
-    summary="이메일 로그인",
-    description="이메일 로그인을 수행합니다.",
+    summary="이메일 회원 로그인",
+    description="이메일 회원 로그인을 수행합니다.",
     response_model=schemas.LoginTokenResponse,
     responses=user_errors.LOGIN_EMAIL_ERRORS_RESPONSES,
 )
@@ -91,8 +91,8 @@ def update_me(
 
 @router.post(
     "/logout",
-    summary="로그아웃",
-    description="로그아웃을 수행합니다.",
+    summary="이메일 회원 로그아웃",
+    description="이메일 회원 로그아웃을 수행합니다.",
     status_code=200,
     response_model=BaseSuccessResponse,
 )
