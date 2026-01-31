@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     )
 
     env: str = Field(default="local", alias="ENV")
+    WEB_APP_URL: str
     CORS_ORIGINS: list[str] = Field(
         default_factory=lambda: ["http://localhost:3000"], alias="CORS_ORIGINS"
     )
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
     COGNITO_CLIENT_ID: str
     COGNITO_USER_POOL_ID: str
     COGNITO_CLIENT_SECRET: str
+    COGNITO_DOMAIN: str
 
 
 settings = Settings()

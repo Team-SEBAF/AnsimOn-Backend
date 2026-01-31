@@ -1,7 +1,12 @@
+import json
+import urllib.request
+from urllib.parse import urlencode
+
 from botocore.exceptions import ClientError
 from jose import jwt
 from sqlalchemy.orm import Session
 
+from app.base.base_error import CodeException
 from app.core.auth import AuthUser, fetch_auth_user_by_access_token, get_cognito_secret_hash
 from app.core.aws import get_cognito_client
 from app.core.settings import settings
@@ -67,7 +72,7 @@ class UserService:
             Username=req.email,
         )
 
-    def login_email(self, req: schemas.LoginEmailRequest) -> schemas.LoginEmailResponse:
+    def login_email(self, req: schemas.LoginEmailRequest) -> schemas.LoginTokenResponse:
         cognito = get_cognito_client()
         secret_hash = get_cognito_secret_hash(req.email)
 
@@ -86,7 +91,7 @@ class UserService:
 
         auth = resp["AuthenticationResult"]
 
-        return schemas.LoginEmailResponse(
+        return schemas.LoginTokenResponse(
             access_token=auth["AccessToken"],
             id_token=auth["IdToken"],
             refresh_token=auth["RefreshToken"],
@@ -210,6 +215,51 @@ class UserService:
             id_token=auth["IdToken"],
             expires_in=int(auth["ExpiresIn"]),
             token_type=auth["TokenType"],
+        )
+
+    def google_callback(
+        self,
+        request: schemas.GoogleCallbackRequest,
+    ) -> schemas.LoginTokenResponse:
+        token_url = f"{settings.COGNITO_DOMAIN}/oauth2/token"
+
+        data = urlencode(
+            {
+                "grant_type": "authorization_code",
+                "client_id": settings.COGNITO_CLIENT_ID,
+                "client_secret": settings.COGNITO_CLIENT_SECRET,
+                "code": request.code,
+                "redirect_uri": f"{settings.WEB_APP_URL}/auth/callback",
+            }
+        ).encode("utf-8")
+
+        req = urllib.request.Request(
+            token_url,
+            data=data,
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8")
+            raise CodeException(
+                code="GoogleOAuthFailed",
+                message="구글 로그인 처리에 실패했습니다.",
+                status_code=401,
+                detail=detail,
+            )
+
+        return schemas.LoginTokenResponse(
+            access_token=payload["access_token"],
+            id_token=payload["id_token"],
+            refresh_token=payload.get("refresh_token"),
+            expires_in=int(payload["expires_in"]),
+            token_type=payload["token_type"],
         )
 
 
