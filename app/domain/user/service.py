@@ -229,7 +229,7 @@ class UserService:
                 "client_id": settings.COGNITO_CLIENT_ID,
                 "client_secret": settings.COGNITO_CLIENT_SECRET,
                 "code": request.code,
-                "redirect_uri": f"{settings.WEB_APP_URL}/auth/callback",
+                "redirect_uri": f"{settings.WEB_APP_URL}/auth/login",
             }
         ).encode("utf-8")
 
@@ -246,12 +246,10 @@ class UserService:
             with urllib.request.urlopen(req) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
-            detail = e.read().decode("utf-8")
             raise CodeException(
                 code="GoogleOAuthFailed",
-                message="구글 로그인 처리에 실패했습니다.",
+                message="구글 로그인 처리에 실패했습니다." + e.read().decode("utf-8"),
                 status_code=401,
-                detail=detail,
             )
 
         return schemas.LoginTokenResponse(
