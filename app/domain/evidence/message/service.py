@@ -159,7 +159,7 @@ class EvidenceMessageService:
                 "Bucket": settings.S3_BUCKET_NAME,
                 "Key": message.s3_key,
             },
-            ExpiresIn=60 * 60,  # 1시간
+            ExpiresIn=60 * 10,  # 10분
         )
 
         return schemas.EvidenceMessageOriginalImageResponse(

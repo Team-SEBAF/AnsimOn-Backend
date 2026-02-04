@@ -34,7 +34,7 @@ def upload_evidence_message_images(
 @router.get(
     "/{message_id}/original-image",
     summary="MESSAGE 타입 증거 이미지 원본 조회",
-    description="MESSAGE 타입 증거 이미지 원본을 조회합니다.",
+    description="MESSAGE 타입 증거 이미지 원본을 조회합니다. (10분 유효)",
     response_model=schemas.EvidenceMessageOriginalImageResponse,
     responses=evidence_message_errors.GET_EVIDENCE_MESSAGE_ERRORS_RESPONSES,
 )
