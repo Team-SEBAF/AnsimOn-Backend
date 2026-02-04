@@ -13,10 +13,14 @@ class EvidenceMessageRepository:
         self.db.add(message)
         return message
 
-    def get(self, id: UUID) -> EvidenceMessage | None:
-        return self.db.query(EvidenceMessage).filter(EvidenceMessage.id == id).one_or_none()
+    def get(self, message_id: UUID) -> EvidenceMessage | None:
+        return (
+            self.db.query(EvidenceMessage)
+            .filter(EvidenceMessage.message_id == message_id)
+            .one_or_none()
+        )
 
-    def delete(self, id: UUID):
-        message = self.get(id)
+    def delete(self, message_id: UUID):
+        message = self.get(message_id)
         if message:
             self.db.delete(message)

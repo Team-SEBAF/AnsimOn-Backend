@@ -17,10 +17,7 @@ router = APIRouter(
     description="고소장 정보를 조회합니다.",
     response_model=schemas.ComplaintResponse,
 )
-def get_complaint(
-    complaint: Complaint = Depends(get_owned_complaint),
-    db: Session = Depends(get_db),
-):
+def get_complaint(complaint: Complaint = Depends(get_owned_complaint)):
     return schemas.ComplaintResponse.model_validate(complaint)
 
 

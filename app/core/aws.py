@@ -15,6 +15,7 @@ def get_s3_client():
     return boto3.client(
         "s3",
         region_name=settings.AWS_REGION,
+        endpoint_url=f"https://s3.{settings.AWS_REGION}.amazonaws.com",
     )
 
 
