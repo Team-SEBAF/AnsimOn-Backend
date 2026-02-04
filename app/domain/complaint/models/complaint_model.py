@@ -31,6 +31,7 @@ class Complaint(Base):
     user_sub: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.user_sub", ondelete="CASCADE"), nullable=False
     )
+    name: Mapped[str] = mapped_column(String(50), nullable=False, default="고소장 제목")
     step: Mapped[ComplaintStep] = mapped_column(
         SQLEnum(ComplaintStep, native_enum=False, length=20),
         nullable=False,
@@ -38,4 +39,7 @@ class Complaint(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )

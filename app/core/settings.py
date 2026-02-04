@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     COGNITO_USER_POOL_ID: str
     COGNITO_CLIENT_SECRET: str
     COGNITO_DOMAIN: str
+    S3_BUCKET_NAME: str
 
 
 settings = Settings()

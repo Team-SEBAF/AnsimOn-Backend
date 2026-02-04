@@ -29,7 +29,7 @@ class LoginTokenResponse(BaseResponse, TokenDTO):
 class MeResponse(BaseResponse, UserDTO):
     created_at: AwareDatetime = Field(
         ...,
-        description="생성 시간 (ISO 8601, timezone-aware)",
+        description="생성 시간",
         examples=[datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)],
     )
     complaint_id: UUID = Field(
