@@ -1,7 +1,7 @@
-from datetime import datetime
+import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import AwareDatetime, BaseModel, Field
 
 from app.domain.complaint.models.complaint_model import ComplaintStep
 
@@ -17,9 +17,13 @@ class ComplaintDTO(BaseModel):
     )
     name: str = Field(..., description="고소장 제목", examples=["고소장 제목"])
     step: ComplaintStep = Field(..., description="고소장 단계", examples=[ComplaintStep.EVIDENCE])
-    created_at: datetime = Field(..., description="최초 생성 시각 (응답: YYYY-MM-DD HH:MM)")
-    updated_at: datetime = Field(..., description="최종 수정 시각 (응답: YYYY-MM-DD HH:MM)")
-
-    @field_serializer("created_at", "updated_at")
-    def _serialize_datetime(self, dt: datetime) -> str:
-        return dt.strftime("%Y-%m-%d %H:%M")
+    created_at: AwareDatetime = Field(
+        ...,
+        description="생성 시간",
+        examples=[datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)],
+    )
+    updated_at: AwareDatetime = Field(
+        ...,
+        description="수정 시간",
+        examples=[datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)],
+    )
