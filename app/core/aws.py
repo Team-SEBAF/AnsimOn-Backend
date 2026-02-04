@@ -9,3 +9,26 @@ def get_cognito_client():
         "cognito-idp",
         region_name=settings.AWS_REGION,
     )
+
+
+def get_s3_client():
+    return boto3.client(
+        "s3",
+        region_name=settings.AWS_REGION,
+    )
+
+
+def upload_fileobj(
+    fileobj,
+    bucket: str,
+    key: str,
+    content_type: str,
+):
+    get_s3_client().upload_fileobj(
+        Fileobj=fileobj,
+        Bucket=bucket,
+        Key=key,
+        ExtraArgs={
+            "ContentType": content_type,
+        },
+    )
