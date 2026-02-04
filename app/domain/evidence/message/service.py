@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from enum import Enum
 from io import BytesIO
 from uuid import UUID, uuid4
 
@@ -18,8 +19,57 @@ from .repos.evidence_message_repository import EvidenceMessageRepository
 from .utils import extract_image_meta, make_image_top_crop
 
 
+class EvidenceMessageVariant(str, Enum):
+    THUMBNAIL = "thumbnail"
+    DETAIL = "detail"
+    ORIGINAL = "original"
+
+
 class EvidenceMessageService:
-    def check_access_permission(
+    def _get_messages_and_total_count(
+        self,
+        *,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ):
+        repo = EvidenceMessageRepository(db)
+
+        # 최신순 썸네일 대상 조회
+        messages = repo.list_by_complaint(
+            complaint_id=complaint.complaint_id,
+            limit=limit,
+        )
+
+        total_count = repo.count_by_complaint(
+            complaint_id=complaint.complaint_id,
+        )
+
+        return messages, total_count
+
+    def _get_presigned_url(
+        self,
+        *,
+        message: EvidenceMessage,
+        variant: EvidenceMessageVariant,
+        expires_in: int,
+    ):
+        s3 = get_s3_client()
+
+        base = message.s3_key.rsplit("/", 1)[0]
+        key = f"{base}/{variant.value}.jpg"
+
+        url = s3.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={
+                "Bucket": settings.S3_BUCKET_NAME,
+                "Key": key,
+            },
+            ExpiresIn=expires_in,
+        )
+        return url
+
+    def _check_access_permission(
         self, message: EvidenceMessage, current_user: AuthUser, db: Session
     ) -> None:
         complaint_repo = ComplaintRepository(db)
@@ -59,19 +109,19 @@ class EvidenceMessageService:
 
                 original_key = f"{base_key}/original.jpg"
                 thumbnail_key = f"{base_key}/thumbnail.jpg"
-                middle_key = f"{base_key}/middle.jpg"
+                detail_key = f"{base_key}/detail.jpg"
 
                 # 파생 이미지 생성
                 thumbnail_bytes, _, _ = make_image_top_crop(
                     file_bytes=file_bytes,
-                    size=160,
+                    size=120,
                     quality=65,
                 )
 
-                middle_bytes, _, _ = make_image_top_crop(
+                detail_bytes, _, _ = make_image_top_crop(
                     file_bytes=file_bytes,
-                    size=512,
-                    quality=80,
+                    size=400,
+                    quality=75,
                 )
 
                 # S3 업로드 (병렬)
@@ -92,9 +142,9 @@ class EvidenceMessageService:
                     ),
                     executor.submit(
                         upload_fileobj,
-                        fileobj=BytesIO(middle_bytes),
+                        fileobj=BytesIO(detail_bytes),
                         bucket=settings.S3_BUCKET_NAME,
-                        key=middle_key,
+                        key=detail_key,
                         content_type="image/jpeg",
                     ),
                 ]
@@ -133,6 +183,71 @@ class EvidenceMessageService:
             ]
         )
 
+    def get_thumbnail_images(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceMessageThumbnailListResponse:
+        messages, total_count = self._get_messages_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        thumbnails: list[schemas.EvidenceMessageThumbnailResponse] = []
+        for message in messages:
+            url = self._get_presigned_url(
+                message=message,
+                variant=EvidenceMessageVariant.THUMBNAIL,
+                expires_in=60 * 60,  # 1시간
+            )
+            thumbnails.append(
+                schemas.EvidenceMessageThumbnailResponse(
+                    message_id=message.message_id,
+                    url=url,
+                )
+            )
+
+        return schemas.EvidenceMessageThumbnailListResponse(
+            thumbnails=thumbnails,
+            total_count=total_count,
+        )
+
+    def get_detail_images(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceMessageDetailListResponse:
+        messages, total_count = self._get_messages_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        details: list[schemas.EvidenceMessageDetailResponse] = []
+        for message in messages:
+            url = self._get_presigned_url(
+                message=message,
+                variant=EvidenceMessageVariant.DETAIL,
+                expires_in=60 * 30,  # 30분
+            )
+            details.append(
+                schemas.EvidenceMessageDetailResponse(
+                    message_id=message.message_id,
+                    filename=message.filename,
+                    size_bytes=message.size_bytes,
+                    created_at=message.created_at,
+                    updated_at=message.updated_at,
+                    url=url,
+                )
+            )
+        return schemas.EvidenceMessageDetailListResponse(
+            details=details,
+            total_count=total_count,
+        )
+
     def get_original_image(
         self,
         message_id: UUID,
@@ -149,17 +264,12 @@ class EvidenceMessageService:
                 status_code=404,
             )
 
-        self.check_access_permission(message, current_user, db)
+        self._check_access_permission(message, current_user, db)
 
-        # presigned URL 생성
-        s3 = get_s3_client()
-        url = s3.generate_presigned_url(
-            ClientMethod="get_object",
-            Params={
-                "Bucket": settings.S3_BUCKET_NAME,
-                "Key": message.s3_key,
-            },
-            ExpiresIn=60 * 10,  # 10분
+        url = self._get_presigned_url(
+            message=message,
+            variant=EvidenceMessageVariant.ORIGINAL,
+            expires_in=60 * 10,  # 10분
         )
 
         return schemas.EvidenceMessageOriginalImageResponse(
@@ -170,55 +280,6 @@ class EvidenceMessageService:
             width=message.width,
             height=message.height,
             url=url,
-        )
-
-    def get_thumbnail_images(
-        self,
-        complaint: Complaint,
-        limit: int,
-        db: Session,
-    ) -> schemas.EvidenceMessageThumbnailListResponse:
-        repo = EvidenceMessageRepository(db)
-
-        # 최신순 썸네일 대상 조회
-        messages = repo.list_by_complaint(
-            complaint_id=complaint.complaint_id,
-            limit=limit,
-        )
-
-        total_count = repo.count_by_complaint(
-            complaint_id=complaint.complaint_id,
-        )
-
-        s3 = get_s3_client()
-        thumbnails: list[schemas.EvidenceMessageThumbnailResponse] = []
-
-        for message in messages:
-            # original → thumbnail key 변환
-            base = message.s3_key.rsplit("/", 1)[0]
-            thumbnail_key = f"{base}/thumbnail.jpg"
-
-            url = s3.generate_presigned_url(
-                ClientMethod="get_object",
-                Params={
-                    "Bucket": settings.S3_BUCKET_NAME,
-                    "Key": thumbnail_key,
-                },
-                ExpiresIn=60 * 60,  # 1시간
-            )
-
-            thumbnails.append(
-                schemas.EvidenceMessageThumbnailResponse(
-                    message_id=message.message_id,
-                    url=url,
-                    width=160,
-                    height=160,
-                )
-            )
-
-        return schemas.EvidenceMessageThumbnailListResponse(
-            thumbnails=thumbnails,
-            total_count=total_count,
         )
 
 

@@ -10,11 +10,11 @@ from app.domain.complaint import Complaint, get_owned_complaint
 from app.domain.evidence.message import schemas
 from app.domain.evidence.message.service import evidence_message_service
 
-router = APIRouter(prefix="/api/v1/evidence-messages", tags=["Evidence Message"])
+router = APIRouter(prefix="/api/v1", tags=["Evidence Message"])
 
 
 @router.post(
-    "/{complaint_id}/messages",
+    "/{complaint_id}/evidences/messages",
     summary="MESSAGE 타입 증거 이미지 업로드",
     description="MESSAGE 타입 증거 이미지를 업로드합니다.",
     response_model=schemas.EvidenceMessageUploadResponse,
@@ -32,7 +32,7 @@ def upload_evidence_message_images(
 
 
 @router.get(
-    "/{complaint_id}/messages/thumbnails",
+    "/{complaint_id}/evidences/messages/thumbnails",
     summary="MESSAGE 타입 증거 썸네일 리스트 조회",
     description="MESSAGE 타입 증거 썸네일 리스트를 조회합니다. (1시간 유효)",
     response_model=schemas.EvidenceMessageThumbnailListResponse,
@@ -43,6 +43,24 @@ def get_evidence_message_thumbnails(
     db: Session = Depends(get_db),
 ):
     return evidence_message_service.get_thumbnail_images(
+        complaint=complaint,
+        limit=limit,
+        db=db,
+    )
+
+
+@router.get(
+    "/{complaint_id}/evidences/messages/details",
+    summary="MESSAGE 타입 증거 상세 리스트 조회",
+    description="MESSAGE 타입 증거 상세 리스트를 조회합니다. (30분 유효)",
+    response_model=schemas.EvidenceMessageDetailListResponse,
+)
+def get_evidence_message_details(
+    complaint: Complaint = Depends(get_owned_complaint),
+    limit: int = Query(20, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    return evidence_message_service.get_detail_images(
         complaint=complaint,
         limit=limit,
         db=db,

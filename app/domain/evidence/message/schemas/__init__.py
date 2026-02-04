@@ -1,4 +1,6 @@
 from .responses import (
+    EvidenceMessageDetailListResponse,
+    EvidenceMessageDetailResponse,
     EvidenceMessageOriginalImageResponse,
     EvidenceMessageResponse,
     EvidenceMessageThumbnailListResponse,
@@ -12,4 +14,6 @@ __all__ = [
     "EvidenceMessageOriginalImageResponse",
     "EvidenceMessageThumbnailListResponse",
     "EvidenceMessageThumbnailResponse",
+    "EvidenceMessageDetailListResponse",
+    "EvidenceMessageDetailResponse",
 ]
