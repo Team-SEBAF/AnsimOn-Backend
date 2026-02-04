@@ -13,7 +13,6 @@ jobs:
 
       - name: Build lambda package (app only)
         run: |
-          rm -rf package lambda.zip
           mkdir package
           cp -r app package/
           cd package
