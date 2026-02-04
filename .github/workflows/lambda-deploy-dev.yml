@@ -114,6 +114,27 @@ jobs:
         run: |
           aws lambda wait function-updated \
             --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }}
+      - name: Ensure layer is attached
+        run: |
+          for i in {1..10}; do
+            LAYERS=$(aws lambda get-function-configuration \
+              --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
+              --query 'Layers[].Arn' \
+              --output text)
+
+            echo "Current layers: $LAYERS"
+
+            if [[ "$LAYERS" == *"${{ needs.deploy-layer.outputs.layer_arn }}"* ]]; then
+              echo "Layer attached successfully"
+              exit 0
+            fi
+
+            echo "Layer not attached yet, retrying..."
+            sleep 3
+          done
+
+          echo "Layer was not attached in time"
+          exit 1
 
       - name: Publish version
         id: publish
