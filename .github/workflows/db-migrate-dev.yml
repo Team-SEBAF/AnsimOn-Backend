@@ -20,10 +20,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install poetry
-        run: |
-          pip install poetry
-          poetry self add poetry-plugin-export
-          poetry export --help
+        run: pip install "poetry<2.0"
 
       - name: Install dependencies
         run: poetry install --no-interaction --no-root
