@@ -3,12 +3,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
-import app.domain.evidence.message.errors as evidence_message_errors
+import app.domain.evidence_message.errors as evidence_message_errors
 from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
 from app.domain.complaint import Complaint, get_owned_complaint
-from app.domain.evidence.message import schemas
-from app.domain.evidence.message.service import evidence_message_service
+from app.domain.evidence_message import schemas
+from app.domain.evidence_message.service import evidence_message_service
 
 router = APIRouter(prefix="/api/v1", tags=["Evidence Message"])
 

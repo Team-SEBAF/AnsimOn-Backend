@@ -11,7 +11,7 @@ from app.core.auth import AuthUser
 from app.core.aws import get_s3_client, upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint, ComplaintRepository
-from app.domain.evidence.message import schemas
+from app.domain.evidence_message import schemas
 
 from .errors.get_message_error import GetEvidenceMessageErrorCode
 from .models.evidence_message_model import EvidenceMessage
