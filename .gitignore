@@ -32,6 +32,8 @@ build/
 *.log
 
 # ---- Lambda / deployment ----
+/layer
 /package
 lambda.zip
 requirements.txt
+requirements.layer.txt

@@ -11,33 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install poetry
-        run: |
-          pip install poetry
-          poetry self add poetry-plugin-export
-          poetry export --help
-
-      - name: Export requirements.txt
-        run: poetry export -f requirements.txt --without-hashes -o requirements.txt
-
-      - name: Build lambda package (dry)
+      - name: Build lambda package (app only)
         run: |
           rm -rf package lambda.zip
           mkdir package
-
-          docker run --rm \
-            -v "$PWD":/var/task \
-            --platform linux/amd64 \
-            public.ecr.aws/sam/build-python3.11 \
-            bash -c "
-              pip install --upgrade pip &&
-              pip install --no-cache-dir -r requirements.txt -t package
-            "
-
           cp -r app package/
           cd package
           zip -r ../lambda.zip . > /dev/null

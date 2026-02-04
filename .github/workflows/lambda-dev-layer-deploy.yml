@@ -1,0 +1,80 @@
+name: Deploy Lambda Layer (dev)
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-layer:
+    runs-on: ubuntu-latest
+
+    outputs:
+      layer_arn: ${{ steps.publish.outputs.layer_arn }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install poetry (v1)
+        run: pip install "poetry<2.0"
+
+      # ① requirements.txt 생성
+      - name: Export requirements.txt
+        run: |
+          poetry export \
+            -f requirements.txt \
+            --without-hashes \
+            -o requirements.txt
+
+      # ② Layer 전용 requirements 생성
+      - name: Prepare layer requirements
+        run: |
+          cp requirements.txt requirements.layer.txt
+          sed -i '/^boto3/d;/^botocore/d;/^s3transfer/d' requirements.layer.txt
+
+      # ③ Layer 빌드
+      - name: Build layer
+        run: |
+          rm -rf layer
+          mkdir -p layer/python
+
+          docker run --rm \
+            -v "$PWD":/var/task \
+            --platform linux/amd64 \
+            public.ecr.aws/sam/build-python3.11 \
+            bash -c "
+              pip install --upgrade pip &&
+              pip install --no-cache-dir -r requirements.layer.txt -t layer/python
+            "
+
+      # ④ zip
+      - name: Zip layer
+        run: |
+          cd layer
+          zip -r layer.zip . > /dev/null
+          cd ..
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # ⑤ Layer publish
+      - name: Publish layer
+        id: publish
+        run: |
+          ARN=$(aws lambda publish-layer-version \
+            --layer-name ansimon-deps \
+            --zip-file fileb://layer/layer.zip \
+            --compatible-runtimes python3.11 \
+            --query LayerVersionArn \
+            --output text)
+          echo "layer_arn=$ARN" >> $GITHUB_OUTPUT
