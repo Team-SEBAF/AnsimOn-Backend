@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
-from app.domain.complaint import schemas
+from app.domain.complaint import Complaint, get_owned_complaint, schemas
 from app.domain.complaint.service import complaint_service
 
 router = APIRouter(
@@ -19,10 +18,10 @@ router = APIRouter(
     response_model=schemas.ComplaintResponse,
 )
 def get_complaint(
-    current_user: AuthUser = Depends(get_current_user),
+    complaint: Complaint = Depends(get_owned_complaint),
     db: Session = Depends(get_db),
 ):
-    return complaint_service.get_my_complaint(current_user, db)
+    return schemas.ComplaintResponse.model_validate(complaint)
 
 
 @router.patch(
@@ -33,7 +32,7 @@ def get_complaint(
 )
 def update_complaint(
     request: schemas.UpdateComplaintRequest,
-    current_user: AuthUser = Depends(get_current_user),
+    complaint: Complaint = Depends(get_owned_complaint),
     db: Session = Depends(get_db),
 ):
-    return complaint_service.update_my_complaint(request, current_user, db)
+    return complaint_service.update_my_complaint(request, complaint, db)
