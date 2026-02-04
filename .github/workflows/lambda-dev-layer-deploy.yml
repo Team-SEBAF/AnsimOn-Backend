@@ -12,9 +12,6 @@ jobs:
   deploy-layer:
     runs-on: ubuntu-latest
 
-    outputs:
-      layer_arn: ${{ steps.publish.outputs.layer_arn }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -22,24 +19,28 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install poetry (v1)
-        run: pip install "poetry<2.0"
+      # 1. Poetry 2 + export plugin 설치
+      - name: Install poetry
+        run: |
+          pip install poetry
+          poetry self add poetry-plugin-export
+          poetry export --help
 
-      # ① requirements.txt 생성
+      # 2. requirements.txt 생성 (gitignore여도 상관없음)
       - name: Export requirements.txt
         run: |
           poetry export \
-            -f requirements.txt \
+            --format=requirements.txt \
             --without-hashes \
-            -o requirements.txt
+            --output requirements.txt
 
-      # ② Layer 전용 requirements 생성
+      # 3. Layer 전용 requirements 생성 (boto3 제거)
       - name: Prepare layer requirements
         run: |
           cp requirements.txt requirements.layer.txt
           sed -i '/^boto3/d;/^botocore/d;/^s3transfer/d' requirements.layer.txt
 
-      # ③ Layer 빌드
+      # 4. Layer 빌드 (Lambda 호환 Docker)
       - name: Build layer
         run: |
           rm -rf layer
@@ -54,27 +55,24 @@ jobs:
               pip install --no-cache-dir -r requirements.layer.txt -t layer/python
             "
 
-      # ④ zip
+      # 5. layer.zip 생성
       - name: Zip layer
         run: |
           cd layer
           zip -r layer.zip . > /dev/null
           cd ..
 
+      # 6. AWS 인증
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # ⑤ Layer publish
+      # 7. Layer publish
       - name: Publish layer
-        id: publish
         run: |
-          ARN=$(aws lambda publish-layer-version \
+          aws lambda publish-layer-version \
             --layer-name ansimon-deps \
             --zip-file fileb://layer/layer.zip \
-            --compatible-runtimes python3.11 \
-            --query LayerVersionArn \
-            --output text)
-          echo "layer_arn=$ARN" >> $GITHUB_OUTPUT
+            --compatible-runtimes python3.11
