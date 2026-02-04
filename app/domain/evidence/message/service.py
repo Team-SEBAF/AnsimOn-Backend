@@ -65,7 +65,7 @@ class EvidenceMessageService:
         db.commit()
 
         return EvidenceMessageUploadResponse(
-            images=[
+            messages=[
                 EvidenceMessageResponse(
                     id=m.id,
                     filename=m.filename,
