@@ -23,6 +23,7 @@ jobs:
         run: |
           pip install poetry
           poetry self add poetry-plugin-export
+          poetry export --help
 
       - name: Install dependencies
         run: poetry install --no-interaction --no-root
