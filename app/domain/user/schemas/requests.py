@@ -38,3 +38,7 @@ class UpdateMeRequest(BaseRequest):
 class RefreshTokenRequest(BaseRequest):
     id_token: str = Field(..., description="ID 토큰", examples=["eyJjdHkiOiJKV1Qi..."])
     refresh_token: str = Field(..., description="리프레시 토큰", examples=["eyJjdHkiOiJKV1Qi..."])
+
+
+class GoogleCallbackRequest(BaseRequest):
+    code: str = Field(..., description="Google 로그인 코드", examples=["4/0123456789abcdef"])

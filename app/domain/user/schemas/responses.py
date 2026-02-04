@@ -17,7 +17,7 @@ class VerifyEmailResponse(BaseResponse):
     email_verified: bool = Field(..., description="이메일 인증 여부", examples=[True])
 
 
-class LoginEmailResponse(BaseResponse, TokenDTO):
+class LoginTokenResponse(BaseResponse, TokenDTO):
     refresh_token: str = Field(
         ...,
         description="리프레시 토큰",

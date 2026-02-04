@@ -1,5 +1,6 @@
 from .dtos import UserDTO
 from .requests import (
+    GoogleCallbackRequest,
     LoginEmailRequest,
     RefreshTokenRequest,
     ResendEmailVerificationRequest,
@@ -8,7 +9,7 @@ from .requests import (
     VerifyEmailRequest,
 )
 from .responses import (
-    LoginEmailResponse,
+    LoginTokenResponse,
     MeResponse,
     RefreshTokenResponse,
     SignUpEmailResponse,
@@ -23,9 +24,10 @@ __all__ = [
     "VerifyEmailResponse",
     "ResendEmailVerificationRequest",
     "LoginEmailRequest",
-    "LoginEmailResponse",
+    "LoginTokenResponse",
     "MeResponse",
     "UpdateMeRequest",
     "RefreshTokenRequest",
     "RefreshTokenResponse",
+    "GoogleCallbackRequest",
 ]

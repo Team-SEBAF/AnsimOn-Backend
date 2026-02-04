@@ -56,13 +56,13 @@ def resend_email_verification(
 
 @router.post(
     "/login/email",
-    summary="이메일 로그인",
-    description="이메일 로그인을 수행합니다.",
-    response_model=schemas.LoginEmailResponse,
+    summary="이메일 회원 로그인",
+    description="이메일 회원 로그인을 수행합니다.",
+    response_model=schemas.LoginTokenResponse,
     responses=user_errors.LOGIN_EMAIL_ERRORS_RESPONSES,
 )
-def login_email(request: schemas.LoginEmailRequest, db: Session = Depends(get_db)):
-    return user_service.login_email(request, db)
+def login_email(request: schemas.LoginEmailRequest):
+    return user_service.login_email(request)
 
 
 @router.get(
@@ -91,8 +91,8 @@ def update_me(
 
 @router.post(
     "/logout",
-    summary="로그아웃",
-    description="로그아웃을 수행합니다.",
+    summary="이메일 회원 로그아웃",
+    description="이메일 회원 로그아웃을 수행합니다.",
     status_code=200,
     response_model=BaseSuccessResponse,
 )
@@ -112,3 +112,15 @@ def refresh_token(
     request: schemas.RefreshTokenRequest,
 ):
     return user_service.refresh_token(request)
+
+
+@router.post(
+    "/google/callback",
+    summary="Google 로그인 코드로 토큰 발급",
+    description="Google 로그인 코드로 토큰을 발급받습니다.",
+    response_model=schemas.LoginTokenResponse,
+)
+def google_callback(
+    request: schemas.GoogleCallbackRequest,
+):
+    return user_service.google_callback(request)
