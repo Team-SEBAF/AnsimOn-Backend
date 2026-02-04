@@ -23,3 +23,15 @@ class EvidenceMessageOriginalImageResponse(BaseModel):
     width: int | None
     height: int | None
     url: str
+
+
+class EvidenceMessageThumbnailResponse(BaseModel):
+    message_id: UUID
+    url: str
+    width: int
+    height: int
+
+
+class EvidenceMessageThumbnailListResponse(BaseModel):
+    thumbnails: list[EvidenceMessageThumbnailResponse]
+    total_count: int

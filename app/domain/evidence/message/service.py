@@ -172,5 +172,54 @@ class EvidenceMessageService:
             url=url,
         )
 
+    def get_thumbnail_images(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceMessageThumbnailListResponse:
+        repo = EvidenceMessageRepository(db)
+
+        # 최신순 썸네일 대상 조회
+        messages = repo.list_by_complaint(
+            complaint_id=complaint.complaint_id,
+            limit=limit,
+        )
+
+        total_count = repo.count_by_complaint(
+            complaint_id=complaint.complaint_id,
+        )
+
+        s3 = get_s3_client()
+        thumbnails: list[schemas.EvidenceMessageThumbnailResponse] = []
+
+        for message in messages:
+            # original → thumbnail key 변환
+            base = message.s3_key.rsplit("/", 1)[0]
+            thumbnail_key = f"{base}/thumbnail.jpg"
+
+            url = s3.generate_presigned_url(
+                ClientMethod="get_object",
+                Params={
+                    "Bucket": settings.S3_BUCKET_NAME,
+                    "Key": thumbnail_key,
+                },
+                ExpiresIn=60 * 60,  # 1시간
+            )
+
+            thumbnails.append(
+                schemas.EvidenceMessageThumbnailResponse(
+                    message_id=message.message_id,
+                    url=url,
+                    width=160,
+                    height=160,
+                )
+            )
+
+        return schemas.EvidenceMessageThumbnailListResponse(
+            thumbnails=thumbnails,
+            total_count=total_count,
+        )
+
 
 evidence_message_service = EvidenceMessageService()

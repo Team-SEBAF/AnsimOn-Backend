@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
 import app.domain.evidence.message.errors as evidence_message_errors
@@ -27,6 +27,24 @@ def upload_evidence_message_images(
     return evidence_message_service.upload_images(
         complaint=complaint,
         files=files,
+        db=db,
+    )
+
+
+@router.get(
+    "/{complaint_id}/messages/thumbnails",
+    summary="MESSAGE 타입 증거 썸네일 리스트 조회",
+    description="MESSAGE 타입 증거 썸네일 리스트를 조회합니다. (1시간 유효)",
+    response_model=schemas.EvidenceMessageThumbnailListResponse,
+)
+def get_evidence_message_thumbnails(
+    complaint: Complaint = Depends(get_owned_complaint),
+    limit: int = Query(5, ge=1, le=20),
+    db: Session = Depends(get_db),
+):
+    return evidence_message_service.get_thumbnail_images(
+        complaint=complaint,
+        limit=limit,
         db=db,
     )
 

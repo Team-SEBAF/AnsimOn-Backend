@@ -16,12 +16,10 @@ def make_image_top_crop(
     quality: int,
 ) -> tuple[bytes, int, int]:
     """
-    상단 기준 정사각형 이미지 생성
-
-    - size x size
-    - 비율 무시
+    - 정사각형(size x size)
+    - 가로/세로 중 긴 쪽 기준 리사이즈
     - 상단 기준 크롭
-    - JPEG
+    - 여백/검은 영역 없음
     """
     img = Image.open(BytesIO(file_bytes))
     img = ImageOps.exif_transpose(img)
@@ -29,17 +27,29 @@ def make_image_top_crop(
 
     orig_w, orig_h = img.size
 
-    # 가로 기준 리사이즈
-    scale = size / orig_w
+    # scale 결정 (짧은 변이 size 이상이 되도록)
+    if orig_w >= orig_h:
+        # 가로가 더 긴 경우 → 세로 기준
+        scale = size / orig_h
+    else:
+        # 세로가 더 긴 경우 → 가로 기준
+        scale = size / orig_w
+
+    resized_w = int(orig_w * scale)
     resized_h = int(orig_h * scale)
 
     img = img.resize(
-        (size, resized_h),
+        (resized_w, resized_h),
         Image.Resampling.LANCZOS,
     )
 
-    # 상단 기준 크롭
-    img = img.crop((0, 0, size, size))
+    # 상단 기준 크롭 (가로 중앙, 세로 상단)
+    left = max(0, (resized_w - size) // 2)
+    upper = 0
+    right = left + size
+    lower = upper + size
+
+    img = img.crop((left, upper, right, lower))
 
     buf = BytesIO()
     img.save(

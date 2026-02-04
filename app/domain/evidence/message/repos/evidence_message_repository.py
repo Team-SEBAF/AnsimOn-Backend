@@ -20,6 +20,22 @@ class EvidenceMessageRepository:
             .one_or_none()
         )
 
+    def list_by_complaint(self, complaint_id: UUID, limit: int):
+        return (
+            self.db.query(EvidenceMessage)
+            .filter(EvidenceMessage.complaint_id == complaint_id)
+            .order_by(EvidenceMessage.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+
+    def count_by_complaint(self, complaint_id: UUID) -> int:
+        return (
+            self.db.query(EvidenceMessage)
+            .filter(EvidenceMessage.complaint_id == complaint_id)
+            .count()
+        )
+
     def delete(self, message_id: UUID):
         message = self.get(message_id)
         if message:
