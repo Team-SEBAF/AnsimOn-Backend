@@ -23,7 +23,7 @@ jobs:
         run: pip install poetry
 
       - name: Install dependencies
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --no-root
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
