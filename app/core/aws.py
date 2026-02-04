@@ -33,3 +33,11 @@ def upload_fileobj(
             "ContentType": content_type,
         },
     )
+
+
+def delete_s3_objects(bucket: str, keys: list[str]) -> None:
+    client = get_s3_client()
+    client.delete_objects(
+        Bucket=bucket,
+        Delete={"Objects": [{"Key": k} for k in keys], "Quiet": True},
+    )

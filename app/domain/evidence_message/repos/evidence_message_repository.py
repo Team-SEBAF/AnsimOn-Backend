@@ -36,7 +36,5 @@ class EvidenceMessageRepository:
             .count()
         )
 
-    def delete(self, message_id: UUID):
-        message = self.get(message_id)
-        if message:
-            self.db.delete(message)
+    def delete(self, message: EvidenceMessage):
+        self.db.delete(message)

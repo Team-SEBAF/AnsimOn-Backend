@@ -31,5 +31,23 @@ class EvidenceService:
         else:
             raise NotImplementedError(f"증거 타입 {request.type.value} 파일명 수정은 미구현입니다.")
 
+    def delete_evidence(
+        self,
+        evidence_id: UUID,
+        request: schemas.DeleteEvidenceRequest,
+        current_user: AuthUser,
+        db: Session,
+    ) -> None:
+        if request.type == schemas.EvidenceType.MESSAGE:
+            from app.domain.evidence_message.service import evidence_message_service
+
+            evidence_message_service.delete_message(
+                message_id=evidence_id,
+                current_user=current_user,
+                db=db,
+            )
+        else:
+            raise NotImplementedError(f"증거 타입 {request.type.value} 삭제는 미구현입니다.")
+
 
 evidence_service = EvidenceService()

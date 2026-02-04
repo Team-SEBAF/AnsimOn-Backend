@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import get_s3_client, upload_fileobj
+from app.core.aws import delete_s3_objects, get_s3_client, upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint, ComplaintRepository
 from app.domain.evidence_message import schemas
@@ -57,7 +57,7 @@ class EvidenceMessageService:
         s3 = get_s3_client()
 
         base = message.s3_key.rsplit("/", 1)[0]
-        key = f"{base}/{variant.value}.jpg"
+        key = f"{base}/{variant.value}"
 
         url = s3.generate_presigned_url(
             ClientMethod="get_object",
@@ -122,9 +122,9 @@ class EvidenceMessageService:
                     f"{complaint.complaint_id}/evidences/messages/{message_id}"
                 )
 
-                original_key = f"{base_key}/original.jpg"
-                thumbnail_key = f"{base_key}/thumbnail.jpg"
-                detail_key = f"{base_key}/detail.jpg"
+                original_key = f"{base_key}/original"
+                thumbnail_key = f"{base_key}/thumbnail"
+                detail_key = f"{base_key}/detail"
 
                 # 파생 이미지 생성
                 thumbnail_bytes, _, _ = make_image_top_crop(
@@ -303,6 +303,35 @@ class EvidenceMessageService:
         db.refresh(message)
 
         return message
+
+    def delete_message(
+        self,
+        message_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+    ) -> None:
+        message = self._get_message(message_id, db)
+        self._check_access_permission(message, current_user, db)
+
+        try:
+            # S3: original / thumbnail / detail 3개 객체 삭제
+            base = message.s3_key.rsplit("/", 1)[0]
+            s3_keys = [
+                f"{base}/original",
+                f"{base}/thumbnail",
+                f"{base}/detail",
+            ]
+            delete_s3_objects(settings.S3_BUCKET_NAME, s3_keys)
+        except Exception:
+            raise CodeException(
+                code="DELETE_EVIDENCE_MESSAGE_FAILED",
+                message="증거 메시지 삭제에 실패했습니다.",
+                status_code=500,
+            )
+
+        repo = EvidenceMessageRepository(db)
+        repo.delete(message)
+        db.commit()
 
 
 evidence_message_service = EvidenceMessageService()

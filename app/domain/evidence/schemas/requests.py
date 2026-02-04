@@ -29,3 +29,11 @@ class UpdateEvidenceFilenameRequest(BaseRequest):
         examples=[EvidenceType.MESSAGE],
     )
     filename: str = Field(..., description="새 파일명", examples=["증거_이미지"])
+
+
+class DeleteEvidenceRequest(BaseRequest):
+    type: EvidenceType = Field(
+        ...,
+        description="증거 타입",
+        examples=[EvidenceType.MESSAGE],
+    )
