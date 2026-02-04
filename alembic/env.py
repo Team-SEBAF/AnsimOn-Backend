@@ -1,10 +1,10 @@
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import create_engine, pool
 
 from alembic import context
 from app.base import Base
-from app.core.settings import settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -59,7 +59,7 @@ def run_migrations_online() -> None:
 
     """
     connectable = create_engine(
-        settings.DATABASE_URL,
+        os.environ["DATABASE_URL"],
         poolclass=pool.NullPool,
     )
 
