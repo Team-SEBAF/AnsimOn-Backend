@@ -69,6 +69,21 @@ class EvidenceMessageService:
         )
         return url
 
+    def _get_message(
+        self,
+        message_id: UUID,
+        db: Session,
+    ) -> EvidenceMessage:
+        repo = EvidenceMessageRepository(db)
+        message = repo.get(message_id)
+        if not message:
+            raise CodeException(
+                code=GetEvidenceMessageErrorCode.EVIDENCE_MESSAGE_NOT_FOUND,
+                message=f"message_id: {message_id}에 해당하는 증거 메시지를 찾을 수 없습니다.",
+                status_code=404,
+            )
+        return message
+
     def _check_access_permission(
         self, message: EvidenceMessage, current_user: AuthUser, db: Session
     ) -> None:
@@ -254,16 +269,7 @@ class EvidenceMessageService:
         current_user: AuthUser,
         db: Session,
     ) -> schemas.EvidenceMessageOriginalImageResponse:
-        message_repo = EvidenceMessageRepository(db)
-
-        message = message_repo.get(message_id)
-        if not message:
-            raise CodeException(
-                code=GetEvidenceMessageErrorCode.EVIDENCE_MESSAGE_NOT_FOUND,
-                message=f"message_id: {message_id}에 해당하는 증거 메시지를 찾을 수 없습니다.",
-                status_code=404,
-            )
-
+        message = self._get_message(message_id, db)
         self._check_access_permission(message, current_user, db)
 
         url = self._get_presigned_url(
@@ -281,6 +287,22 @@ class EvidenceMessageService:
             height=message.height,
             url=url,
         )
+
+    def update_filename(
+        self,
+        message_id: UUID,
+        filename: str,
+        current_user: AuthUser,
+        db: Session,
+    ) -> EvidenceMessage:
+        message = self._get_message(message_id, db)
+        self._check_access_permission(message, current_user, db)
+
+        message.filename = filename
+        db.commit()
+        db.refresh(message)
+
+        return message
 
 
 evidence_message_service = EvidenceMessageService()
