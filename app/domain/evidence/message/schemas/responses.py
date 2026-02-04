@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 
 class EvidenceMessageResponse(BaseModel):
-    id: UUID
+    message_id: UUID
     filename: str
     width: int | None
     height: int | None

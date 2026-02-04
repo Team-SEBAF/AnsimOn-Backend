@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+from io import BytesIO
 from uuid import UUID, uuid4
 
 from fastapi import UploadFile
@@ -13,7 +15,7 @@ from app.domain.evidence.message import schemas
 from .errors.get_message_error import GetEvidenceMessageErrorCode
 from .models.evidence_message_model import EvidenceMessage
 from .repos.evidence_message_repository import EvidenceMessageRepository
-from .utils import extract_image_meta
+from .utils import extract_image_meta, make_image_top_crop
 
 
 class EvidenceMessageService:
@@ -37,50 +39,91 @@ class EvidenceMessageService:
         db: Session,
     ) -> schemas.EvidenceMessageUploadResponse:
         evidence_message_repo = EvidenceMessageRepository(db)
-
         results: list[EvidenceMessage] = []
 
-        for file in files:
-            file_bytes = file.file.read()
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            for file in files:
+                # 파일 바이트 읽기 (1회)
+                file_bytes = file.file.read()
 
-            # 1. 이미지 메타데이터
-            width, height = extract_image_meta(file_bytes)
-            file.file.seek(0)  # 파일 포인터를 처음으로 되돌림
+                # 원본 이미지 메타데이터
+                width, height = extract_image_meta(file_bytes)
 
-            # 2. ID 생성
-            message_id = uuid4()
+                # message_id 생성
+                message_id = uuid4()
 
-            # 3. S3 key
-            s3_key = f"{complaint.user_sub}/complaints/{complaint.complaint_id}/evidences/messages/{message_id}/original"
+                base_key = (
+                    f"{complaint.user_sub}/complaints/"
+                    f"{complaint.complaint_id}/evidences/messages/{message_id}"
+                )
 
-            # 4. S3 업로드
-            upload_fileobj(
-                fileobj=file.file,
-                bucket=settings.S3_BUCKET_NAME,
-                key=s3_key,
-                content_type=file.content_type,
-            )
+                original_key = f"{base_key}/original.jpg"
+                thumbnail_key = f"{base_key}/thumbnail.jpg"
+                middle_key = f"{base_key}/middle.jpg"
 
-            # 5. DB 객체 생성
-            message = EvidenceMessage(
-                id=message_id,
-                complaint_id=complaint.complaint_id,
-                filename=file.filename,
-                s3_key=s3_key,
-                content_type=file.content_type,
-                size_bytes=len(file_bytes),
-                width=width,
-                height=height,
-            )
-            evidence_message_repo.create(message)
-            results.append(message)
+                # 파생 이미지 생성
+                thumbnail_bytes, _, _ = make_image_top_crop(
+                    file_bytes=file_bytes,
+                    size=160,
+                    quality=65,
+                )
+
+                middle_bytes, _, _ = make_image_top_crop(
+                    file_bytes=file_bytes,
+                    size=512,
+                    quality=80,
+                )
+
+                # S3 업로드 (병렬)
+                futures = [
+                    executor.submit(
+                        upload_fileobj,
+                        fileobj=BytesIO(file_bytes),
+                        bucket=settings.S3_BUCKET_NAME,
+                        key=original_key,
+                        content_type=file.content_type,
+                    ),
+                    executor.submit(
+                        upload_fileobj,
+                        fileobj=BytesIO(thumbnail_bytes),
+                        bucket=settings.S3_BUCKET_NAME,
+                        key=thumbnail_key,
+                        content_type="image/jpeg",
+                    ),
+                    executor.submit(
+                        upload_fileobj,
+                        fileobj=BytesIO(middle_bytes),
+                        bucket=settings.S3_BUCKET_NAME,
+                        key=middle_key,
+                        content_type="image/jpeg",
+                    ),
+                ]
+
+                # 업로드 실패 시 예외 전파
+                for future in futures:
+                    future.result()
+
+                # DB row 생성 (original 기준)
+                message = EvidenceMessage(
+                    message_id=message_id,
+                    complaint_id=complaint.complaint_id,
+                    filename=file.filename,
+                    s3_key=original_key,
+                    content_type=file.content_type,
+                    size_bytes=len(file_bytes),
+                    width=width,
+                    height=height,
+                )
+
+                evidence_message_repo.create(message)
+                results.append(message)
 
         db.commit()
 
         return schemas.EvidenceMessageUploadResponse(
             messages=[
                 schemas.EvidenceMessageResponse(
-                    id=m.id,
+                    message_id=m.message_id,
                     filename=m.filename,
                     width=m.width,
                     height=m.height,
