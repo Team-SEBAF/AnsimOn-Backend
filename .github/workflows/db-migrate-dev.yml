@@ -34,5 +34,12 @@ jobs:
       - name: Alembic upgrade
         env:
           DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+
+          WEB_APP_URL: ${{ vars.WEB_APP_URL }}
+          COGNITO_CLIENT_ID: ${{ vars.COGNITO_CLIENT_ID }}
+          COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
+          COGNITO_CLIENT_SECRET: ${{ vars.COGNITO_CLIENT_SECRET }}
+          COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN }}
+
         run: |
           poetry run alembic upgrade head
