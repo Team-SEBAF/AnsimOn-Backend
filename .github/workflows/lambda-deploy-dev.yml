@@ -1,0 +1,73 @@
+name: Deploy Lambda (dev)
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install poetry
+        run: pip install poetry
+
+      - name: Export requirements.txt
+        run: poetry export -f requirements.txt --without-hashes -o requirements.txt
+
+      - name: Build lambda package
+        run: |
+          rm -rf package lambda.zip
+          mkdir package
+
+          docker run --rm \
+            -v "$PWD":/var/task \
+            --platform linux/amd64 \
+            public.ecr.aws/sam/build-python3.11 \
+            bash -c "
+              pip install --upgrade pip &&
+              pip install --no-cache-dir -r requirements.txt -t package
+            "
+
+          cp -r app package/
+          cd package
+          zip -r ../lambda.zip . > /dev/null
+          cd ..
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Update Lambda code
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
+            --zip-file fileb://lambda.zip
+
+      - name: Publish new version
+        id: publish
+        run: |
+          VERSION=$(aws lambda publish-version \
+            --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
+            --query Version \
+            --output text)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update dev alias
+        run: |
+          aws lambda update-alias \
+            --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
+            --name ${{ secrets.LAMBDA_ALIAS_NAME }} \
+            --function-version ${{ steps.publish.outputs.version }}
