@@ -114,6 +114,7 @@ jobs:
         run: |
           aws lambda wait function-updated \
             --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }}
+
       - name: Ensure layer is attached
         run: |
           for i in {1..10}; do
@@ -124,7 +125,7 @@ jobs:
 
             echo "Current layers: $LAYERS"
 
-            if [[ "$LAYERS" == *"${{ needs.deploy-layer.outputs.layer_arn }}"* ]]; then
+            if [[ "$LAYERS" != "None" && "$LAYERS" == *"${{ needs.deploy-layer.outputs.layer_arn }}"* ]]; then
               echo "Layer attached successfully"
               exit 0
             fi
