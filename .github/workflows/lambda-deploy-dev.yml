@@ -11,8 +11,6 @@ permissions:
 jobs:
   deploy-layer:
     runs-on: ubuntu-latest
-    outputs:
-      layer_arn: ${{ steps.publish.outputs.layer_arn }}
 
     steps:
       - uses: actions/checkout@v4
@@ -62,15 +60,11 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Publish layer
-        id: publish
         run: |
-          ARN=$(aws lambda publish-layer-version \
+          aws lambda publish-layer-version \
             --layer-name ansimon-deps \
             --zip-file fileb://layer/layer.zip \
-            --compatible-runtimes python3.11 \
-            --query LayerVersionArn \
-            --output text)
-          echo "layer_arn=$ARN" >> $GITHUB_OUTPUT
+            --compatible-runtimes python3.11
 
   deploy-lambda:
     runs-on: ubuntu-latest
@@ -81,6 +75,7 @@ jobs:
 
       - name: Build lambda package
         run: |
+          rm -rf package lambda.zip
           mkdir package
           cp -r app package/
           cd package
@@ -104,38 +99,23 @@ jobs:
           aws lambda wait function-updated \
             --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }}
 
-      - name: Attach layer
+      - name: Attach latest layer
         run: |
+          LAYER_ARN=$(aws lambda list-layer-versions \
+            --layer-name ansimon-deps \
+            --query 'LayerVersions[0].LayerVersionArn' \
+            --output text)
+
+          echo "Using layer: $LAYER_ARN"
+
           aws lambda update-function-configuration \
             --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
-            --layers ${{ needs.deploy-layer.outputs.layer_arn }}
+            --layers "$LAYER_ARN"
 
       - name: Wait after layer attach
         run: |
           aws lambda wait function-updated \
             --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }}
-
-      - name: Ensure layer is attached
-        run: |
-          for i in {1..10}; do
-            LAYERS=$(aws lambda get-function-configuration \
-              --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
-              --query 'Layers[].Arn' \
-              --output text)
-
-            echo "Current layers: $LAYERS"
-
-            if [[ "$LAYERS" != "None" && "$LAYERS" == *"${{ needs.deploy-layer.outputs.layer_arn }}"* ]]; then
-              echo "Layer attached successfully"
-              exit 0
-            fi
-
-            echo "Layer not attached yet, retrying..."
-            sleep 3
-          done
-
-          echo "Layer was not attached in time"
-          exit 1
 
       - name: Publish version
         id: publish
