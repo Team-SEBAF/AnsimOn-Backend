@@ -12,15 +12,16 @@ from app.core.aws import delete_s3_objects, upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
+from app.domain.evidence.constant import EVIDENCE_MESSAGE_RESTRICT
 from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
     EvidenceMaxCountExceededErrorCode,
 )
+from app.domain.evidence.utils import filter_evidence_files
 from app.domain.evidence_message import schemas
-from app.domain.evidence_message.constant import EVIDENCE_MESSAGE_MAX_COUNT
 
 from .models.evidence_message_model import EvidenceMessage
 from .repos.evidence_message_repository import EvidenceMessageRepository
-from .utils import extract_image_meta, filter_image_files, make_image_top_crop
+from .utils import extract_image_meta, make_image_top_crop
 
 
 class EvidenceMessageVariant(str, Enum):
@@ -83,7 +84,7 @@ class EvidenceMessageService(EvidenceTypeService):
             complaint_id=complaint.complaint_id,
             db=db,
         )
-        if total_count >= EVIDENCE_MESSAGE_MAX_COUNT:
+        if total_count >= EVIDENCE_MESSAGE_RESTRICT.max_count:
             raise CodeException(
                 code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
                 message="증거 메시지 최대 개수를 초과했습니다.",
@@ -94,14 +95,15 @@ class EvidenceMessageService(EvidenceTypeService):
         results: list[EvidenceMessage] = []
 
         # 이미지 파일 필터링
-        valid_files, invalid_filenames = filter_image_files(files)
+        filtered_result = filter_evidence_files(files, EVIDENCE_MESSAGE_RESTRICT)
+        valid_files = filtered_result["valid_files"]
 
         # 최대 개수 초과 체크
-        available_count = EVIDENCE_MESSAGE_MAX_COUNT - total_count
+        available_count = EVIDENCE_MESSAGE_RESTRICT.max_count - total_count
         upload_files = valid_files[:available_count]
 
-        cut_off_files = valid_files[available_count:]
-        cut_off_filenames = [file.filename for file in cut_off_files]
+        count_invalid_files = valid_files[available_count:]
+        count_invalid_filenames = [file.filename for file in count_invalid_files]
 
         with ThreadPoolExecutor(max_workers=4) as executor:
             for file in upload_files:
@@ -193,8 +195,9 @@ class EvidenceMessageService(EvidenceTypeService):
                 )
                 for m in results
             ],
-            cut_off_filenames=cut_off_filenames,
-            invalid_filenames=invalid_filenames,
+            type_invalid_filenames=filtered_result["type_invalid_filenames"],
+            count_invalid_filenames=count_invalid_filenames,
+            size_invalid_filenames=filtered_result["size_invalid_filenames"],
         )
 
     def get_thumbnail_images(

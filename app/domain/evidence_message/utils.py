@@ -1,24 +1,6 @@
 from io import BytesIO
 
-from fastapi import UploadFile
 from PIL import Image, ImageOps
-
-from .constant import ALLOWED_IMAGE_TYPES
-
-
-def filter_image_files(
-    files: list[UploadFile],
-) -> tuple[list[UploadFile], list[str]]:
-    valid_files: list[UploadFile] = []
-    invalid_filenames: list[str] = []
-
-    for file in files:
-        if file.content_type in ALLOWED_IMAGE_TYPES:
-            valid_files.append(file)
-        else:
-            invalid_filenames.append(file.filename)
-
-    return valid_files, invalid_filenames
 
 
 def extract_image_meta(file_bytes: bytes) -> tuple[int, int]:
