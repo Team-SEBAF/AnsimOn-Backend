@@ -18,6 +18,9 @@ class EvidenceMessageResponse(BaseResponse):
 
 class EvidenceMessageUploadResponse(BaseResponse):
     messages: list[EvidenceMessageResponse] = Field(..., description="업로드된 증거 메시지 목록")
+    cut_off_filenames: list[str] = Field(
+        ..., description="최대 개수 초과로 거절된 파일명 목록", examples=["evidence.jpg"]
+    )
     invalid_filenames: list[str] = Field(
         ..., description="이미지 타입이 아니라 거절된 파일명 목록", examples=["evidence.pdf"]
     )

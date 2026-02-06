@@ -11,9 +11,13 @@ from app.core.auth import AuthUser
 from app.core.aws import delete_s3_objects, get_s3_client, upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint, ComplaintRepository
+from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
+    EvidenceMaxCountExceededErrorCode,
+)
+from app.domain.evidence.errors.get_evidence_error import GetEvidenceErrorCode
 from app.domain.evidence_message import schemas
+from app.domain.evidence_message.constant import EVIDENCE_MESSAGE_MAX_COUNT
 
-from .errors.get_message_error import GetEvidenceMessageErrorCode
 from .models.evidence_message_model import EvidenceMessage
 from .repos.evidence_message_repository import EvidenceMessageRepository
 from .utils import extract_image_meta, filter_image_files, make_image_top_crop
@@ -26,7 +30,26 @@ class EvidenceMessageVariant(str, Enum):
 
 
 class EvidenceMessageService:
-    def _get_messages_and_total_count(
+    def _get_message(
+        self,
+        message_id: UUID,
+        db: Session,
+    ) -> EvidenceMessage:
+        repo = EvidenceMessageRepository(db)
+        message = repo.get(message_id)
+        if not message:
+            raise CodeException(
+                code=GetEvidenceErrorCode.EVIDENCE_NOT_FOUND,
+                message=f"message_id: {message_id}에 해당하는 증거 메시지를 찾을 수 없습니다.",
+                status_code=404,
+            )
+        return message
+
+    def _get_total_count(self, complaint_id: UUID, db: Session) -> int:
+        repo = EvidenceMessageRepository(db)
+        return repo.count_by_complaint(complaint_id=complaint_id)
+
+    def _get_limit_messages_and_total_count(
         self,
         *,
         complaint: Complaint,
@@ -41,8 +64,9 @@ class EvidenceMessageService:
             limit=limit,
         )
 
-        total_count = repo.count_by_complaint(
+        total_count = self._get_total_count(
             complaint_id=complaint.complaint_id,
+            db=db,
         )
 
         return messages, total_count
@@ -69,21 +93,6 @@ class EvidenceMessageService:
         )
         return url
 
-    def _get_message(
-        self,
-        message_id: UUID,
-        db: Session,
-    ) -> EvidenceMessage:
-        repo = EvidenceMessageRepository(db)
-        message = repo.get(message_id)
-        if not message:
-            raise CodeException(
-                code=GetEvidenceMessageErrorCode.EVIDENCE_MESSAGE_NOT_FOUND,
-                message=f"message_id: {message_id}에 해당하는 증거 메시지를 찾을 수 없습니다.",
-                status_code=404,
-            )
-        return message
-
     def _check_access_permission(
         self, message: EvidenceMessage, current_user: AuthUser, db: Session
     ) -> None:
@@ -92,7 +101,7 @@ class EvidenceMessageService:
 
         if complaint.user_sub != current_user.user_sub:
             raise CodeException(
-                code=GetEvidenceMessageErrorCode.NO_PERMISSION,
+                code=GetEvidenceErrorCode.NO_PERMISSION,
                 message=f"message_id: {message.message_id}에 해당하는 증거 메시지 접근 권한이 없습니다.",
                 status_code=403,
             )
@@ -103,13 +112,32 @@ class EvidenceMessageService:
         files: list[UploadFile],
         db: Session,
     ) -> schemas.EvidenceMessageUploadResponse:
-        valid_files, invalid_filenames = filter_image_files(files)
+        total_count = self._get_total_count(
+            complaint_id=complaint.complaint_id,
+            db=db,
+        )
+        if total_count >= EVIDENCE_MESSAGE_MAX_COUNT:
+            raise CodeException(
+                code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
+                message="증거 메시지 최대 개수를 초과했습니다.",
+                status_code=400,
+            )
 
         evidence_message_repo = EvidenceMessageRepository(db)
         results: list[EvidenceMessage] = []
 
+        # 이미지 파일 필터링
+        valid_files, invalid_filenames = filter_image_files(files)
+
+        # 최대 개수 초과 체크
+        available_count = EVIDENCE_MESSAGE_MAX_COUNT - total_count
+        upload_files = valid_files[:available_count]
+
+        cut_off_files = valid_files[available_count:]
+        cut_off_filenames = [file.filename for file in cut_off_files]
+
         with ThreadPoolExecutor(max_workers=4) as executor:
-            for file in valid_files:
+            for file in upload_files:
                 # 파일 바이트 읽기 (1회)
                 file_bytes = file.file.read()
 
@@ -198,6 +226,7 @@ class EvidenceMessageService:
                 )
                 for m in results
             ],
+            cut_off_filenames=cut_off_filenames,
             invalid_filenames=invalid_filenames,
         )
 
@@ -207,7 +236,7 @@ class EvidenceMessageService:
         limit: int,
         db: Session,
     ) -> schemas.EvidenceMessageThumbnailListResponse:
-        messages, total_count = self._get_messages_and_total_count(
+        messages, total_count = self._get_limit_messages_and_total_count(
             complaint=complaint,
             limit=limit,
             db=db,
@@ -238,7 +267,7 @@ class EvidenceMessageService:
         limit: int,
         db: Session,
     ) -> schemas.EvidenceMessageDetailListResponse:
-        messages, total_count = self._get_messages_and_total_count(
+        messages, total_count = self._get_limit_messages_and_total_count(
             complaint=complaint,
             limit=limit,
             db=db,

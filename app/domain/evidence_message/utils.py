@@ -3,12 +3,7 @@ from io import BytesIO
 from fastapi import UploadFile
 from PIL import Image, ImageOps
 
-ALLOWED_IMAGE_TYPES = {
-    "image/jpg",
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-}
+from .constant import ALLOWED_IMAGE_TYPES
 
 
 def filter_image_files(
