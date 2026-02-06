@@ -8,13 +8,13 @@ from sqlalchemy.orm import Session
 
 from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import delete_s3_objects, get_s3_client, upload_fileobj
+from app.core.aws import delete_s3_objects, upload_fileobj
 from app.core.settings import settings
-from app.domain.complaint import Complaint, ComplaintRepository
+from app.domain.complaint import Complaint
+from app.domain.evidence import EvidenceTypeService
 from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
     EvidenceMaxCountExceededErrorCode,
 )
-from app.domain.evidence.errors.get_evidence_error import GetEvidenceErrorCode
 from app.domain.evidence_message import schemas
 from app.domain.evidence_message.constant import EVIDENCE_MESSAGE_MAX_COUNT
 
@@ -29,21 +29,13 @@ class EvidenceMessageVariant(str, Enum):
     ORIGINAL = "original"
 
 
-class EvidenceMessageService:
+class EvidenceMessageService(EvidenceTypeService):
     def _get_message(
         self,
         message_id: UUID,
         db: Session,
     ) -> EvidenceMessage:
-        repo = EvidenceMessageRepository(db)
-        message = repo.get(message_id)
-        if not message:
-            raise CodeException(
-                code=GetEvidenceErrorCode.EVIDENCE_NOT_FOUND,
-                message=f"message_id: {message_id}에 해당하는 증거 메시지를 찾을 수 없습니다.",
-                status_code=404,
-            )
-        return message
+        return super()._get_evidence(evidence_id=message_id, repo=EvidenceMessageRepository(db))
 
     def _get_total_count(self, complaint_id: UUID, db: Session) -> int:
         repo = EvidenceMessageRepository(db)
@@ -71,40 +63,15 @@ class EvidenceMessageService:
 
         return messages, total_count
 
-    def _get_presigned_url(
-        self,
-        *,
-        message: EvidenceMessage,
-        variant: EvidenceMessageVariant,
-        expires_in: int,
-    ):
-        s3 = get_s3_client()
-
-        base = message.s3_key.rsplit("/", 1)[0]
-        key = f"{base}/{variant.value}"
-
-        url = s3.generate_presigned_url(
-            ClientMethod="get_object",
-            Params={
-                "Bucket": settings.S3_BUCKET_NAME,
-                "Key": key,
-            },
-            ExpiresIn=expires_in,
-        )
-        return url
-
     def _check_access_permission(
         self, message: EvidenceMessage, current_user: AuthUser, db: Session
     ) -> None:
-        complaint_repo = ComplaintRepository(db)
-        complaint = complaint_repo.get(message.complaint_id)
-
-        if complaint.user_sub != current_user.user_sub:
-            raise CodeException(
-                code=GetEvidenceErrorCode.NO_PERMISSION,
-                message=f"message_id: {message.message_id}에 해당하는 증거 메시지 접근 권한이 없습니다.",
-                status_code=403,
-            )
+        return super()._check_access_permission(
+            complaint_id=message.complaint_id,
+            evidence_id=message.message_id,
+            current_user=current_user,
+            db=db,
+        )
 
     def upload_images(
         self,
@@ -244,8 +211,8 @@ class EvidenceMessageService:
 
         thumbnails: list[schemas.EvidenceMessageThumbnailResponse] = []
         for message in messages:
-            url = self._get_presigned_url(
-                message=message,
+            url = super()._get_presigned_url(
+                evidence=message,
                 variant=EvidenceMessageVariant.THUMBNAIL,
                 expires_in=60 * 60,  # 1시간
             )
@@ -275,8 +242,8 @@ class EvidenceMessageService:
 
         details: list[schemas.EvidenceMessageDetailResponse] = []
         for message in messages:
-            url = self._get_presigned_url(
-                message=message,
+            url = super()._get_presigned_url(
+                evidence=message,
                 variant=EvidenceMessageVariant.DETAIL,
                 expires_in=60 * 30,  # 30분
             )
@@ -304,8 +271,8 @@ class EvidenceMessageService:
         message = self._get_message(message_id, db)
         self._check_access_permission(message, current_user, db)
 
-        url = self._get_presigned_url(
-            message=message,
+        url = super()._get_presigned_url(
+            evidence=message,
             variant=EvidenceMessageVariant.ORIGINAL,
             expires_in=60 * 10,  # 10분
         )
