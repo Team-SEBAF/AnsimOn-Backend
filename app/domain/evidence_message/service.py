@@ -16,7 +16,7 @@ from app.domain.evidence_message import schemas
 from .errors.get_message_error import GetEvidenceMessageErrorCode
 from .models.evidence_message_model import EvidenceMessage
 from .repos.evidence_message_repository import EvidenceMessageRepository
-from .utils import extract_image_meta, make_image_top_crop
+from .utils import extract_image_meta, filter_image_files, make_image_top_crop
 
 
 class EvidenceMessageVariant(str, Enum):
@@ -103,11 +103,13 @@ class EvidenceMessageService:
         files: list[UploadFile],
         db: Session,
     ) -> schemas.EvidenceMessageUploadResponse:
+        valid_files, invalid_filenames = filter_image_files(files)
+
         evidence_message_repo = EvidenceMessageRepository(db)
         results: list[EvidenceMessage] = []
 
         with ThreadPoolExecutor(max_workers=4) as executor:
-            for file in files:
+            for file in valid_files:
                 # 파일 바이트 읽기 (1회)
                 file_bytes = file.file.read()
 
@@ -195,7 +197,8 @@ class EvidenceMessageService:
                     size_bytes=m.size_bytes,
                 )
                 for m in results
-            ]
+            ],
+            invalid_filenames=invalid_filenames,
         )
 
     def get_thumbnail_images(

@@ -18,6 +18,9 @@ class EvidenceMessageResponse(BaseResponse):
 
 class EvidenceMessageUploadResponse(BaseResponse):
     messages: list[EvidenceMessageResponse] = Field(..., description="업로드된 증거 메시지 목록")
+    invalid_filenames: list[str] = Field(
+        ..., description="이미지 타입이 아니라 거절된 파일명 목록", examples=["evidence.pdf"]
+    )
 
 
 class EvidenceMessageOriginalImageResponse(BaseResponse):
