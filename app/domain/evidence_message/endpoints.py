@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/v1", tags=["Evidence Message"])
 
 @router.post(
     "/{complaint_id}/evidences/messages",
-    summary="MESSAGE 타입 증거 이미지 업로드 (최대 3개)",
+    summary="MESSAGE 타입 증거 이미지 업로드 (최대 10개)",
     description="MESSAGE 타입 증거 이미지를 업로드합니다.",
     response_model=schemas.EvidenceMessageUploadResponse,
     responses=evidence_errors.EVIDENCE_MAX_COUNT_EXCEEDED_ERRORS_RESPONSES,
