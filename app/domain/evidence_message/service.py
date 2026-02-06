@@ -87,7 +87,7 @@ class EvidenceMessageService(EvidenceTypeService):
         if total_count >= EVIDENCE_MESSAGE_RESTRICT.max_count:
             raise CodeException(
                 code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
-                message="증거 메시지 최대 개수를 초과했습니다.",
+                message=f"메시지 타입 증거의 최대 개수({EVIDENCE_MESSAGE_RESTRICT.max_count}개)를 초과했습니다.",
                 status_code=400,
             )
 

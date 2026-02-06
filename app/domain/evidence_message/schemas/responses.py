@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import Field
 
 from app.base.base_response import BaseResponse
+from app.domain.evidence.constant import EVIDENCE_MESSAGE_RESTRICT
 
 
 class EvidenceMessageResponse(BaseResponse):
@@ -18,11 +19,20 @@ class EvidenceMessageResponse(BaseResponse):
 
 class EvidenceMessageUploadResponse(BaseResponse):
     messages: list[EvidenceMessageResponse] = Field(..., description="업로드된 증거 메시지 목록")
-    cut_off_filenames: list[str] = Field(
-        ..., description="최대 개수 초과로 거절된 파일명 목록", examples=["evidence.jpg"]
+    type_invalid_filenames: list[str] = Field(
+        ...,
+        description=f"가능한 이미지 타입({EVIDENCE_MESSAGE_RESTRICT.allowed_types})이 아니라 거절된 파일명 목록",
+        examples=["evidence.pdf"],
     )
-    invalid_filenames: list[str] = Field(
-        ..., description="이미지 타입이 아니라 거절된 파일명 목록", examples=["evidence.pdf"]
+    count_invalid_filenames: list[str] = Field(
+        ...,
+        description=f"최대 개수 {EVIDENCE_MESSAGE_RESTRICT.max_count}개를 초과하여 거절된 파일명 목록",
+        examples=["evidence.jpg"],
+    )
+    size_invalid_filenames: list[str] = Field(
+        ...,
+        description=f"파일 크기가 {EVIDENCE_MESSAGE_RESTRICT.max_size_bytes / 1024 / 1024}MB를 초과하여 거절된 파일명 목록",
+        examples=["evidence.jpg"],
     )
 
 
