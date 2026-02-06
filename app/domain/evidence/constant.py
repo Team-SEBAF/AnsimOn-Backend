@@ -7,8 +7,7 @@ class EvidenceTypeRestrict:
     allowed_types: Set[str]
     max_count: int
     max_size_bytes: int
-    max_length_seconds: Optional[int] = None  # 음성용
-    max_duration_seconds: Optional[int] = None  # 영상용
+    max_duration_seconds: Optional[int] = None
 
 
 EVIDENCE_MESSAGE_RESTRICT = EvidenceTypeRestrict(
@@ -31,7 +30,7 @@ EVIDENCE_VOICE_RESTRICT = EvidenceTypeRestrict(
     },
     max_count=5,
     max_size_bytes=20 * 1024 * 1024,  # 20MB
-    max_length_seconds=300,  # 5분
+    max_duration_seconds=300,  # 5분
 )
 
 EVIDENCE_TRACKING_RESTRICT = EvidenceTypeRestrict(
