@@ -24,6 +24,7 @@ EVIDENCE_MESSAGE_RESTRICT = EvidenceTypeRestrict(
 EVIDENCE_VOICE_RESTRICT = EvidenceTypeRestrict(
     allowed_types={
         "audio/mp4",  # m4a
+        "audio/x-m4a",
         "audio/mpeg",  # mp3
         "audio/wav",
         "audio/x-wav",
