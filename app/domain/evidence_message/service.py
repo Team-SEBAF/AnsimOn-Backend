@@ -1,5 +1,4 @@
 from concurrent.futures import ThreadPoolExecutor
-from enum import Enum
 from io import BytesIO
 from uuid import UUID, uuid4
 
@@ -12,7 +11,7 @@ from app.core.aws import delete_s3_objects, upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
-from app.domain.evidence.constant import EVIDENCE_MESSAGE_RESTRICT
+from app.domain.evidence.constant import EVIDENCE_MESSAGE_RESTRICT, EvidenceMessageVariant
 from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
     EvidenceMaxCountExceededErrorCode,
 )
@@ -22,12 +21,6 @@ from app.domain.evidence_message import schemas
 from .models.evidence_message_model import EvidenceMessage
 from .repos.evidence_message_repository import EvidenceMessageRepository
 from .utils import extract_image_meta, make_image_top_crop
-
-
-class EvidenceMessageVariant(str, Enum):
-    THUMBNAIL = "thumbnail"
-    DETAIL = "detail"
-    ORIGINAL = "original"
 
 
 class EvidenceMessageService(EvidenceTypeService):

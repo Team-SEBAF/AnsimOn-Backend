@@ -12,7 +12,7 @@ class EvidenceVoiceResponse(BaseResponse):
         ..., description="증거 음성 ID", examples=[UUID("123e4567-e89b-12d3-a456-426614174000")]
     )
     filename: str = Field(..., description="파일명", examples=["evidence.mp3"])
-    length_seconds: int = Field(..., description="음성 길이(초)", examples=[123])
+    duration_seconds: int = Field(..., description="음성 길이(초)", examples=[123])
     size_bytes: int = Field(..., description="파일 크기(바이트)", examples=[12345])
     created_at: datetime.datetime = Field(
         ...,
@@ -43,8 +43,8 @@ class EvidenceVoiceUploadResponse(BaseResponse):
         description=f"파일 크기가 {EVIDENCE_VOICE_RESTRICT.max_size_bytes / 1024 / 1024}MB를 초과하여 거절된 파일명 목록",
         examples=["evidence.mp3"],
     )
-    duration_invalid_filenames: list[str] | None = Field(
-        None,
+    duration_invalid_filenames: list[str] = Field(
+        ...,
         description=f"음성 길이가 {EVIDENCE_VOICE_RESTRICT.max_duration_seconds}초를 초과하여 거절된 파일명 목록",
         examples=["evidence.mp3"],
     )

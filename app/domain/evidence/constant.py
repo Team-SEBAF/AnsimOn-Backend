@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional, Set
 
 
@@ -61,3 +62,9 @@ EVIDENCE_DOCUMENT_RESTRICT = EvidenceTypeRestrict(
     max_count=3,
     max_size_bytes=10 * 1024 * 1024,  # 10MB
 )
+
+
+class EvidenceMessageVariant(str, Enum):
+    THUMBNAIL = "thumbnail"
+    DETAIL = "detail"
+    ORIGINAL = "original"

@@ -9,6 +9,7 @@ from app.dev.endpoints import router as dev_router
 from app.domain.complaint.endpoints import router as complaint_router
 from app.domain.evidence.endpoints import router as evidence_router
 from app.domain.evidence_message.endpoints import router as evidence_message_router
+from app.domain.evidence_tracking.endpoints import router as evidence_tracking_router
 from app.domain.evidence_voice.endpoints import router as evidence_voice_router
 from app.domain.user.endpoints import router as user_router
 
@@ -40,5 +41,6 @@ app.include_router(complaint_router)
 app.include_router(evidence_router)
 app.include_router(evidence_message_router)
 app.include_router(evidence_voice_router)
+app.include_router(evidence_tracking_router)
 
 handler = Mangum(app)

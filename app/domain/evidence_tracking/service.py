@@ -11,39 +11,41 @@ from app.core.aws import upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
-from app.domain.evidence.constant import EVIDENCE_VOICE_RESTRICT
+from app.domain.evidence.constant import EVIDENCE_TRACKING_RESTRICT
 from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
     EvidenceMaxCountExceededErrorCode,
 )
-from app.domain.evidence.utils import filter_evidence_files
-from app.domain.evidence_voice import schemas
-from app.domain.evidence_voice.models.evidence_voice_model import EvidenceVoice
-from app.domain.evidence_voice.repos.evidence_voice_repository import EvidenceVoiceRepository
+from app.domain.evidence.utils import filter_evidence_files, get_video_image_at_0
+from app.domain.evidence_tracking import schemas
+from app.domain.evidence_tracking.models.evidence_tracking_model import EvidenceTracking
+from app.domain.evidence_tracking.repos.evidence_tracking_repository import (
+    EvidenceTrackingRepository,
+)
 
 
-class EvidenceVoiceService(EvidenceTypeService):
-    def _get_voice(
+class EvidenceTrackingService(EvidenceTypeService):
+    def _get_tracking(
         self,
-        voice_id: UUID,
+        tracking_id: UUID,
         db: Session,
-    ) -> EvidenceVoice:
-        return super()._get_evidence(evidence_id=voice_id, repo=EvidenceVoiceRepository(db))
+    ) -> EvidenceTracking:
+        return super()._get_evidence(evidence_id=tracking_id, repo=EvidenceTrackingRepository(db))
 
     def _get_total_count(self, complaint_id: UUID, db: Session) -> int:
-        repo = EvidenceVoiceRepository(db)
+        repo = EvidenceTrackingRepository(db)
         return repo.count_by_complaint(complaint_id=complaint_id)
 
-    def _get_limit_voices_and_total_count(
+    def _get_limit_trackings_and_total_count(
         self,
         *,
         complaint: Complaint,
         limit: int,
         db: Session,
     ):
-        repo = EvidenceVoiceRepository(db)
+        repo = EvidenceTrackingRepository(db)
 
         # 최신순 조회
-        voices = repo.list_by_complaint(
+        trackings = repo.list_by_complaint(
             complaint_id=complaint.complaint_id,
             limit=limit,
         )
@@ -53,46 +55,46 @@ class EvidenceVoiceService(EvidenceTypeService):
             db=db,
         )
 
-        return voices, total_count
+        return trackings, total_count
 
     def _check_access_permission(
-        self, voice: EvidenceVoice, current_user: AuthUser, db: Session
+        self, tracking: EvidenceTracking, current_user: AuthUser, db: Session
     ) -> None:
         return super()._check_access_permission(
-            complaint_id=voice.complaint_id,
-            evidence_id=voice.voice_id,
+            complaint_id=tracking.complaint_id,
+            evidence_id=tracking.tracking_id,
             current_user=current_user,
             db=db,
         )
 
-    def upload_voices(
+    def upload_trackings(
         self,
         complaint: Complaint,
         files: list[UploadFile],
         db: Session,
-    ) -> schemas.EvidenceVoiceUploadResponse:
+    ) -> schemas.EvidenceTrackingUploadResponse:
         total_count = self._get_total_count(
             complaint_id=complaint.complaint_id,
             db=db,
         )
-        if total_count >= EVIDENCE_VOICE_RESTRICT.max_count:
+        if total_count >= EVIDENCE_TRACKING_RESTRICT.max_count:
             raise CodeException(
                 code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
-                message=f"음성 타입 증거의 최대 개수({EVIDENCE_VOICE_RESTRICT.max_count}개)를 초과했습니다.",
+                message=f"추적 타입 증거의 최대 개수({EVIDENCE_TRACKING_RESTRICT.max_count}개)를 초과했습니다.",
                 status_code=400,
             )
 
-        evidence_voice_repo = EvidenceVoiceRepository(db)
-        results: list[EvidenceVoice] = []
+        evidence_tracking_repo = EvidenceTrackingRepository(db)
+        results: list[EvidenceTracking] = []
 
         # 음성 파일 필터링
         filtered_result = filter_evidence_files(
-            files, EVIDENCE_VOICE_RESTRICT, need_audio_duration_check=True
+            files, EVIDENCE_TRACKING_RESTRICT, need_video_duration_check=True
         )
         valid_files = filtered_result["valid_files"]
 
         # 최대 개수 초과 체크
-        available_count = EVIDENCE_VOICE_RESTRICT.max_count - total_count
+        available_count = EVIDENCE_TRACKING_RESTRICT.max_count - total_count
         upload_files = valid_files[:available_count]
 
         count_invalid_files = valid_files[available_count:]
@@ -100,49 +102,66 @@ class EvidenceVoiceService(EvidenceTypeService):
 
         with ThreadPoolExecutor(max_workers=4) as executor:
             for file, file_bytes, duration_seconds in upload_files:
-                # voice_id 생성
-                voice_id = uuid4()
+                tracking_id = uuid4()
 
-                s3_key = (
+                base_key = (
                     f"{complaint.user_sub}/complaints/"
-                    f"{complaint.complaint_id}/evidences/voices/{voice_id}/original"
+                    f"{complaint.complaint_id}/evidences/trackings/{tracking_id}"
                 )
 
-                # S3 업로드 (병렬)
+                original_key = f"{base_key}/original"
+                thumbnail_key = f"{base_key}/thumbnail"
+                detail_key = f"{base_key}/detail"
+
+                thumbnail_bytes, _, _ = get_video_image_at_0(file_bytes, size=120, quality=65)
+                detail_bytes, _, _ = get_video_image_at_0(file_bytes, size=400, quality=75)
+
                 futures = [
                     executor.submit(
                         upload_fileobj,
                         fileobj=BytesIO(file_bytes),
                         bucket=settings.S3_BUCKET_NAME,
-                        key=s3_key,
+                        key=original_key,
                         content_type=file.content_type,
+                    ),
+                    executor.submit(
+                        upload_fileobj,
+                        fileobj=BytesIO(thumbnail_bytes),
+                        bucket=settings.S3_BUCKET_NAME,
+                        key=thumbnail_key,
+                        content_type="image/jpeg",
+                    ),
+                    executor.submit(
+                        upload_fileobj,
+                        fileobj=BytesIO(detail_bytes),
+                        bucket=settings.S3_BUCKET_NAME,
+                        key=detail_key,
+                        content_type="image/jpeg",
                     ),
                 ]
 
-                # 업로드 실패 시 예외 전파
                 for future in futures:
                     future.result()
 
-                # DB row 생성
-                voice = EvidenceVoice(
-                    voice_id=voice_id,
+                tracking = EvidenceTracking(
+                    tracking_id=tracking_id,
                     complaint_id=complaint.complaint_id,
                     filename=file.filename,
-                    s3_key=s3_key,
+                    s3_key=original_key,
                     content_type=file.content_type,
                     size_bytes=len(file_bytes),
                     duration_seconds=duration_seconds,
                 )
 
-                evidence_voice_repo.create(voice)
-                results.append(voice)
+                evidence_tracking_repo.create(tracking)
+                results.append(tracking)
 
         db.commit()
 
-        return schemas.EvidenceVoiceUploadResponse(
-            voices=[
-                schemas.EvidenceVoiceResponse(
-                    voice_id=v.voice_id,
+        return schemas.EvidenceTrackingUploadResponse(
+            trackings=[
+                schemas.EvidenceTrackingResponse(
+                    tracking_id=v.tracking_id,
                     filename=v.filename,
                     duration_seconds=v.duration_seconds,
                     size_bytes=v.size_bytes,
@@ -158,4 +177,4 @@ class EvidenceVoiceService(EvidenceTypeService):
         )
 
 
-evidence_voice_service = EvidenceVoiceService()
+evidence_tracking_service = EvidenceTrackingService()
