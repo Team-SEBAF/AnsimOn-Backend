@@ -3,10 +3,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
-import app.domain.evidence_message.errors as evidence_message_errors
+import app.domain.evidence.errors as evidence_errors
 from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
 from app.domain.complaint import Complaint, get_owned_complaint
+from app.domain.evidence.constant import EVIDENCE_MESSAGE_RESTRICT
 from app.domain.evidence_message import schemas
 from app.domain.evidence_message.service import evidence_message_service
 
@@ -15,9 +16,10 @@ router = APIRouter(prefix="/api/v1", tags=["Evidence Message"])
 
 @router.post(
     "/{complaint_id}/evidences/messages",
-    summary="MESSAGE 타입 증거 이미지 업로드",
+    summary=f"MESSAGE 타입 증거 이미지 업로드 (최대 {EVIDENCE_MESSAGE_RESTRICT.max_count}개)",
     description="MESSAGE 타입 증거 이미지를 업로드합니다.",
     response_model=schemas.EvidenceMessageUploadResponse,
+    responses=evidence_errors.EVIDENCE_MAX_COUNT_EXCEEDED_ERRORS_RESPONSES,
 )
 def upload_evidence_message_images(
     complaint: Complaint = Depends(get_owned_complaint),
@@ -72,7 +74,7 @@ def get_evidence_message_details(
     summary="MESSAGE 타입 증거 이미지 원본 조회",
     description="MESSAGE 타입 증거 이미지 원본을 조회합니다. (10분 유효)",
     response_model=schemas.EvidenceMessageOriginalImageResponse,
-    responses=evidence_message_errors.GET_EVIDENCE_MESSAGE_ERRORS_RESPONSES,
+    responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,
 )
 def get_evidence_message_original(
     message_id: UUID,

@@ -1,5 +1,0 @@
-from .get_message_error import GET_EVIDENCE_MESSAGE_ERRORS_RESPONSES
-
-__all__ = [
-    "GET_EVIDENCE_MESSAGE_ERRORS_RESPONSES",
-]

@@ -1,6 +1,5 @@
 from uuid import UUID, uuid4
 
-from sqlalchemy import Integer
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -8,13 +7,11 @@ from app.base.base_db import Base
 from app.domain.evidence.models.evidence_base_model import Evidence
 
 
-class EvidenceMessage(Base, Evidence):
-    __tablename__ = "evidence_messages"
+class EvidenceReportRecord(Base, Evidence):
+    __tablename__ = "evidence_report_records"
 
-    message_id: Mapped[UUID] = mapped_column(
+    report_record_id: Mapped[UUID] = mapped_column(
         PostgresUUID[UUID](as_uuid=True),
         primary_key=True,
         default=uuid4,
     )
-    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    height: Mapped[int | None] = mapped_column(Integer, nullable=True)

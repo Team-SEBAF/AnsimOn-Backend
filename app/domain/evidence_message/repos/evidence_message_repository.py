@@ -1,40 +1,16 @@
 from uuid import UUID
 
-from sqlalchemy.orm import Session
+from app.domain.evidence.repos.evidence_repository_base import EvidenceRepositoryBase
 
 from ..models.evidence_message_model import EvidenceMessage
 
 
-class EvidenceMessageRepository:
-    def __init__(self, db: Session):
-        self.db = db
-
-    def create(self, message: EvidenceMessage) -> EvidenceMessage:
-        self.db.add(message)
-        return message
+class EvidenceMessageRepository(EvidenceRepositoryBase):
+    model_class = EvidenceMessage
+    pk_attr = "message_id"
 
     def get(self, message_id: UUID) -> EvidenceMessage | None:
-        return (
-            self.db.query(EvidenceMessage)
-            .filter(EvidenceMessage.message_id == message_id)
-            .one_or_none()
-        )
+        return super().get(message_id)
 
-    def list_by_complaint(self, complaint_id: UUID, limit: int):
-        return (
-            self.db.query(EvidenceMessage)
-            .filter(EvidenceMessage.complaint_id == complaint_id)
-            .order_by(EvidenceMessage.created_at.desc())
-            .limit(limit)
-            .all()
-        )
-
-    def count_by_complaint(self, complaint_id: UUID) -> int:
-        return (
-            self.db.query(EvidenceMessage)
-            .filter(EvidenceMessage.complaint_id == complaint_id)
-            .count()
-        )
-
-    def delete(self, message: EvidenceMessage):
-        self.db.delete(message)
+    def delete(self, message: EvidenceMessage) -> None:
+        super().delete(message)

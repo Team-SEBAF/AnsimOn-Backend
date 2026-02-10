@@ -1,5 +1,4 @@
 from concurrent.futures import ThreadPoolExecutor
-from enum import Enum
 from io import BytesIO
 from uuid import UUID, uuid4
 
@@ -8,25 +7,35 @@ from sqlalchemy.orm import Session
 
 from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import delete_s3_objects, get_s3_client, upload_fileobj
+from app.core.aws import upload_fileobj
 from app.core.settings import settings
-from app.domain.complaint import Complaint, ComplaintRepository
+from app.domain.complaint import Complaint
+from app.domain.evidence import EvidenceTypeService
+from app.domain.evidence.constant import EVIDENCE_MESSAGE_RESTRICT, EvidenceMessageVariant
+from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
+    EvidenceMaxCountExceededErrorCode,
+)
+from app.domain.evidence.utils import filter_evidence_files
 from app.domain.evidence_message import schemas
 
-from .errors.get_message_error import GetEvidenceMessageErrorCode
 from .models.evidence_message_model import EvidenceMessage
 from .repos.evidence_message_repository import EvidenceMessageRepository
 from .utils import extract_image_meta, make_image_top_crop
 
 
-class EvidenceMessageVariant(str, Enum):
-    THUMBNAIL = "thumbnail"
-    DETAIL = "detail"
-    ORIGINAL = "original"
+class EvidenceMessageService(EvidenceTypeService):
+    def _get_message(
+        self,
+        message_id: UUID,
+        db: Session,
+    ) -> EvidenceMessage:
+        return super()._get_evidence(evidence_id=message_id, repo=EvidenceMessageRepository(db))
 
+    def _get_total_count(self, complaint_id: UUID, db: Session) -> int:
+        repo = EvidenceMessageRepository(db)
+        return repo.count_by_complaint(complaint_id=complaint_id)
 
-class EvidenceMessageService:
-    def _get_messages_and_total_count(
+    def _get_limit_messages_and_total_count(
         self,
         *,
         complaint: Complaint,
@@ -41,61 +50,22 @@ class EvidenceMessageService:
             limit=limit,
         )
 
-        total_count = repo.count_by_complaint(
+        total_count = self._get_total_count(
             complaint_id=complaint.complaint_id,
+            db=db,
         )
 
         return messages, total_count
 
-    def _get_presigned_url(
-        self,
-        *,
-        message: EvidenceMessage,
-        variant: EvidenceMessageVariant,
-        expires_in: int,
-    ):
-        s3 = get_s3_client()
-
-        base = message.s3_key.rsplit("/", 1)[0]
-        key = f"{base}/{variant.value}"
-
-        url = s3.generate_presigned_url(
-            ClientMethod="get_object",
-            Params={
-                "Bucket": settings.S3_BUCKET_NAME,
-                "Key": key,
-            },
-            ExpiresIn=expires_in,
-        )
-        return url
-
-    def _get_message(
-        self,
-        message_id: UUID,
-        db: Session,
-    ) -> EvidenceMessage:
-        repo = EvidenceMessageRepository(db)
-        message = repo.get(message_id)
-        if not message:
-            raise CodeException(
-                code=GetEvidenceMessageErrorCode.EVIDENCE_MESSAGE_NOT_FOUND,
-                message=f"message_id: {message_id}에 해당하는 증거 메시지를 찾을 수 없습니다.",
-                status_code=404,
-            )
-        return message
-
     def _check_access_permission(
         self, message: EvidenceMessage, current_user: AuthUser, db: Session
     ) -> None:
-        complaint_repo = ComplaintRepository(db)
-        complaint = complaint_repo.get(message.complaint_id)
-
-        if complaint.user_sub != current_user.user_sub:
-            raise CodeException(
-                code=GetEvidenceMessageErrorCode.NO_PERMISSION,
-                message=f"message_id: {message.message_id}에 해당하는 증거 메시지 접근 권한이 없습니다.",
-                status_code=403,
-            )
+        return super()._check_access_permission(
+            complaint_id=message.complaint_id,
+            evidence_id=message.message_id,
+            current_user=current_user,
+            db=db,
+        )
 
     def upload_images(
         self,
@@ -103,11 +73,33 @@ class EvidenceMessageService:
         files: list[UploadFile],
         db: Session,
     ) -> schemas.EvidenceMessageUploadResponse:
+        total_count = self._get_total_count(
+            complaint_id=complaint.complaint_id,
+            db=db,
+        )
+        if total_count >= EVIDENCE_MESSAGE_RESTRICT.max_count:
+            raise CodeException(
+                code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
+                message=f"MESSAGE 타입 증거의 최대 개수({EVIDENCE_MESSAGE_RESTRICT.max_count}개)를 초과했습니다.",
+                status_code=400,
+            )
+
         evidence_message_repo = EvidenceMessageRepository(db)
         results: list[EvidenceMessage] = []
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            for file in files:
+        # 이미지 파일 필터링
+        filtered_result = filter_evidence_files(files, EVIDENCE_MESSAGE_RESTRICT)
+        valid_files = filtered_result["valid_files"]
+
+        # 최대 개수 초과 체크
+        available_count = EVIDENCE_MESSAGE_RESTRICT.max_count - total_count
+        upload_files = valid_files[:available_count]
+
+        count_invalid_files = valid_files[available_count:]
+        count_invalid_filenames = [file.filename for file in count_invalid_files]
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            for file in upload_files:
                 # 파일 바이트 읽기 (1회)
                 file_bytes = file.file.read()
 
@@ -195,7 +187,10 @@ class EvidenceMessageService:
                     size_bytes=m.size_bytes,
                 )
                 for m in results
-            ]
+            ],
+            type_invalid_filenames=filtered_result["type_invalid_filenames"],
+            count_invalid_filenames=count_invalid_filenames,
+            size_invalid_filenames=filtered_result["size_invalid_filenames"],
         )
 
     def get_thumbnail_images(
@@ -204,7 +199,7 @@ class EvidenceMessageService:
         limit: int,
         db: Session,
     ) -> schemas.EvidenceMessageThumbnailListResponse:
-        messages, total_count = self._get_messages_and_total_count(
+        messages, total_count = self._get_limit_messages_and_total_count(
             complaint=complaint,
             limit=limit,
             db=db,
@@ -212,8 +207,8 @@ class EvidenceMessageService:
 
         thumbnails: list[schemas.EvidenceMessageThumbnailResponse] = []
         for message in messages:
-            url = self._get_presigned_url(
-                message=message,
+            url = super()._get_presigned_url(
+                evidence=message,
                 variant=EvidenceMessageVariant.THUMBNAIL,
                 expires_in=60 * 60,  # 1시간
             )
@@ -235,7 +230,7 @@ class EvidenceMessageService:
         limit: int,
         db: Session,
     ) -> schemas.EvidenceMessageDetailListResponse:
-        messages, total_count = self._get_messages_and_total_count(
+        messages, total_count = self._get_limit_messages_and_total_count(
             complaint=complaint,
             limit=limit,
             db=db,
@@ -243,8 +238,8 @@ class EvidenceMessageService:
 
         details: list[schemas.EvidenceMessageDetailResponse] = []
         for message in messages:
-            url = self._get_presigned_url(
-                message=message,
+            url = super()._get_presigned_url(
+                evidence=message,
                 variant=EvidenceMessageVariant.DETAIL,
                 expires_in=60 * 30,  # 30분
             )
@@ -272,8 +267,8 @@ class EvidenceMessageService:
         message = self._get_message(message_id, db)
         self._check_access_permission(message, current_user, db)
 
-        url = self._get_presigned_url(
-            message=message,
+        url = super()._get_presigned_url(
+            evidence=message,
             variant=EvidenceMessageVariant.ORIGINAL,
             expires_in=60 * 10,  # 10분
         )
@@ -295,14 +290,13 @@ class EvidenceMessageService:
         current_user: AuthUser,
         db: Session,
     ) -> EvidenceMessage:
-        message = self._get_message(message_id, db)
-        self._check_access_permission(message, current_user, db)
-
-        message.filename = filename
-        db.commit()
-        db.refresh(message)
-
-        return message
+        return self._update_evidence_filename(
+            message_id,
+            filename,
+            current_user,
+            db,
+            EvidenceMessageRepository(db),
+        )
 
     def delete_message(
         self,
@@ -310,28 +304,17 @@ class EvidenceMessageService:
         current_user: AuthUser,
         db: Session,
     ) -> None:
-        message = self._get_message(message_id, db)
-        self._check_access_permission(message, current_user, db)
+        def s3_keys_fn(e: EvidenceMessage) -> list[str]:
+            base = e.s3_key.rsplit("/", 1)[0]
+            return [f"{base}/original", f"{base}/thumbnail", f"{base}/detail"]
 
-        try:
-            # S3: original / thumbnail / detail 3개 객체 삭제
-            base = message.s3_key.rsplit("/", 1)[0]
-            s3_keys = [
-                f"{base}/original",
-                f"{base}/thumbnail",
-                f"{base}/detail",
-            ]
-            delete_s3_objects(settings.S3_BUCKET_NAME, s3_keys)
-        except Exception:
-            raise CodeException(
-                code="DELETE_EVIDENCE_MESSAGE_FAILED",
-                message="증거 메시지 삭제에 실패했습니다.",
-                status_code=500,
-            )
-
-        repo = EvidenceMessageRepository(db)
-        repo.delete(message)
-        db.commit()
+        self._delete_evidence_with_s3(
+            message_id,
+            current_user,
+            db,
+            EvidenceMessageRepository(db),
+            s3_keys_fn=s3_keys_fn,
+        )
 
 
 evidence_message_service = EvidenceMessageService()
