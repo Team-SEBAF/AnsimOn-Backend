@@ -78,7 +78,7 @@ class EvidenceVoiceService(EvidenceTypeService):
         if total_count >= EVIDENCE_VOICE_RESTRICT.max_count:
             raise CodeException(
                 code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
-                message=f"음성 타입 증거의 최대 개수({EVIDENCE_VOICE_RESTRICT.max_count}개)를 초과했습니다.",
+                message=f"VOICE 타입 증거의 최대 개수({EVIDENCE_VOICE_RESTRICT.max_count}개)를 초과했습니다.",
                 status_code=400,
             )
 
@@ -98,7 +98,7 @@ class EvidenceVoiceService(EvidenceTypeService):
         count_invalid_files = valid_files[available_count:]
         count_invalid_filenames = [file.filename for file, _, _ in count_invalid_files]
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
             for file, file_bytes, duration_seconds in upload_files:
                 # voice_id 생성
                 voice_id = uuid4()

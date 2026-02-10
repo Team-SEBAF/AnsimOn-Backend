@@ -16,40 +16,54 @@ from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
     EvidenceMaxCountExceededErrorCode,
 )
 from app.domain.evidence.utils import filter_evidence_files
-from app.domain.evidence_report_record import schemas
-from app.domain.evidence_report_record.models.evidence_report_record_model import (
-    EvidenceReportRecord,
+from app.domain.evidence_incident_log import schemas
+from app.domain.evidence_incident_log.models.evidence_incident_log_model import (
+    EvidenceIncidentLog,
+    EvidenceIncidentLogFile,
+    EvidenceIncidentLogType,
 )
-from app.domain.evidence_report_record.repos.evidence_report_record_repository import (
-    EvidenceReportRecordRepository,
+from app.domain.evidence_incident_log.repos.evidence_incident_log_repository import (
+    EvidenceIncidentLogFileRepository,
+    EvidenceIncidentLogFormDataRepository,
+    EvidenceIncidentLogRepository,
 )
 
 
-class EvidenceReportRecordService(EvidenceTypeService):
-    def _get_report_record(
+class EvidenceIncidentLogService(EvidenceTypeService):
+    def _get_incident_log(
         self,
-        report_record_id: UUID,
+        incident_log_id: UUID,
         db: Session,
-    ) -> EvidenceReportRecord:
-        return super()._get_evidence(
-            evidence_id=report_record_id, repo=EvidenceReportRecordRepository(db)
+    ) -> EvidenceIncidentLog:
+        evidence = super()._get_evidence(
+            evidence_id=incident_log_id, repo=EvidenceIncidentLogRepository(db)
         )
+        if evidence.type == EvidenceIncidentLogType.FILE:
+            return super()._get_evidence(
+                evidence_id=incident_log_id,
+                repo=EvidenceIncidentLogFileRepository(db),
+            )
+        elif evidence.type == EvidenceIncidentLogType.FORM_DATA:
+            return super()._get_evidence(
+                evidence_id=incident_log_id,
+                repo=EvidenceIncidentLogFormDataRepository(db),
+            )
 
     def _get_total_count(self, complaint_id: UUID, db: Session) -> int:
-        repo = EvidenceReportRecordRepository(db)
+        repo = EvidenceIncidentLogRepository(db)
         return repo.count_by_complaint(complaint_id=complaint_id)
 
-    def _get_limit_report_records_and_total_count(
+    def _get_limit_incident_logs_and_total_count(
         self,
         *,
         complaint: Complaint,
         limit: int,
         db: Session,
     ):
-        repo = EvidenceReportRecordRepository(db)
+        repo = EvidenceIncidentLogRepository(db)
 
         # 최신순 조회
-        report_records = repo.list_by_complaint(
+        incident_logs = repo.list_by_complaint(
             complaint_id=complaint.complaint_id,
             limit=limit,
         )
@@ -59,24 +73,24 @@ class EvidenceReportRecordService(EvidenceTypeService):
             db=db,
         )
 
-        return report_records, total_count
+        return incident_logs, total_count
 
     def _check_access_permission(
-        self, report_record: EvidenceReportRecord, current_user: AuthUser, db: Session
+        self, incident_log: EvidenceIncidentLog, current_user: AuthUser, db: Session
     ) -> None:
         return super()._check_access_permission(
-            complaint_id=report_record.complaint_id,
-            evidence_id=report_record.report_record_id,
+            complaint_id=incident_log.complaint_id,
+            evidence_id=incident_log.incident_log_id,
             current_user=current_user,
             db=db,
         )
 
-    def upload_report_records(
+    def upload_incident_log_files(
         self,
         complaint: Complaint,
         files: list[UploadFile],
         db: Session,
-    ) -> schemas.EvidenceReportRecordUploadResponse:
+    ) -> schemas.EvidenceIncidentLogFileUploadResponse:
         total_count = self._get_total_count(
             complaint_id=complaint.complaint_id,
             db=db,
@@ -84,12 +98,13 @@ class EvidenceReportRecordService(EvidenceTypeService):
         if total_count >= EVIDENCE_DOCUMENT_RESTRICT.max_count:
             raise CodeException(
                 code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
-                message=f"REPORT_RECORD 타입 신고・사건 일지의 최대 개수({EVIDENCE_DOCUMENT_RESTRICT.max_count}개)를 초과했습니다.",
+                message=f"INCIDENT_LOG 타입 사건 일지 파일의 최대 개수({EVIDENCE_DOCUMENT_RESTRICT.max_count}개)를 초과했습니다.",
                 status_code=400,
             )
 
-        evidence_report_record_repo = EvidenceReportRecordRepository(db)
-        results: list[EvidenceReportRecord] = []
+        evidence_incident_log_repo = EvidenceIncidentLogRepository(db)
+        evidence_incident_log_file_repo = EvidenceIncidentLogFileRepository(db)
+        results: list[tuple[EvidenceIncidentLog, int]] = []
 
         # 신고・사건 일지 파일 필터링
         filtered_result = filter_evidence_files(files, EVIDENCE_DOCUMENT_RESTRICT)
@@ -107,12 +122,12 @@ class EvidenceReportRecordService(EvidenceTypeService):
                 # 파일 바이트 읽기 (1회)
                 file_bytes = file.file.read()
 
-                # report_record_id 생성
-                report_record_id = uuid4()
+                # incident_log_id 생성
+                incident_log_id = uuid4()
 
                 s3_key = (
                     f"{complaint.user_sub}/complaints/"
-                    f"{complaint.complaint_id}/evidences/report-records/{report_record_id}/original"
+                    f"{complaint.complaint_id}/evidences/incident-logs/{incident_log_id}/original"
                 )
 
                 # S3 업로드 (병렬)
@@ -131,30 +146,37 @@ class EvidenceReportRecordService(EvidenceTypeService):
                     future.result()
 
                 # DB row 생성
-                report_record = EvidenceReportRecord(
-                    report_record_id=report_record_id,
+                incident_log = EvidenceIncidentLog(
+                    incident_log_id=incident_log_id,
                     complaint_id=complaint.complaint_id,
-                    filename=file.filename,
+                    name=file.filename,
+                    type=EvidenceIncidentLogType.FILE,
+                )
+                evidence_incident_log_repo.create(incident_log)
+
+                size_bytes = len(file_bytes)
+                incident_log_file = EvidenceIncidentLogFile(
+                    incident_log_id=incident_log_id,
                     s3_key=s3_key,
                     content_type=file.content_type,
-                    size_bytes=len(file_bytes),
+                    size_bytes=size_bytes,
                 )
+                evidence_incident_log_file_repo.create(incident_log_file)
 
-                evidence_report_record_repo.create(report_record)
-                results.append(report_record)
+                results.append((incident_log, size_bytes))
 
         db.commit()
 
-        return schemas.EvidenceReportRecordUploadResponse(
-            report_records=[
-                schemas.EvidenceReportRecordResponse(
-                    report_record_id=v.report_record_id,
-                    filename=v.filename,
-                    size_bytes=v.size_bytes,
-                    created_at=v.created_at,
-                    updated_at=v.updated_at,
+        return schemas.EvidenceIncidentLogFileUploadResponse(
+            incident_log_files=[
+                schemas.EvidenceIncidentLogFileResponse(
+                    incident_log_id=log.incident_log_id,
+                    filename=log.name,
+                    size_bytes=size_bytes,
+                    created_at=log.created_at,
+                    updated_at=log.updated_at,
                 )
-                for v in results
+                for log, size_bytes in results
             ],
             type_invalid_filenames=filtered_result["type_invalid_filenames"],
             count_invalid_filenames=count_invalid_filenames,
@@ -162,4 +184,4 @@ class EvidenceReportRecordService(EvidenceTypeService):
         )
 
 
-evidence_report_record_service = EvidenceReportRecordService()
+evidence_incident_log_service = EvidenceIncidentLogService()

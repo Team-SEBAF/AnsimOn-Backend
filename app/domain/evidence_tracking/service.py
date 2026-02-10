@@ -80,7 +80,7 @@ class EvidenceTrackingService(EvidenceTypeService):
         if total_count >= EVIDENCE_TRACKING_RESTRICT.max_count:
             raise CodeException(
                 code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
-                message=f"추적 타입 증거의 최대 개수({EVIDENCE_TRACKING_RESTRICT.max_count}개)를 초과했습니다.",
+                message=f"TRACKING 타입 증거의 최대 개수({EVIDENCE_TRACKING_RESTRICT.max_count}개)를 초과했습니다.",
                 status_code=400,
             )
 
@@ -100,7 +100,7 @@ class EvidenceTrackingService(EvidenceTypeService):
         count_invalid_files = valid_files[available_count:]
         count_invalid_filenames = [file.filename for file, _, _ in count_invalid_files]
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
             for file, file_bytes, duration_seconds in upload_files:
                 tracking_id = uuid4()
 

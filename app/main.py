@@ -8,6 +8,7 @@ from app.core.settings import settings
 from app.dev.endpoints import router as dev_router
 from app.domain.complaint.endpoints import router as complaint_router
 from app.domain.evidence.endpoints import router as evidence_router
+from app.domain.evidence_incident_log.endpoints import router as evidence_incident_log_router
 from app.domain.evidence_message.endpoints import router as evidence_message_router
 from app.domain.evidence_report_record.endpoints import router as evidence_report_record_router
 from app.domain.evidence_tracking.endpoints import router as evidence_tracking_router
@@ -44,5 +45,6 @@ app.include_router(evidence_message_router)
 app.include_router(evidence_voice_router)
 app.include_router(evidence_tracking_router)
 app.include_router(evidence_report_record_router)
+app.include_router(evidence_incident_log_router)
 
 handler = Mangum(app)

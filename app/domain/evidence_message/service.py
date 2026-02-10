@@ -80,7 +80,7 @@ class EvidenceMessageService(EvidenceTypeService):
         if total_count >= EVIDENCE_MESSAGE_RESTRICT.max_count:
             raise CodeException(
                 code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
-                message=f"메시지 타입 증거의 최대 개수({EVIDENCE_MESSAGE_RESTRICT.max_count}개)를 초과했습니다.",
+                message=f"MESSAGE 타입 증거의 최대 개수({EVIDENCE_MESSAGE_RESTRICT.max_count}개)를 초과했습니다.",
                 status_code=400,
             )
 
@@ -98,7 +98,7 @@ class EvidenceMessageService(EvidenceTypeService):
         count_invalid_files = valid_files[available_count:]
         count_invalid_filenames = [file.filename for file in count_invalid_files]
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
             for file in upload_files:
                 # 파일 바이트 읽기 (1회)
                 file_bytes = file.file.read()

@@ -29,7 +29,7 @@ class EvidenceIncidentLog(Base):
         ForeignKey("complaints.complaint_id", ondelete="CASCADE"),
         nullable=False,
     )
-    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[EvidenceIncidentLogType] = mapped_column(
         SQLEnum(EvidenceIncidentLogType, native_enum=False, length=20), nullable=False
     )
