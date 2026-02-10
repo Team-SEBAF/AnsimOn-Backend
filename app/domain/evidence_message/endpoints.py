@@ -7,6 +7,7 @@ import app.domain.evidence.errors as evidence_errors
 from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
 from app.domain.complaint import Complaint, get_owned_complaint
+from app.domain.evidence.constant import EVIDENCE_MESSAGE_RESTRICT
 from app.domain.evidence_message import schemas
 from app.domain.evidence_message.service import evidence_message_service
 
@@ -15,7 +16,7 @@ router = APIRouter(prefix="/api/v1", tags=["Evidence Message"])
 
 @router.post(
     "/{complaint_id}/evidences/messages",
-    summary="MESSAGE 타입 증거 이미지 업로드 (최대 10개)",
+    summary=f"MESSAGE 타입 증거 이미지 업로드 (최대 {EVIDENCE_MESSAGE_RESTRICT.max_count}개)",
     description="MESSAGE 타입 증거 이미지를 업로드합니다.",
     response_model=schemas.EvidenceMessageUploadResponse,
     responses=evidence_errors.EVIDENCE_MAX_COUNT_EXCEEDED_ERRORS_RESPONSES,

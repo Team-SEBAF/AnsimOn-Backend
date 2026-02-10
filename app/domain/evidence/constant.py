@@ -52,7 +52,7 @@ EVIDENCE_DOCUMENT_RESTRICT = EvidenceTypeRestrict(
         # Word
         "application/msword",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        # HWP
+        # HWP (windows only)
         "application/x-hwp",
         "application/haansofthwp",
         "application/vnd.hancom.hwp",

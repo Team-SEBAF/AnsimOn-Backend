@@ -145,6 +145,7 @@ def filter_evidence_files(
 
     for file in files:
         if file.content_type not in restrict.allowed_types:
+            print(f"type_invalid_filenames: {file.filename} ({file.content_type})")
             type_invalid_filenames.append(file.filename)
             continue
 
