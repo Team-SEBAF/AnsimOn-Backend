@@ -1,28 +1,10 @@
-from typing import Any, ClassVar
 from uuid import UUID
 
-from sqlalchemy.orm import Session
+from app.base.base_repository import BaseRepository
 
 
-class EvidenceRepositoryBase:
-    """Evidence 공통 레포. 서브클래스에서 model_class, pk_attr 지정."""
-
-    model_class: ClassVar[type]
-    pk_attr: ClassVar[str]  # "message_id", "voice_id" 등
-
-    def __init__(self, db: Session):
-        self.db = db
-
-    def create(self, entity: Any) -> Any:
-        self.db.add(entity)
-        return entity
-
-    def get(self, id: UUID) -> Any:
-        return (
-            self.db.query(self.model_class)
-            .filter(getattr(self.model_class, self.pk_attr) == id)
-            .one_or_none()
-        )
+class EvidenceRepositoryBase(BaseRepository):
+    """Evidence 공통 레포. complaint 단위 list/count 추가."""
 
     def list_by_complaint(self, complaint_id: UUID, limit: int):
         return (
@@ -39,6 +21,3 @@ class EvidenceRepositoryBase:
             .filter(self.model_class.complaint_id == complaint_id)
             .count()
         )
-
-    def delete(self, entity: Any) -> None:
-        self.db.delete(entity)

@@ -7,6 +7,11 @@ Base = declarative_base()
 
 # 모든 모델을 import하여 alembic metadata에 등록
 from app.domain.complaint import Complaint
+from app.domain.evidence_incident_log import (
+    EvidenceIncidentLog,
+    EvidenceIncidentLogFile,
+    EvidenceIncidentLogFormData,
+)
 from app.domain.evidence_message import EvidenceMessage
 from app.domain.evidence_report_record import EvidenceReportRecord
 from app.domain.evidence_tracking import EvidenceTracking
