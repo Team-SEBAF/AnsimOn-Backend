@@ -176,5 +176,38 @@ class EvidenceTrackingService(EvidenceTypeService):
             duration_invalid_filenames=filtered_result["duration_invalid_filenames"],
         )
 
+    def update_filename(
+        self,
+        tracking_id: UUID,
+        filename: str,
+        current_user: AuthUser,
+        db: Session,
+    ) -> EvidenceTracking:
+        return self._update_evidence_filename(
+            tracking_id,
+            filename,
+            current_user,
+            db,
+            EvidenceTrackingRepository(db),
+        )
+
+    def delete_tracking(
+        self,
+        tracking_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+    ) -> None:
+        def s3_keys_fn(e: EvidenceTracking) -> list[str]:
+            base = e.s3_key.rsplit("/", 1)[0]
+            return [f"{base}/original", f"{base}/thumbnail", f"{base}/detail"]
+
+        self._delete_evidence_with_s3(
+            tracking_id,
+            current_user,
+            db,
+            EvidenceTrackingRepository(db),
+            s3_keys_fn=s3_keys_fn,
+        )
+
 
 evidence_tracking_service = EvidenceTrackingService()

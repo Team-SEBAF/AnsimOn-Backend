@@ -32,20 +32,16 @@ def update_evidence_filename(
 
 
 @router.delete(
-    "/{evidence_id}",
+    "",
     summary="증거 삭제",
-    description="증거를 삭제합니다.",
+    description="같은 타입의 증거를 여러 건 삭제할 수 있습니다.",
     status_code=204,
 )
 def delete_evidence(
-    evidence_id: UUID,
     request: schemas.DeleteEvidenceRequest,
     current_user: AuthUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     evidence_service.delete_evidence(
-        evidence_id=evidence_id,
         request=request,
         current_user=current_user,
-        db=db,
     )

@@ -161,5 +161,34 @@ class EvidenceReportRecordService(EvidenceTypeService):
             size_invalid_filenames=filtered_result["size_invalid_filenames"],
         )
 
+    def update_filename(
+        self,
+        report_record_id: UUID,
+        filename: str,
+        current_user: AuthUser,
+        db: Session,
+    ) -> EvidenceReportRecord:
+        return self._update_evidence_filename(
+            report_record_id,
+            filename,
+            current_user,
+            db,
+            EvidenceReportRecordRepository(db),
+        )
+
+    def delete_report_record(
+        self,
+        report_record_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+    ) -> None:
+        self._delete_evidence_with_s3(
+            report_record_id,
+            current_user,
+            db,
+            EvidenceReportRecordRepository(db),
+            s3_keys_fn=lambda e: [e.s3_key],
+        )
+
 
 evidence_report_record_service = EvidenceReportRecordService()

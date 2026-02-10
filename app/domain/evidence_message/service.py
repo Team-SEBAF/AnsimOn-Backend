@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import delete_s3_objects, upload_fileobj
+from app.core.aws import upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
@@ -290,14 +290,13 @@ class EvidenceMessageService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> EvidenceMessage:
-        message = self._get_message(message_id, db)
-        self._check_access_permission(message, current_user, db)
-
-        message.filename = filename
-        db.commit()
-        db.refresh(message)
-
-        return message
+        return self._update_evidence_filename(
+            message_id,
+            filename,
+            current_user,
+            db,
+            EvidenceMessageRepository(db),
+        )
 
     def delete_message(
         self,
@@ -305,28 +304,17 @@ class EvidenceMessageService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> None:
-        message = self._get_message(message_id, db)
-        self._check_access_permission(message, current_user, db)
+        def s3_keys_fn(e: EvidenceMessage) -> list[str]:
+            base = e.s3_key.rsplit("/", 1)[0]
+            return [f"{base}/original", f"{base}/thumbnail", f"{base}/detail"]
 
-        try:
-            # S3: original / thumbnail / detail 3개 객체 삭제
-            base = message.s3_key.rsplit("/", 1)[0]
-            s3_keys = [
-                f"{base}/original",
-                f"{base}/thumbnail",
-                f"{base}/detail",
-            ]
-            delete_s3_objects(settings.S3_BUCKET_NAME, s3_keys)
-        except Exception:
-            raise CodeException(
-                code="DELETE_EVIDENCE_MESSAGE_FAILED",
-                message="증거 메시지 삭제에 실패했습니다.",
-                status_code=500,
-            )
-
-        repo = EvidenceMessageRepository(db)
-        repo.delete(message)
-        db.commit()
+        self._delete_evidence_with_s3(
+            message_id,
+            current_user,
+            db,
+            EvidenceMessageRepository(db),
+            s3_keys_fn=s3_keys_fn,
+        )
 
 
 evidence_message_service = EvidenceMessageService()

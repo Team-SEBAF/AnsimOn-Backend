@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import upload_fileobj
+from app.core.aws import delete_s3_objects, upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
@@ -182,6 +182,61 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             count_invalid_filenames=count_invalid_filenames,
             size_invalid_filenames=filtered_result["size_invalid_filenames"],
         )
+
+    def update_filename(
+        self,
+        incident_log_id: UUID,
+        filename: str,
+        current_user: AuthUser,
+        db: Session,
+    ) -> EvidenceIncidentLog:
+        return self._update_evidence_filename(
+            incident_log_id,
+            filename,
+            current_user,
+            db,
+            EvidenceIncidentLogRepository(db),
+            filename_attr="name",
+        )
+
+    def delete_incident_log_file(
+        self,
+        incident_log_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+    ) -> None:
+        incident_log_repo = EvidenceIncidentLogRepository(db)
+        file_repo = EvidenceIncidentLogFileRepository(db)
+
+        log = super()._get_evidence(incident_log_id, incident_log_repo)
+        EvidenceTypeService._check_access_permission(
+            self,
+            complaint_id=log.complaint_id,
+            evidence_id=log.incident_log_id,
+            current_user=current_user,
+            db=db,
+        )
+
+        if log.type != EvidenceIncidentLogType.FILE:
+            raise CodeException(
+                code="INCIDENT_LOG_FORM_DATA_CANNOT_DELETE",
+                message="사건 일지 폼 데이터는 해당 API를 사용해주세요.",
+                status_code=400,
+            )
+
+        file_row = file_repo.get(incident_log_id)
+        if file_row:
+            try:
+                delete_s3_objects(settings.S3_BUCKET_NAME, [file_row.s3_key])
+            except Exception:
+                raise CodeException(
+                    code="DELETE_EVIDENCE_FAILED",
+                    message="증거 삭제에 실패했습니다.",
+                    status_code=500,
+                )
+            file_repo.delete(file_row)
+        incident_log_repo.delete(log)
+        db.commit()
 
 
 evidence_incident_log_service = EvidenceIncidentLogService()

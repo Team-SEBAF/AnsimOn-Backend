@@ -157,5 +157,34 @@ class EvidenceVoiceService(EvidenceTypeService):
             duration_invalid_filenames=filtered_result["duration_invalid_filenames"],
         )
 
+    def update_filename(
+        self,
+        voice_id: UUID,
+        filename: str,
+        current_user: AuthUser,
+        db: Session,
+    ) -> EvidenceVoice:
+        return self._update_evidence_filename(
+            voice_id,
+            filename,
+            current_user,
+            db,
+            EvidenceVoiceRepository(db),
+        )
+
+    def delete_voice(
+        self,
+        voice_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+    ) -> None:
+        self._delete_evidence_with_s3(
+            voice_id,
+            current_user,
+            db,
+            EvidenceVoiceRepository(db),
+            s3_keys_fn=lambda e: [e.s3_key],
+        )
+
 
 evidence_voice_service = EvidenceVoiceService()
