@@ -34,17 +34,17 @@ def upload_evidence_message_images(
 
 
 @router.get(
-    "/{complaint_id}/evidences/messages/thumbnails",
+    "/{complaint_id}/evidences/messages/previews",
     summary="MESSAGE 타입 증거 썸네일 리스트 조회 (1시간 유효)",
     description="MESSAGE 타입 증거 썸네일 리스트를 조회합니다.",
     response_model=schemas.EvidenceMessageThumbnailListResponse,
 )
-def get_evidence_message_thumbnails(
+def get_evidence_message_previews(
     complaint: Complaint = Depends(get_owned_complaint),
     limit: int = Query(5, ge=1, le=20),
     db: Session = Depends(get_db),
 ):
-    return evidence_message_service.get_thumbnail_images(
+    return evidence_message_service.get_preview_images(
         complaint=complaint,
         limit=limit,
         db=db,

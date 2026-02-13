@@ -193,34 +193,34 @@ class EvidenceMessageService(EvidenceTypeService):
             size_invalid_filenames=filtered_result["size_invalid_filenames"],
         )
 
-    def get_thumbnail_images(
+    def get_preview_images(
         self,
         complaint: Complaint,
         limit: int,
         db: Session,
-    ) -> schemas.EvidenceMessageThumbnailListResponse:
+    ) -> schemas.EvidenceMessagePreviewListResponse:
         messages, total_count = self._get_limit_messages_and_total_count(
             complaint=complaint,
             limit=limit,
             db=db,
         )
 
-        thumbnails: list[schemas.EvidenceMessageThumbnailResponse] = []
+        previews: list[schemas.EvidenceMessagePreviewResponse] = []
         for message in messages:
             s3_key_base = message.s3_key.rsplit("/", 1)[0]
             url = super()._get_presigned_url(
                 s3_key=f"{s3_key_base}/{EvidenceVariant.THUMBNAIL.value}",
                 expires_in=60 * 60,  # 1시간
             )
-            thumbnails.append(
-                schemas.EvidenceMessageThumbnailResponse(
+            previews.append(
+                schemas.EvidenceMessagePreviewResponse(
                     message_id=message.message_id,
                     url=url,
                 )
             )
 
-        return schemas.EvidenceMessageThumbnailListResponse(
-            thumbnails=thumbnails,
+        return schemas.EvidenceMessagePreviewListResponse(
+            previews=previews,
             total_count=total_count,
         )
 
