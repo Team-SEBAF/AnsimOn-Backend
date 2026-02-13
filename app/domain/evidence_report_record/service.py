@@ -161,6 +161,28 @@ class EvidenceReportRecordService(EvidenceTypeService):
             size_invalid_filenames=filtered_result["size_invalid_filenames"],
         )
 
+    def get_original_report_record(
+        self,
+        report_record_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+    ) -> schemas.EvidenceReportRecordOriginalResponse:
+        report_record = self._get_report_record(report_record_id, db)
+        self._check_access_permission(report_record, current_user, db)
+
+        url = super()._get_presigned_url(
+            s3_key=report_record.s3_key,
+            expires_in=60 * 10,  # 10분
+        )
+
+        return schemas.EvidenceReportRecordOriginalResponse(
+            report_record_id=report_record.report_record_id,
+            filename=report_record.filename,
+            content_type=report_record.content_type,
+            size_bytes=report_record.size_bytes,
+            url=url,
+        )
+
     def update_filename(
         self,
         report_record_id: UUID,

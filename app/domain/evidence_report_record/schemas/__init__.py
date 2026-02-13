@@ -1,6 +1,11 @@
-from .responses import EvidenceReportRecordResponse, EvidenceReportRecordUploadResponse
+from .responses import (
+    EvidenceReportRecordOriginalResponse,
+    EvidenceReportRecordResponse,
+    EvidenceReportRecordUploadResponse,
+)
 
 __all__ = [
     "EvidenceReportRecordUploadResponse",
     "EvidenceReportRecordResponse",
+    "EvidenceReportRecordOriginalResponse",
 ]

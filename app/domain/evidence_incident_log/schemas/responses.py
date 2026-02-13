@@ -73,3 +73,13 @@ class EvidenceIncidentLogFormDataResponse(BaseResponse):
         description="수정 시간",
         examples=[datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)],
     )
+
+
+class EvidenceIncidentLogFileOriginalResponse(BaseResponse):
+    incident_log_id: UUID = Field(
+        ..., description="사건 일지 ID", examples=[UUID("123e4567-e89b-12d3-a456-426614174000")]
+    )
+    filename: str = Field(..., description="사건 일지 파일명", examples=["사건 일지 파일명"])
+    content_type: str = Field(..., description="Content-Type", examples=["application/pdf"])
+    size_bytes: int = Field(..., description="파일 크기(바이트)", examples=[12345])
+    url: str = Field(..., description="원본 사건 일지 파일 URL", examples=["https://..."])

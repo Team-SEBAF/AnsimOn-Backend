@@ -35,8 +35,8 @@ def upload_evidence_message_images(
 
 @router.get(
     "/{complaint_id}/evidences/messages/thumbnails",
-    summary="MESSAGE 타입 증거 썸네일 리스트 조회",
-    description="MESSAGE 타입 증거 썸네일 리스트를 조회합니다. (1시간 유효)",
+    summary="MESSAGE 타입 증거 썸네일 리스트 조회 (1시간 유효)",
+    description="MESSAGE 타입 증거 썸네일 리스트를 조회합니다.",
     response_model=schemas.EvidenceMessageThumbnailListResponse,
 )
 def get_evidence_message_thumbnails(
@@ -53,8 +53,8 @@ def get_evidence_message_thumbnails(
 
 @router.get(
     "/{complaint_id}/evidences/messages/details",
-    summary="MESSAGE 타입 증거 상세 리스트 조회",
-    description="MESSAGE 타입 증거 상세 리스트를 조회합니다. (30분 유효)",
+    summary="MESSAGE 타입 증거 상세 리스트 조회 (30분 유효)",
+    description="MESSAGE 타입 증거 상세 리스트를 조회합니다.",
     response_model=schemas.EvidenceMessageDetailListResponse,
 )
 def get_evidence_message_details(
@@ -70,9 +70,9 @@ def get_evidence_message_details(
 
 
 @router.get(
-    "/{message_id}/original-image",
-    summary="MESSAGE 타입 증거 이미지 원본 조회",
-    description="MESSAGE 타입 증거 이미지 원본을 조회합니다. (10분 유효)",
+    "/evidence/message/{message_id}/original",
+    summary="MESSAGE 타입 증거 이미지 원본 조회 (10분 유효)",
+    description="MESSAGE 타입 증거 이미지 원본을 조회합니다.",
     response_model=schemas.EvidenceMessageOriginalImageResponse,
     responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,
 )

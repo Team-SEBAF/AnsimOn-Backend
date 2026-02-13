@@ -48,3 +48,14 @@ class EvidenceTrackingUploadResponse(BaseResponse):
         description=f"영상 길이가 {EVIDENCE_TRACKING_RESTRICT.max_duration_seconds}초를 초과하여 거절된 파일명 목록",
         examples=["evidence.mp4"],
     )
+
+
+class EvidenceTrackingOriginalResponse(BaseResponse):
+    tracking_id: UUID = Field(
+        ..., description="증거 추적 ID", examples=[UUID("123e4567-e89b-12d3-a456-426614174000")]
+    )
+    filename: str = Field(..., description="파일명", examples=["evidence.mp4"])
+    content_type: str = Field(..., description="Content-Type", examples=["video/mp4"])
+    size_bytes: int = Field(..., description="파일 크기(바이트)", examples=[12345])
+    duration_seconds: int = Field(..., description="영상 길이(초)", examples=[123])
+    url: str = Field(..., description="원본 영상 URL", examples=["https://..."])

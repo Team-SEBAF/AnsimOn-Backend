@@ -157,6 +157,29 @@ class EvidenceVoiceService(EvidenceTypeService):
             duration_invalid_filenames=filtered_result["duration_invalid_filenames"],
         )
 
+    def get_original_voice(
+        self,
+        voice_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+    ) -> schemas.EvidenceVoiceOriginalResponse:
+        voice = self._get_voice(voice_id, db)
+        self._check_access_permission(voice, current_user, db)
+
+        url = super()._get_presigned_url(
+            s3_key=voice.s3_key,
+            expires_in=60 * 10,  # 10분
+        )
+
+        return schemas.EvidenceVoiceOriginalResponse(
+            voice_id=voice.voice_id,
+            filename=voice.filename,
+            content_type=voice.content_type,
+            size_bytes=voice.size_bytes,
+            duration_seconds=voice.duration_seconds,
+            url=url,
+        )
+
     def update_filename(
         self,
         voice_id: UUID,

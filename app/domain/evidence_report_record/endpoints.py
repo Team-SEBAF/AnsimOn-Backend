@@ -1,7 +1,10 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
 import app.domain.evidence.errors as evidence_errors
+from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
 from app.domain.complaint import Complaint, get_owned_complaint
 from app.domain.evidence.constant import EVIDENCE_DOCUMENT_RESTRICT
@@ -26,5 +29,24 @@ def upload_evidence_report_records(
     return evidence_report_record_service.upload_report_records(
         complaint=complaint,
         files=files,
+        db=db,
+    )
+
+
+@router.get(
+    "/evidence/report-record/{report_record_id}/original",
+    summary="REPORT_RECORD 타입 신고・사건 일지 원본 조회 (10분 유효)",
+    description="REPORT_RECORD 타입 신고・사건 일지 원본을 조회합니다.",
+    response_model=schemas.EvidenceReportRecordOriginalResponse,
+    responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,
+)
+def get_evidence_report_record_original(
+    report_record_id: UUID,
+    current_user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return evidence_report_record_service.get_original_report_record(
+        report_record_id=report_record_id,
+        current_user=current_user,
         db=db,
     )

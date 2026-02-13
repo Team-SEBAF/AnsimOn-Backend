@@ -24,30 +24,35 @@ from app.domain.evidence_incident_log.models.evidence_incident_log_model import 
 )
 from app.domain.evidence_incident_log.repos.evidence_incident_log_repository import (
     EvidenceIncidentLogFileRepository,
-    EvidenceIncidentLogFormDataRepository,
     EvidenceIncidentLogRepository,
 )
 
 
 class EvidenceIncidentLogService(EvidenceTypeService):
-    def _get_incident_log(
-        self,
-        incident_log_id: UUID,
-        db: Session,
-    ) -> EvidenceIncidentLog:
-        evidence = super()._get_evidence(
-            evidence_id=incident_log_id, repo=EvidenceIncidentLogRepository(db)
+    def _get_incident_log_file(
+        self, incident_log_id: UUID, current_user: AuthUser, db: Session
+    ) -> EvidenceIncidentLogFile:
+        incident_log_repo = EvidenceIncidentLogRepository(db)
+        file_repo = EvidenceIncidentLogFileRepository(db)
+
+        log = super()._get_evidence(incident_log_id, incident_log_repo)
+        EvidenceTypeService._check_access_permission(
+            self,
+            complaint_id=log.complaint_id,
+            evidence_id=log.incident_log_id,
+            current_user=current_user,
+            db=db,
         )
-        if evidence.type == EvidenceIncidentLogType.FILE:
-            return super()._get_evidence(
-                evidence_id=incident_log_id,
-                repo=EvidenceIncidentLogFileRepository(db),
+
+        if log.type != EvidenceIncidentLogType.FILE:
+            raise CodeException(
+                code="INCIDENT_LOG_FORM_DATA_CANNOT_DELETE",
+                message="사건 일지 폼 데이터는 해당 API를 사용해주세요.",
+                status_code=400,
             )
-        elif evidence.type == EvidenceIncidentLogType.FORM_DATA:
-            return super()._get_evidence(
-                evidence_id=incident_log_id,
-                repo=EvidenceIncidentLogFormDataRepository(db),
-            )
+
+        file_row = file_repo.get(incident_log_id)
+        return log, file_row
 
     def _get_total_count(self, complaint_id: UUID, db: Session) -> int:
         repo = EvidenceIncidentLogRepository(db)
@@ -183,6 +188,27 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             size_invalid_filenames=filtered_result["size_invalid_filenames"],
         )
 
+    def get_original_incident_log_file(
+        self,
+        incident_log_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+    ) -> schemas.EvidenceIncidentLogFileOriginalResponse:
+        log, file_row = self._get_incident_log_file(incident_log_id, current_user, db)
+
+        url = super()._get_presigned_url(
+            s3_key=file_row.s3_key,
+            expires_in=60 * 10,  # 10분
+        )
+
+        return schemas.EvidenceIncidentLogFileOriginalResponse(
+            incident_log_id=log.incident_log_id,
+            filename=log.name,
+            content_type=file_row.content_type,
+            size_bytes=file_row.size_bytes,
+            url=url,
+        )
+
     def update_filename(
         self,
         incident_log_id: UUID,
@@ -207,24 +233,8 @@ class EvidenceIncidentLogService(EvidenceTypeService):
     ) -> None:
         incident_log_repo = EvidenceIncidentLogRepository(db)
         file_repo = EvidenceIncidentLogFileRepository(db)
+        log, file_row = self._get_incident_log_file(incident_log_id, current_user, db)
 
-        log = super()._get_evidence(incident_log_id, incident_log_repo)
-        EvidenceTypeService._check_access_permission(
-            self,
-            complaint_id=log.complaint_id,
-            evidence_id=log.incident_log_id,
-            current_user=current_user,
-            db=db,
-        )
-
-        if log.type != EvidenceIncidentLogType.FILE:
-            raise CodeException(
-                code="INCIDENT_LOG_FORM_DATA_CANNOT_DELETE",
-                message="사건 일지 폼 데이터는 해당 API를 사용해주세요.",
-                status_code=400,
-            )
-
-        file_row = file_repo.get(incident_log_id)
         if file_row:
             try:
                 delete_s3_objects(settings.S3_BUCKET_NAME, [file_row.s3_key])

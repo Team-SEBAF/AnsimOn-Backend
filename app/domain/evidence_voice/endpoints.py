@@ -1,7 +1,10 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
 import app.domain.evidence.errors as evidence_errors
+from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
 from app.domain.complaint import Complaint, get_owned_complaint
 from app.domain.evidence.constant import EVIDENCE_VOICE_RESTRICT
@@ -26,5 +29,24 @@ def upload_evidence_voices(
     return evidence_voice_service.upload_voices(
         complaint=complaint,
         files=files,
+        db=db,
+    )
+
+
+@router.get(
+    "/evidence/voice/{voice_id}/original",
+    summary="VOICE 타입 증거 음성 원본 조회 (10분 유효)",
+    description="VOICE 타입 증거 음성 원본을 조회합니다.",
+    response_model=schemas.EvidenceVoiceOriginalResponse,
+    responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,
+)
+def get_evidence_voice_original(
+    voice_id: UUID,
+    current_user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return evidence_voice_service.get_original_voice(
+        voice_id=voice_id,
+        current_user=current_user,
         db=db,
     )

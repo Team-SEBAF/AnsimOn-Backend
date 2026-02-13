@@ -176,6 +176,29 @@ class EvidenceTrackingService(EvidenceTypeService):
             duration_invalid_filenames=filtered_result["duration_invalid_filenames"],
         )
 
+    def get_original_tracking(
+        self,
+        tracking_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+    ) -> schemas.EvidenceTrackingOriginalResponse:
+        tracking = self._get_tracking(tracking_id, db)
+        self._check_access_permission(tracking, current_user, db)
+
+        url = super()._get_presigned_url(
+            s3_key=tracking.s3_key,
+            expires_in=60 * 10,  # 10분
+        )
+
+        return schemas.EvidenceTrackingOriginalResponse(
+            tracking_id=tracking.tracking_id,
+            filename=tracking.filename,
+            content_type=tracking.content_type,
+            size_bytes=tracking.size_bytes,
+            duration_seconds=tracking.duration_seconds,
+            url=url,
+        )
+
     def update_filename(
         self,
         tracking_id: UUID,
