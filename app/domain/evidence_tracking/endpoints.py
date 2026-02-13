@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
 import app.domain.evidence.errors as evidence_errors
@@ -29,6 +29,24 @@ def upload_evidence_tracking_videos(
     return evidence_tracking_service.upload_trackings(
         complaint=complaint,
         files=files,
+        db=db,
+    )
+
+
+@router.get(
+    "/{complaint_id}/evidences/trackings/previews",
+    summary="TRACKING 타입 증거 프리뷰 리스트 조회 (썸네일 이미지 1시간 유효)",
+    description="TRACKING 타입 증거 프리뷰 리스트를 조회합니다.",
+    response_model=schemas.EvidenceTrackingPreviewListResponse,
+)
+def get_evidence_tracking_previews(
+    complaint: Complaint = Depends(get_owned_complaint),
+    limit: int = Query(5, ge=1, le=20),
+    db: Session = Depends(get_db),
+):
+    return evidence_tracking_service.get_preview_trackings(
+        complaint=complaint,
+        limit=limit,
         db=db,
     )
 

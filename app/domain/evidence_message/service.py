@@ -67,7 +67,7 @@ class EvidenceMessageService(EvidenceTypeService):
             db=db,
         )
 
-    def upload_images(
+    def upload_messages(
         self,
         complaint: Complaint,
         files: list[UploadFile],
@@ -193,7 +193,7 @@ class EvidenceMessageService(EvidenceTypeService):
             size_invalid_filenames=filtered_result["size_invalid_filenames"],
         )
 
-    def get_preview_images(
+    def get_preview_messages(
         self,
         complaint: Complaint,
         limit: int,
@@ -215,7 +215,7 @@ class EvidenceMessageService(EvidenceTypeService):
             previews.append(
                 schemas.EvidenceMessagePreviewResponse(
                     message_id=message.message_id,
-                    url=url,
+                    thumbnail_url=url,
                 )
             )
 
@@ -224,7 +224,7 @@ class EvidenceMessageService(EvidenceTypeService):
             total_count=total_count,
         )
 
-    def get_detail_images(
+    def get_detail_messages(
         self,
         complaint: Complaint,
         limit: int,
@@ -258,7 +258,7 @@ class EvidenceMessageService(EvidenceTypeService):
             total_count=total_count,
         )
 
-    def get_original_image(
+    def get_original_message(
         self,
         message_id: UUID,
         current_user: AuthUser,

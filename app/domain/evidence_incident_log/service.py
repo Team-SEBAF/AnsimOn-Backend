@@ -188,6 +188,49 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             size_invalid_filenames=filtered_result["size_invalid_filenames"],
         )
 
+    def get_preview_incident_logs(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceIncidentLogPreviewListResponse:
+        incident_logs, total_count = self._get_limit_incident_logs_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        file_repo = EvidenceIncidentLogFileRepository(db)
+        file_log_ids = [
+            log.incident_log_id for log in incident_logs if log.type == EvidenceIncidentLogType.FILE
+        ]
+        file_rows = file_repo.list_by_incident_log_ids(file_log_ids)
+
+        previews = [
+            schemas.EvidenceIncidentLogPreviewResponse(
+                incident_log_id=incident_log.incident_log_id,
+                filename=incident_log.name,
+                size_bytes=(
+                    next(
+                        (
+                            row.size_bytes
+                            for row in file_rows
+                            if row.incident_log_id == incident_log.incident_log_id
+                        ),
+                        None,
+                    )
+                    if incident_log.type == EvidenceIncidentLogType.FILE
+                    else None
+                ),
+            )
+            for incident_log in incident_logs
+        ]
+
+        return schemas.EvidenceIncidentLogPreviewListResponse(
+            previews=previews,
+            total_count=total_count,
+        )
+
     def get_original_incident_log_file(
         self,
         incident_log_id: UUID,

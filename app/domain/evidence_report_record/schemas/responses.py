@@ -58,3 +58,20 @@ class EvidenceReportRecordOriginalResponse(BaseResponse):
     content_type: str = Field(..., description="Content-Type", examples=["application/pdf"])
     size_bytes: int = Field(..., description="파일 크기(바이트)", examples=[12345])
     url: str = Field(..., description="원본 신고・사건 일지 URL", examples=["https://..."])
+
+
+class EvidenceReportRecordPreviewResponse(BaseResponse):
+    report_record_id: UUID = Field(
+        ...,
+        description="증거 신고・사건 일지 ID",
+        examples=[UUID("123e4567-e89b-12d3-a456-426614174000")],
+    )
+    filename: str = Field(..., description="파일명", examples=["evidence.pdf"])
+    size_bytes: int = Field(..., description="파일 크기(바이트)", examples=[12345])
+
+
+class EvidenceReportRecordPreviewListResponse(BaseResponse):
+    previews: list[EvidenceReportRecordPreviewResponse] = Field(
+        ..., description="증거 신고・사건 일지 프리뷰 목록"
+    )
+    total_count: int = Field(..., description="총 개수", examples=[10])

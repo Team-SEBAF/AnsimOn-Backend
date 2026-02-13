@@ -161,6 +161,32 @@ class EvidenceReportRecordService(EvidenceTypeService):
             size_invalid_filenames=filtered_result["size_invalid_filenames"],
         )
 
+    def get_preview_report_records(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceReportRecordPreviewListResponse:
+        report_records, total_count = self._get_limit_report_records_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        previews = [
+            schemas.EvidenceReportRecordPreviewResponse(
+                report_record_id=report_record.report_record_id,
+                filename=report_record.filename,
+                size_bytes=report_record.size_bytes,
+            )
+            for report_record in report_records
+        ]
+
+        return schemas.EvidenceReportRecordPreviewListResponse(
+            previews=previews,
+            total_count=total_count,
+        )
+
     def get_original_report_record(
         self,
         report_record_id: UUID,

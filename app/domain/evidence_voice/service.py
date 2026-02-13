@@ -157,6 +157,32 @@ class EvidenceVoiceService(EvidenceTypeService):
             duration_invalid_filenames=filtered_result["duration_invalid_filenames"],
         )
 
+    def get_preview_voices(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceVoicePreviewListResponse:
+        voices, total_count = self._get_limit_voices_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        previews = [
+            schemas.EvidenceVoicePreviewResponse(
+                voice_id=voice.voice_id,
+                filename=voice.filename,
+                duration_seconds=voice.duration_seconds,
+            )
+            for voice in voices
+        ]
+
+        return schemas.EvidenceVoicePreviewListResponse(
+            previews=previews,
+            total_count=total_count,
+        )
+
     def get_original_voice(
         self,
         voice_id: UUID,

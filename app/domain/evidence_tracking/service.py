@@ -11,7 +11,7 @@ from app.core.aws import upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
-from app.domain.evidence.constant import EVIDENCE_TRACKING_RESTRICT
+from app.domain.evidence.constant import EVIDENCE_TRACKING_RESTRICT, EvidenceVariant
 from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
     EvidenceMaxCountExceededErrorCode,
 )
@@ -174,6 +174,38 @@ class EvidenceTrackingService(EvidenceTypeService):
             count_invalid_filenames=count_invalid_filenames,
             size_invalid_filenames=filtered_result["size_invalid_filenames"],
             duration_invalid_filenames=filtered_result["duration_invalid_filenames"],
+        )
+
+    def get_preview_trackings(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceTrackingPreviewListResponse:
+        trackings, total_count = self._get_limit_trackings_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        previews: list[schemas.EvidenceTrackingPreviewResponse] = []
+        for tracking in trackings:
+            s3_key_base = tracking.s3_key.rsplit("/", 1)[0]
+            url = super()._get_presigned_url(
+                s3_key=f"{s3_key_base}/{EvidenceVariant.THUMBNAIL.value}",
+                expires_in=60 * 60,  # 1시간
+            )
+            previews.append(
+                schemas.EvidenceTrackingPreviewResponse(
+                    tracking_id=tracking.tracking_id,
+                    duration_seconds=tracking.duration_seconds,
+                    thumbnail_url=url,
+                )
+            )
+
+        return schemas.EvidenceTrackingPreviewListResponse(
+            previews=previews,
+            total_count=total_count,
         )
 
     def get_original_tracking(

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
 import app.domain.evidence.errors as evidence_errors
@@ -29,6 +29,24 @@ def upload_evidence_voices(
     return evidence_voice_service.upload_voices(
         complaint=complaint,
         files=files,
+        db=db,
+    )
+
+
+@router.get(
+    "/{complaint_id}/evidences/voices/previews",
+    summary="VOICE 타입 증거 프리뷰 리스트 조회",
+    description="VOICE 타입 증거 프리뷰 리스트를 조회합니다.",
+    response_model=schemas.EvidenceVoicePreviewListResponse,
+)
+def get_evidence_voice_previews(
+    complaint: Complaint = Depends(get_owned_complaint),
+    limit: int = Query(5, ge=1, le=20),
+    db: Session = Depends(get_db),
+):
+    return evidence_voice_service.get_preview_voices(
+        complaint=complaint,
+        limit=limit,
         db=db,
     )
 

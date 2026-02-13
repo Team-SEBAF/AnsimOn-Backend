@@ -59,3 +59,18 @@ class EvidenceTrackingOriginalResponse(BaseResponse):
     size_bytes: int = Field(..., description="파일 크기(바이트)", examples=[12345])
     duration_seconds: int = Field(..., description="영상 길이(초)", examples=[123])
     url: str = Field(..., description="원본 영상 URL", examples=["https://..."])
+
+
+class EvidenceTrackingPreviewResponse(BaseResponse):
+    tracking_id: UUID = Field(
+        ..., description="증거 추적 ID", examples=[UUID("123e4567-e89b-12d3-a456-426614174000")]
+    )
+    duration_seconds: int = Field(..., description="영상 길이(초)", examples=[123])
+    thumbnail_url: str = Field(..., description="썸네일 URL", examples=["https://..."])
+
+
+class EvidenceTrackingPreviewListResponse(BaseResponse):
+    previews: list[EvidenceTrackingPreviewResponse] = Field(
+        ..., description="증거 추적 프리뷰 목록"
+    )
+    total_count: int = Field(..., description="총 개수", examples=[10])

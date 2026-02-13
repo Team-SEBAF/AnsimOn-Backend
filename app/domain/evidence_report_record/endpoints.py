@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
 import app.domain.evidence.errors as evidence_errors
@@ -29,6 +29,24 @@ def upload_evidence_report_records(
     return evidence_report_record_service.upload_report_records(
         complaint=complaint,
         files=files,
+        db=db,
+    )
+
+
+@router.get(
+    "/{complaint_id}/evidences/report-records/previews",
+    summary="REPORT_RECORD 타입 신고・사건 일지 프리뷰 리스트 조회",
+    description="REPORT_RECORD 타입 신고・사건 일지 프리뷰 리스트를 조회합니다.",
+    response_model=schemas.EvidenceReportRecordPreviewListResponse,
+)
+def get_evidence_report_record_previews(
+    complaint: Complaint = Depends(get_owned_complaint),
+    limit: int = Query(5, ge=1, le=20),
+    db: Session = Depends(get_db),
+):
+    return evidence_report_record_service.get_preview_report_records(
+        complaint=complaint,
+        limit=limit,
         db=db,
     )
 
