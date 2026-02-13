@@ -11,7 +11,7 @@ from app.core.aws import upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
-from app.domain.evidence.constant import EVIDENCE_MESSAGE_RESTRICT, EvidenceMessageVariant
+from app.domain.evidence.constant import EVIDENCE_MESSAGE_RESTRICT, EvidenceVariant
 from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
     EvidenceMaxCountExceededErrorCode,
 )
@@ -207,9 +207,9 @@ class EvidenceMessageService(EvidenceTypeService):
 
         thumbnails: list[schemas.EvidenceMessageThumbnailResponse] = []
         for message in messages:
+            s3_key_base = message.s3_key.rsplit("/", 1)[0]
             url = super()._get_presigned_url(
-                evidence=message,
-                variant=EvidenceMessageVariant.THUMBNAIL,
+                s3_key=f"{s3_key_base}/{EvidenceVariant.THUMBNAIL.value}",
                 expires_in=60 * 60,  # 1시간
             )
             thumbnails.append(
@@ -238,9 +238,9 @@ class EvidenceMessageService(EvidenceTypeService):
 
         details: list[schemas.EvidenceMessageDetailResponse] = []
         for message in messages:
+            s3_key_base = message.s3_key.rsplit("/", 1)[0]
             url = super()._get_presigned_url(
-                evidence=message,
-                variant=EvidenceMessageVariant.DETAIL,
+                s3_key=f"{s3_key_base}/{EvidenceVariant.DETAIL.value}",
                 expires_in=60 * 30,  # 30분
             )
             details.append(
@@ -267,9 +267,10 @@ class EvidenceMessageService(EvidenceTypeService):
         message = self._get_message(message_id, db)
         self._check_access_permission(message, current_user, db)
 
+        s3_key = f"{message.s3_key}"
+
         url = super()._get_presigned_url(
-            evidence=message,
-            variant=EvidenceMessageVariant.ORIGINAL,
+            s3_key=s3_key,
             expires_in=60 * 10,  # 10분
         )
 
@@ -290,7 +291,7 @@ class EvidenceMessageService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> EvidenceMessage:
-        return self._update_evidence_filename(
+        return self.update_evidence_filename(
             message_id,
             filename,
             current_user,
@@ -308,7 +309,7 @@ class EvidenceMessageService(EvidenceTypeService):
             base = e.s3_key.rsplit("/", 1)[0]
             return [f"{base}/original", f"{base}/thumbnail", f"{base}/detail"]
 
-        self._delete_evidence_with_s3(
+        self.delete_evidence_with_s3(
             message_id,
             current_user,
             db,

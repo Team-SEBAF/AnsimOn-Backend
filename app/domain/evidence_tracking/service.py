@@ -183,7 +183,7 @@ class EvidenceTrackingService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> EvidenceTracking:
-        return self._update_evidence_filename(
+        return self.update_evidence_filename(
             tracking_id,
             filename,
             current_user,
@@ -201,7 +201,7 @@ class EvidenceTrackingService(EvidenceTypeService):
             base = e.s3_key.rsplit("/", 1)[0]
             return [f"{base}/original", f"{base}/thumbnail", f"{base}/detail"]
 
-        self._delete_evidence_with_s3(
+        self.delete_evidence_with_s3(
             tracking_id,
             current_user,
             db,

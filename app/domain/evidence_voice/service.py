@@ -164,7 +164,7 @@ class EvidenceVoiceService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> EvidenceVoice:
-        return self._update_evidence_filename(
+        return self.update_evidence_filename(
             voice_id,
             filename,
             current_user,
@@ -178,7 +178,7 @@ class EvidenceVoiceService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> None:
-        self._delete_evidence_with_s3(
+        self.delete_evidence_with_s3(
             voice_id,
             current_user,
             db,

@@ -190,17 +190,14 @@ class EvidenceTypeService:
             )
         return evidence
 
-    def _get_presigned_url(self, *, evidence: any, variant: any, expires_in: int):
+    def _get_presigned_url(self, *, s3_key: str, expires_in: int):
         s3 = get_s3_client()
-
-        base = evidence.s3_key.rsplit("/", 1)[0]
-        key = f"{base}/{variant.value}"
 
         url = s3.generate_presigned_url(
             ClientMethod="get_object",
             Params={
                 "Bucket": settings.S3_BUCKET_NAME,
-                "Key": key,
+                "Key": s3_key,
             },
             ExpiresIn=expires_in,
         )
@@ -236,7 +233,25 @@ class EvidenceTypeService:
         )
         return entity
 
-    def _update_evidence_filename(
+    def get_original(
+        self,
+        type: schemas.EvidenceType,
+        evidence_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+        repo: Any,
+    ) -> Any:
+        entity = self._get_evidence_and_check_access(evidence_id, repo, current_user, db)
+        url = self._get_presigned_url(s3_key=entity.s3_key, expires_in=60 * 10)
+        return schemas.EvidenceOriginalResponse(
+            evidence_id=entity.evidence_id,
+            filename=entity.filename,
+            content_type=entity.content_type,
+            size_bytes=entity.size_bytes,
+            url=url,
+        )
+
+    def update_evidence_filename(
         self,
         evidence_id: UUID,
         filename: str,
@@ -252,7 +267,7 @@ class EvidenceTypeService:
         db.refresh(entity)
         return entity
 
-    def _delete_evidence_with_s3(
+    def delete_evidence_with_s3(
         self,
         evidence_id: UUID,
         current_user: AuthUser,

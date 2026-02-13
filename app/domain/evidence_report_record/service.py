@@ -168,7 +168,7 @@ class EvidenceReportRecordService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> EvidenceReportRecord:
-        return self._update_evidence_filename(
+        return self.update_evidence_filename(
             report_record_id,
             filename,
             current_user,
@@ -182,7 +182,7 @@ class EvidenceReportRecordService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> None:
-        self._delete_evidence_with_s3(
+        self.delete_evidence_with_s3(
             report_record_id,
             current_user,
             db,

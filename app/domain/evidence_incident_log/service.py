@@ -190,7 +190,7 @@ class EvidenceIncidentLogService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> EvidenceIncidentLog:
-        return self._update_evidence_filename(
+        return self.update_evidence_filename(
             incident_log_id,
             filename,
             current_user,
