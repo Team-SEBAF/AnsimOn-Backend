@@ -48,15 +48,17 @@ class EvidenceMessageOriginalImageResponse(BaseResponse):
     url: str = Field(..., description="원본 이미지 URL", examples=["https://..."])
 
 
-class EvidenceMessageThumbnailResponse(BaseResponse):
+class EvidenceMessagePreviewResponse(BaseResponse):
     message_id: UUID = Field(
         ..., description="증거 메시지 ID", examples=[UUID("123e4567-e89b-12d3-a456-426614174000")]
     )
-    url: str = Field(..., description="썸네일 URL", examples=["https://..."])
+    thumbnail_url: str = Field(..., description="썸네일 URL", examples=["https://..."])
 
 
-class EvidenceMessageThumbnailListResponse(BaseResponse):
-    thumbnails: list[EvidenceMessageThumbnailResponse] = Field(..., description="썸네일 목록")
+class EvidenceMessagePreviewListResponse(BaseResponse):
+    previews: list[EvidenceMessagePreviewResponse] = Field(
+        ..., description="증거 메시지 프리뷰 목록"
+    )
     total_count: int = Field(..., description="총 개수", examples=[10])
 
 
@@ -76,9 +78,9 @@ class EvidenceMessageDetailResponse(BaseResponse):
         description="수정 시간",
         examples=[datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)],
     )
-    url: str = Field(..., description="상세 이미지 URL", examples=["https://..."])
+    thumbnail_url: str = Field(..., description="썸네일 URL", examples=["https://..."])
 
 
 class EvidenceMessageDetailListResponse(BaseResponse):
-    details: list[EvidenceMessageDetailResponse] = Field(..., description="상세 목록")
+    details: list[EvidenceMessageDetailResponse] = Field(..., description="증거 메시지 상세 목록")
     total_count: int = Field(..., description="총 개수", examples=[10])

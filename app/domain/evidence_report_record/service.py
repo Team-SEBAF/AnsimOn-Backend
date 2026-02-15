@@ -161,6 +161,83 @@ class EvidenceReportRecordService(EvidenceTypeService):
             size_invalid_filenames=filtered_result["size_invalid_filenames"],
         )
 
+    def get_preview_report_records(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceReportRecordPreviewListResponse:
+        report_records, total_count = self._get_limit_report_records_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        previews = [
+            schemas.EvidenceReportRecordPreviewResponse(
+                report_record_id=report_record.report_record_id,
+                filename=report_record.filename,
+                size_bytes=report_record.size_bytes,
+            )
+            for report_record in report_records
+        ]
+
+        return schemas.EvidenceReportRecordPreviewListResponse(
+            previews=previews,
+            total_count=total_count,
+        )
+
+    def get_detail_report_records(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceReportRecordDetailListResponse:
+        report_records, total_count = self._get_limit_report_records_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        details = [
+            schemas.EvidenceReportRecordDetailResponse(
+                report_record_id=report_record.report_record_id,
+                filename=report_record.filename,
+                size_bytes=report_record.size_bytes,
+                content_type=report_record.content_type,
+                created_at=report_record.created_at,
+                updated_at=report_record.updated_at,
+            )
+            for report_record in report_records
+        ]
+
+        return schemas.EvidenceReportRecordDetailListResponse(
+            details=details,
+            total_count=total_count,
+        )
+
+    def get_original_report_record(
+        self,
+        report_record_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+    ) -> schemas.EvidenceReportRecordOriginalResponse:
+        report_record = self._get_report_record(report_record_id, db)
+        self._check_access_permission(report_record, current_user, db)
+
+        url = super()._get_presigned_url(
+            s3_key=report_record.s3_key,
+            expires_in=60 * 10,  # 10분
+        )
+
+        return schemas.EvidenceReportRecordOriginalResponse(
+            report_record_id=report_record.report_record_id,
+            filename=report_record.filename,
+            content_type=report_record.content_type,
+            size_bytes=report_record.size_bytes,
+            url=url,
+        )
+
     def update_filename(
         self,
         report_record_id: UUID,
@@ -168,7 +245,7 @@ class EvidenceReportRecordService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> EvidenceReportRecord:
-        return self._update_evidence_filename(
+        return self.update_evidence_filename(
             report_record_id,
             filename,
             current_user,
@@ -182,7 +259,7 @@ class EvidenceReportRecordService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> None:
-        self._delete_evidence_with_s3(
+        self.delete_evidence_with_s3(
             report_record_id,
             current_user,
             db,

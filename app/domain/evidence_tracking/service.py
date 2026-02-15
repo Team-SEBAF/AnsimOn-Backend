@@ -11,7 +11,7 @@ from app.core.aws import upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
-from app.domain.evidence.constant import EVIDENCE_TRACKING_RESTRICT
+from app.domain.evidence.constant import EVIDENCE_TRACKING_RESTRICT, EvidenceVariant
 from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
     EvidenceMaxCountExceededErrorCode,
 )
@@ -176,6 +176,96 @@ class EvidenceTrackingService(EvidenceTypeService):
             duration_invalid_filenames=filtered_result["duration_invalid_filenames"],
         )
 
+    def get_preview_trackings(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceTrackingPreviewListResponse:
+        trackings, total_count = self._get_limit_trackings_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        previews: list[schemas.EvidenceTrackingPreviewResponse] = []
+        for tracking in trackings:
+            s3_key_base = tracking.s3_key.rsplit("/", 1)[0]
+            url = super()._get_presigned_url(
+                s3_key=f"{s3_key_base}/{EvidenceVariant.THUMBNAIL.value}",
+                expires_in=60 * 60,  # 1시간
+            )
+            previews.append(
+                schemas.EvidenceTrackingPreviewResponse(
+                    tracking_id=tracking.tracking_id,
+                    duration_seconds=tracking.duration_seconds,
+                    thumbnail_url=url,
+                )
+            )
+
+        return schemas.EvidenceTrackingPreviewListResponse(
+            previews=previews,
+            total_count=total_count,
+        )
+
+    def get_detail_trackings(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceTrackingDetailListResponse:
+        trackings, total_count = self._get_limit_trackings_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        details: list[schemas.EvidenceTrackingDetailResponse] = []
+        for tracking in trackings:
+            s3_key_base = tracking.s3_key.rsplit("/", 1)[0]
+            url = super()._get_presigned_url(
+                s3_key=f"{s3_key_base}/{EvidenceVariant.DETAIL.value}",
+                expires_in=60 * 30,  # 30분
+            )
+            details.append(
+                schemas.EvidenceTrackingDetailResponse(
+                    tracking_id=tracking.tracking_id,
+                    filename=tracking.filename,
+                    duration_seconds=tracking.duration_seconds,
+                    size_bytes=tracking.size_bytes,
+                    created_at=tracking.created_at,
+                    updated_at=tracking.updated_at,
+                    thumbnail_url=url,
+                )
+            )
+        return schemas.EvidenceTrackingDetailListResponse(
+            details=details,
+            total_count=total_count,
+        )
+
+    def get_original_tracking(
+        self,
+        tracking_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+    ) -> schemas.EvidenceTrackingOriginalResponse:
+        tracking = self._get_tracking(tracking_id, db)
+        self._check_access_permission(tracking, current_user, db)
+
+        url = super()._get_presigned_url(
+            s3_key=tracking.s3_key,
+            expires_in=60 * 10,  # 10분
+        )
+
+        return schemas.EvidenceTrackingOriginalResponse(
+            tracking_id=tracking.tracking_id,
+            filename=tracking.filename,
+            content_type=tracking.content_type,
+            size_bytes=tracking.size_bytes,
+            duration_seconds=tracking.duration_seconds,
+            url=url,
+        )
+
     def update_filename(
         self,
         tracking_id: UUID,
@@ -183,7 +273,7 @@ class EvidenceTrackingService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> EvidenceTracking:
-        return self._update_evidence_filename(
+        return self.update_evidence_filename(
             tracking_id,
             filename,
             current_user,
@@ -201,7 +291,7 @@ class EvidenceTrackingService(EvidenceTypeService):
             base = e.s3_key.rsplit("/", 1)[0]
             return [f"{base}/original", f"{base}/thumbnail", f"{base}/detail"]
 
-        self._delete_evidence_with_s3(
+        self.delete_evidence_with_s3(
             tracking_id,
             current_user,
             db,

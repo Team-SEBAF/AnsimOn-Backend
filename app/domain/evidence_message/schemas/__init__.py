@@ -2,9 +2,9 @@ from .responses import (
     EvidenceMessageDetailListResponse,
     EvidenceMessageDetailResponse,
     EvidenceMessageOriginalImageResponse,
+    EvidenceMessagePreviewListResponse,
+    EvidenceMessagePreviewResponse,
     EvidenceMessageResponse,
-    EvidenceMessageThumbnailListResponse,
-    EvidenceMessageThumbnailResponse,
     EvidenceMessageUploadResponse,
 )
 
@@ -12,8 +12,8 @@ __all__ = [
     "EvidenceMessageResponse",
     "EvidenceMessageUploadResponse",
     "EvidenceMessageOriginalImageResponse",
-    "EvidenceMessageThumbnailListResponse",
-    "EvidenceMessageThumbnailResponse",
+    "EvidenceMessagePreviewListResponse",
+    "EvidenceMessagePreviewResponse",
     "EvidenceMessageDetailListResponse",
     "EvidenceMessageDetailResponse",
 ]

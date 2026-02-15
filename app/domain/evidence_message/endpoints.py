@@ -26,7 +26,7 @@ def upload_evidence_message_images(
     files: list[UploadFile] = File(...),  # multipart/form-data
     db: Session = Depends(get_db),
 ):
-    return evidence_message_service.upload_images(
+    return evidence_message_service.upload_messages(
         complaint=complaint,
         files=files,
         db=db,
@@ -34,17 +34,17 @@ def upload_evidence_message_images(
 
 
 @router.get(
-    "/{complaint_id}/evidences/messages/thumbnails",
-    summary="MESSAGE 타입 증거 썸네일 리스트 조회",
-    description="MESSAGE 타입 증거 썸네일 리스트를 조회합니다. (1시간 유효)",
-    response_model=schemas.EvidenceMessageThumbnailListResponse,
+    "/{complaint_id}/evidences/messages/previews",
+    summary="MESSAGE 타입 증거 프리뷰 리스트 조회 (썸네일 이미지 1시간 유효)",
+    description="MESSAGE 타입 증거 프리뷰 리스트를 조회합니다.",
+    response_model=schemas.EvidenceMessagePreviewListResponse,
 )
-def get_evidence_message_thumbnails(
+def get_evidence_message_previews(
     complaint: Complaint = Depends(get_owned_complaint),
     limit: int = Query(5, ge=1, le=20),
     db: Session = Depends(get_db),
 ):
-    return evidence_message_service.get_thumbnail_images(
+    return evidence_message_service.get_preview_messages(
         complaint=complaint,
         limit=limit,
         db=db,
@@ -53,8 +53,8 @@ def get_evidence_message_thumbnails(
 
 @router.get(
     "/{complaint_id}/evidences/messages/details",
-    summary="MESSAGE 타입 증거 상세 리스트 조회",
-    description="MESSAGE 타입 증거 상세 리스트를 조회합니다. (30분 유효)",
+    summary="MESSAGE 타입 증거 상세 리스트 조회 (썸네일 이미지 30분 유효)",
+    description="MESSAGE 타입 증거 상세 리스트를 조회합니다.",
     response_model=schemas.EvidenceMessageDetailListResponse,
 )
 def get_evidence_message_details(
@@ -62,7 +62,7 @@ def get_evidence_message_details(
     limit: int = Query(20, ge=1, le=50),
     db: Session = Depends(get_db),
 ):
-    return evidence_message_service.get_detail_images(
+    return evidence_message_service.get_detail_messages(
         complaint=complaint,
         limit=limit,
         db=db,
@@ -70,9 +70,9 @@ def get_evidence_message_details(
 
 
 @router.get(
-    "/{message_id}/original-image",
-    summary="MESSAGE 타입 증거 이미지 원본 조회",
-    description="MESSAGE 타입 증거 이미지 원본을 조회합니다. (10분 유효)",
+    "/evidence/message/{message_id}/original",
+    summary="MESSAGE 타입 증거 이미지 원본 조회 (원본 이미지 10분 유효)",
+    description="MESSAGE 타입 증거 이미지 원본을 조회합니다.",
     response_model=schemas.EvidenceMessageOriginalImageResponse,
     responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,
 )
@@ -81,7 +81,7 @@ def get_evidence_message_original(
     current_user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return evidence_message_service.get_original_image(
+    return evidence_message_service.get_original_message(
         message_id=message_id,
         current_user=current_user,
         db=db,

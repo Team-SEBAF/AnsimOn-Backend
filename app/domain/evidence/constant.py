@@ -64,7 +64,7 @@ EVIDENCE_DOCUMENT_RESTRICT = EvidenceTypeRestrict(
 )
 
 
-class EvidenceMessageVariant(str, Enum):
+class EvidenceVariant(str, Enum):
     THUMBNAIL = "thumbnail"
     DETAIL = "detail"
     ORIGINAL = "original"

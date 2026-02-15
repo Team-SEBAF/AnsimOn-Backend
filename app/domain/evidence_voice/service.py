@@ -157,6 +157,83 @@ class EvidenceVoiceService(EvidenceTypeService):
             duration_invalid_filenames=filtered_result["duration_invalid_filenames"],
         )
 
+    def get_preview_voices(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceVoicePreviewListResponse:
+        voices, total_count = self._get_limit_voices_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        previews = [
+            schemas.EvidenceVoicePreviewResponse(
+                voice_id=voice.voice_id,
+                filename=voice.filename,
+                duration_seconds=voice.duration_seconds,
+            )
+            for voice in voices
+        ]
+
+        return schemas.EvidenceVoicePreviewListResponse(
+            previews=previews,
+            total_count=total_count,
+        )
+
+    def get_detail_voices(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceVoiceDetailListResponse:
+        voices, total_count = self._get_limit_voices_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        details = [
+            schemas.EvidenceVoiceDetailResponse(
+                voice_id=voice.voice_id,
+                filename=voice.filename,
+                duration_seconds=voice.duration_seconds,
+                size_bytes=voice.size_bytes,
+                created_at=voice.created_at,
+                updated_at=voice.updated_at,
+            )
+            for voice in voices
+        ]
+        return schemas.EvidenceVoiceDetailListResponse(
+            details=details,
+            total_count=total_count,
+        )
+
+    def get_original_voice(
+        self,
+        voice_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+    ) -> schemas.EvidenceVoiceOriginalResponse:
+        voice = self._get_voice(voice_id, db)
+        self._check_access_permission(voice, current_user, db)
+
+        url = super()._get_presigned_url(
+            s3_key=voice.s3_key,
+            expires_in=60 * 10,  # 10분
+        )
+
+        return schemas.EvidenceVoiceOriginalResponse(
+            voice_id=voice.voice_id,
+            filename=voice.filename,
+            content_type=voice.content_type,
+            size_bytes=voice.size_bytes,
+            duration_seconds=voice.duration_seconds,
+            url=url,
+        )
+
     def update_filename(
         self,
         voice_id: UUID,
@@ -164,7 +241,7 @@ class EvidenceVoiceService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> EvidenceVoice:
-        return self._update_evidence_filename(
+        return self.update_evidence_filename(
             voice_id,
             filename,
             current_user,
@@ -178,7 +255,7 @@ class EvidenceVoiceService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> None:
-        self._delete_evidence_with_s3(
+        self.delete_evidence_with_s3(
             voice_id,
             current_user,
             db,

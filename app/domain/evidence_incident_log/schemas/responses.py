@@ -5,6 +5,10 @@ from pydantic import Field
 
 from app.base.base_response import BaseResponse
 from app.domain.evidence.constant import EVIDENCE_DOCUMENT_RESTRICT
+from app.domain.evidence_incident_log.models.evidence_incident_log_model import (
+    EvidenceIncidentLogType,
+)
+from app.domain.evidence_incident_log.schemas.dtos import EvidenceIncidentLogFormDataDTO
 
 
 class EvidenceIncidentLogFileResponse(BaseResponse):
@@ -46,22 +50,70 @@ class EvidenceIncidentLogFileUploadResponse(BaseResponse):
     )
 
 
-class EvidenceIncidentLogFormDataResponse(BaseResponse):
+class EvidenceIncidentLogFileOriginalResponse(BaseResponse):
     incident_log_id: UUID = Field(
         ..., description="사건 일지 ID", examples=[UUID("123e4567-e89b-12d3-a456-426614174000")]
     )
-    name: str = Field(..., description="사건 일지 이름", examples=["사건 일지 이름"])
-    date: datetime.date = Field(
-        ..., description="날짜(YYYY-MM-DD)", examples=[datetime.date(2024, 1, 1)]
+    filename: str = Field(..., description="사건 일지 파일명", examples=["사건 일지 파일명"])
+    content_type: str = Field(..., description="Content-Type", examples=["application/pdf"])
+    size_bytes: int = Field(..., description="파일 크기(바이트)", examples=[12345])
+    url: str = Field(..., description="원본 사건 일지 파일 URL", examples=["https://..."])
+
+
+class EvidenceIncidentLogPreviewResponse(BaseResponse):
+    incident_log_id: UUID = Field(
+        ..., description="사건 일지 ID", examples=[UUID("123e4567-e89b-12d3-a456-426614174000")]
     )
-    time: datetime.time = Field(..., description="시간(HH:MM)", examples=[datetime.time(12, 0, 0)])
-    location: str = Field(..., description="장소", examples=["서울특별시 강남구 역삼동"])
-    description: str = Field(..., description="설명", examples=["그 남자가 계속 나를 쫓아왔다"])
-    witness: str = Field(..., description="목격자", examples=["주변 사람"])
-    perceived_risk: str = Field(
+    type: EvidenceIncidentLogType = Field(
+        ..., description="사건 일지 타입", examples=[EvidenceIncidentLogType.FILE]
+    )
+    filename: str = Field(..., description="사건 일지 파일명", examples=["사건 일지 파일명"])
+    size_bytes: int | None = Field(
+        ..., description="파일 크기(바이트), 폼데이터면 None", examples=[12345, None]
+    )
+
+
+class EvidenceIncidentLogPreviewListResponse(BaseResponse):
+    previews: list[EvidenceIncidentLogPreviewResponse] = Field(
+        ..., description="사건 일지 파일 프리뷰 목록"
+    )
+    total_count: int = Field(..., description="총 개수", examples=[10])
+
+
+class EvidenceIncidentLogDetailResponse(BaseResponse):
+    incident_log_id: UUID = Field(
+        ..., description="사건 일지 ID", examples=[UUID("123e4567-e89b-12d3-a456-426614174000")]
+    )
+    type: EvidenceIncidentLogType = Field(
+        ..., description="사건 일지 타입", examples=[EvidenceIncidentLogType.FILE]
+    )
+    filename: str = Field(..., description="사건 일지 파일명", examples=["사건 일지 파일명"])
+    size_bytes: int | None = Field(
+        None, description="파일 크기(바이트), 폼데이터면 None", examples=[12345, None]
+    )
+    content_type: str | None = Field(
+        None, description="Content-Type, 폼데이터면 None", examples=["application/pdf", None]
+    )
+    created_at: datetime.datetime = Field(
         ...,
-        description="느낀 위험 정도",
-        examples=["매우 높음", "높음", "보통", "낮음", "매우 낮음"],
+        description="생성 시간",
+        examples=[datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)],
+    )
+    updated_at: datetime.datetime = Field(
+        ...,
+        description="수정 시간",
+        examples=[datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)],
+    )
+
+
+class EvidenceIncidentLogDetailListResponse(BaseResponse):
+    details: list[EvidenceIncidentLogDetailResponse] = Field(..., description="사건 일지 상세 목록")
+    total_count: int = Field(..., description="총 개수", examples=[10])
+
+
+class EvidenceIncidentLogFormDataResponse(BaseResponse, EvidenceIncidentLogFormDataDTO):
+    incident_log_id: UUID = Field(
+        ..., description="사건 일지 ID", examples=[UUID("123e4567-e89b-12d3-a456-426614174000")]
     )
     created_at: datetime.datetime = Field(
         ...,
