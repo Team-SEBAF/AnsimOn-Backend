@@ -440,19 +440,25 @@ class EvidenceIncidentLogService(EvidenceTypeService):
         db: Session,
     ) -> None:
         incident_log_repo = EvidenceIncidentLogRepository(db)
-        file_repo = EvidenceIncidentLogFileRepository(db)
-        log, file_row = self._get_incident_log_file(incident_log_id, current_user, db)
+        log = super()._get_evidence(incident_log_id, incident_log_repo)
 
-        if file_row:
-            try:
-                delete_s3_objects(settings.S3_BUCKET_NAME, [file_row.s3_key])
-            except Exception:
-                raise CodeException(
-                    code="DELETE_EVIDENCE_FAILED",
-                    message="증거 삭제에 실패했습니다.",
-                    status_code=500,
-                )
+        self._check_access_permission(
+            incident_log=log,
+            current_user=current_user,
+            db=db,
+        )
+
+        if log.type == EvidenceIncidentLogType.FILE:
+            file_repo = EvidenceIncidentLogFileRepository(db)
+            file_row = file_repo.get(incident_log_id)
+            delete_s3_objects(settings.S3_BUCKET_NAME, [file_row.s3_key])
             file_repo.delete(file_row)
+
+        elif log.type == EvidenceIncidentLogType.FORM_DATA:
+            form_data_repo = EvidenceIncidentLogFormDataRepository(db)
+            form_data_row = form_data_repo.get(incident_log_id)
+            form_data_repo.delete(form_data_row)
+
         incident_log_repo.delete(log)
         db.commit()
 
