@@ -17,6 +17,15 @@ class EvidenceIncidentLogRepository(EvidenceRepositoryBase):
     def get(self, incident_log_id: UUID) -> EvidenceIncidentLog | None:
         return super().get(incident_log_id)
 
+    def update(
+        self, incident_log: EvidenceIncidentLog, values: dict[str, object]
+    ) -> EvidenceIncidentLog:
+        for key, value in values.items():
+            if not hasattr(incident_log, key):
+                raise ValueError(f"Invalid field: {key}")
+            setattr(incident_log, key, value)
+        return incident_log
+
     def delete(self, incident_log: EvidenceIncidentLog) -> None:
         super().delete(incident_log)
 

@@ -17,42 +17,54 @@ from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
 )
 from app.domain.evidence.utils import filter_evidence_files
 from app.domain.evidence_incident_log import schemas
+from app.domain.evidence_incident_log.errors.incident_log_type_mismatch_error import (
+    IncidentLogTypeMismatchErrorCode,
+)
 from app.domain.evidence_incident_log.models.evidence_incident_log_model import (
     EvidenceIncidentLog,
     EvidenceIncidentLogFile,
+    EvidenceIncidentLogFormData,
     EvidenceIncidentLogType,
 )
 from app.domain.evidence_incident_log.repos.evidence_incident_log_repository import (
     EvidenceIncidentLogFileRepository,
+    EvidenceIncidentLogFormDataRepository,
     EvidenceIncidentLogRepository,
 )
 
 
 class EvidenceIncidentLogService(EvidenceTypeService):
-    def _get_incident_log_file(
-        self, incident_log_id: UUID, current_user: AuthUser, db: Session
-    ) -> EvidenceIncidentLogFile:
+    def _get_incident_log_with_type_check(
+        self,
+        incident_log_id: UUID,
+        type: EvidenceIncidentLogType,
+        current_user: AuthUser,
+        db: Session,
+    ):
         incident_log_repo = EvidenceIncidentLogRepository(db)
         file_repo = EvidenceIncidentLogFileRepository(db)
+        form_data_repo = EvidenceIncidentLogFormDataRepository(db)
 
         log = super()._get_evidence(incident_log_id, incident_log_repo)
-        EvidenceTypeService._check_access_permission(
-            self,
-            complaint_id=log.complaint_id,
-            evidence_id=log.incident_log_id,
+        self._check_access_permission(
+            incident_log=log,
             current_user=current_user,
             db=db,
         )
 
-        if log.type != EvidenceIncidentLogType.FILE:
+        if log.type != type:
             raise CodeException(
-                code="INCIDENT_LOG_FORM_DATA_CANNOT_DELETE",
-                message="사건 일지 폼 데이터는 해당 API를 사용해주세요.",
+                code=IncidentLogTypeMismatchErrorCode.INCIDENT_LOG_TYPE_MISMATCH,
+                message=f"ID: {incident_log_id}에 해당하는 사건 일지 타입이 {type.value}가 아닙니다.",
                 status_code=400,
             )
 
-        file_row = file_repo.get(incident_log_id)
-        return log, file_row
+        if type == EvidenceIncidentLogType.FILE:
+            file_row = file_repo.get(incident_log_id)
+            return log, file_row
+        elif type == EvidenceIncidentLogType.FORM_DATA:
+            form_data_row = form_data_repo.get(incident_log_id)
+            return log, form_data_row
 
     def _get_total_count(self, complaint_id: UUID, db: Session) -> int:
         repo = EvidenceIncidentLogRepository(db)
@@ -99,14 +111,9 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             db=db,
         )
 
-    def upload_incident_log_files(
-        self,
-        complaint: Complaint,
-        files: list[UploadFile],
-        db: Session,
-    ) -> schemas.EvidenceIncidentLogFileUploadResponse:
+    def _check_max_count(self, complaint_id: UUID, db: Session) -> None:
         total_count = self._get_total_count(
-            complaint_id=complaint.complaint_id,
+            complaint_id=complaint_id,
             db=db,
         )
         if total_count >= EVIDENCE_DOCUMENT_RESTRICT.max_count:
@@ -115,6 +122,18 @@ class EvidenceIncidentLogService(EvidenceTypeService):
                 message=f"INCIDENT_LOG 타입 사건 일지 파일의 최대 개수({EVIDENCE_DOCUMENT_RESTRICT.max_count}개)를 초과했습니다.",
                 status_code=400,
             )
+        return total_count
+
+    def upload_incident_log_files(
+        self,
+        complaint: Complaint,
+        files: list[UploadFile],
+        db: Session,
+    ) -> schemas.EvidenceIncidentLogFileUploadResponse:
+        total_count = self._check_max_count(
+            complaint_id=complaint.complaint_id,
+            db=db,
+        )
 
         evidence_incident_log_repo = EvidenceIncidentLogRepository(db)
         evidence_incident_log_file_repo = EvidenceIncidentLogFileRepository(db)
@@ -269,7 +288,9 @@ class EvidenceIncidentLogService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> schemas.EvidenceIncidentLogFileOriginalResponse:
-        log, file_row = self._get_incident_log_file(incident_log_id, current_user, db)
+        log, file_row = self._get_incident_log_with_type_check(
+            incident_log_id, EvidenceIncidentLogType.FILE, current_user, db
+        )
 
         url = super()._get_presigned_url(
             s3_key=file_row.s3_key,
@@ -282,6 +303,118 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             content_type=file_row.content_type,
             size_bytes=file_row.size_bytes,
             url=url,
+        )
+
+    def upload_incident_log_form_data(
+        self,
+        complaint: Complaint,
+        request: schemas.EvidenceIncidentLogFormDataUploadRequest,
+        db: Session,
+    ) -> schemas.EvidenceIncidentLogFormDataResponse:
+        self._check_max_count(
+            complaint_id=complaint.complaint_id,
+            db=db,
+        )
+
+        incident_log_repo = EvidenceIncidentLogRepository(db)
+        incident_log_form_data_repo = EvidenceIncidentLogFormDataRepository(db)
+        incident_log_id = uuid4()
+
+        incident_log = EvidenceIncidentLog(
+            incident_log_id=incident_log_id,
+            complaint_id=complaint.complaint_id,
+            name=request.filename,
+            type=EvidenceIncidentLogType.FORM_DATA,
+        )
+        incident_log_repo.create(incident_log)
+
+        incident_log_form_data = EvidenceIncidentLogFormData(
+            incident_log_id=incident_log_id,
+            date=request.date,
+            time=request.time,
+            location=request.location,
+            description=request.description,
+            witness=request.witness,
+            perceived_risk=request.perceived_risk,
+        )
+        incident_log_form_data_repo.create(incident_log_form_data)
+        db.commit()
+
+        db.refresh(incident_log)
+        db.refresh(incident_log_form_data)
+
+        return schemas.EvidenceIncidentLogFormDataResponse(
+            incident_log_id=incident_log.incident_log_id,
+            filename=incident_log.name,
+            date=incident_log_form_data.date,
+            time=incident_log_form_data.time,
+            location=incident_log_form_data.location,
+            description=incident_log_form_data.description,
+            witness=incident_log_form_data.witness,
+            perceived_risk=incident_log_form_data.perceived_risk,
+            created_at=incident_log.created_at,
+            updated_at=incident_log.updated_at,
+        )
+
+    def get_incident_log_form_data(
+        self,
+        incident_log_id: UUID,
+        current_user: AuthUser,
+        db: Session,
+    ) -> schemas.EvidenceIncidentLogFormDataResponse:
+        log, form_data_row = self._get_incident_log_with_type_check(
+            incident_log_id, EvidenceIncidentLogType.FORM_DATA, current_user, db
+        )
+        return schemas.EvidenceIncidentLogFormDataResponse(
+            incident_log_id=log.incident_log_id,
+            filename=log.name,
+            date=form_data_row.date,
+            time=form_data_row.time,
+            location=form_data_row.location,
+            description=form_data_row.description,
+            witness=form_data_row.witness,
+            perceived_risk=form_data_row.perceived_risk,
+            created_at=log.created_at,
+            updated_at=log.updated_at,
+        )
+
+    def update_incident_log_form_data(
+        self,
+        incident_log_id: UUID,
+        request: schemas.EvidenceIncidentLogFormDataUpdateRequest,
+        current_user: AuthUser,
+        db: Session,
+    ) -> schemas.EvidenceIncidentLogFormDataResponse:
+        incident_log_repo = EvidenceIncidentLogRepository(db)
+        log, form_data_row = self._get_incident_log_with_type_check(
+            incident_log_id, EvidenceIncidentLogType.FORM_DATA, current_user, db
+        )
+
+        update_data = request.model_dump(exclude_unset=True)
+
+        if "filename" in update_data:
+            incident_log_repo.update(log, {"name": update_data["filename"]})
+
+        form_data_fields = {"date", "time", "location", "description", "witness", "perceived_risk"}
+        for key in form_data_fields:
+            if key in update_data:
+                setattr(form_data_row, key, update_data[key])
+
+        db.commit()
+        db.refresh(log)
+        db.refresh(form_data_row)
+
+        return schemas.EvidenceIncidentLogFormDataResponse(
+            incident_log_id=incident_log_id,
+            filename=log.name,
+            date=form_data_row.date,
+            time=form_data_row.time,
+            location=form_data_row.location,
+            description=form_data_row.description,
+            witness=form_data_row.witness,
+            perceived_risk=form_data_row.perceived_risk,
+            created_at=log.created_at,
+            updated_at=log.updated_at,
         )
 
     def update_filename(
