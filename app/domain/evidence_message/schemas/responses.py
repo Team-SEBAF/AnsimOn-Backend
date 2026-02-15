@@ -78,9 +78,9 @@ class EvidenceMessageDetailResponse(BaseResponse):
         description="수정 시간",
         examples=[datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)],
     )
-    url: str = Field(..., description="상세 이미지 URL", examples=["https://..."])
+    thumbnail_url: str = Field(..., description="썸네일 URL", examples=["https://..."])
 
 
 class EvidenceMessageDetailListResponse(BaseResponse):
-    details: list[EvidenceMessageDetailResponse] = Field(..., description="상세 목록")
+    details: list[EvidenceMessageDetailResponse] = Field(..., description="증거 메시지 상세 목록")
     total_count: int = Field(..., description="총 개수", examples=[10])

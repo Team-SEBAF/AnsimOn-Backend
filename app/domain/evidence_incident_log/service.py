@@ -80,6 +80,15 @@ class EvidenceIncidentLogService(EvidenceTypeService):
 
         return incident_logs, total_count
 
+    def _get_file_rows(
+        self, incident_logs: list[EvidenceIncidentLog], db: Session
+    ) -> list[EvidenceIncidentLogFile]:
+        file_repo = EvidenceIncidentLogFileRepository(db)
+        file_log_ids = [
+            log.incident_log_id for log in incident_logs if log.type == EvidenceIncidentLogType.FILE
+        ]
+        return file_repo.list_by_incident_log_ids(file_log_ids)
+
     def _check_access_permission(
         self, incident_log: EvidenceIncidentLog, current_user: AuthUser, db: Session
     ) -> None:
@@ -200,34 +209,57 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             db=db,
         )
 
-        file_repo = EvidenceIncidentLogFileRepository(db)
-        file_log_ids = [
-            log.incident_log_id for log in incident_logs if log.type == EvidenceIncidentLogType.FILE
-        ]
-        file_rows = file_repo.list_by_incident_log_ids(file_log_ids)
+        file_rows = self._get_file_rows(incident_logs, db)
+        file_by_id = {row.incident_log_id: row for row in file_rows}
 
         previews = [
             schemas.EvidenceIncidentLogPreviewResponse(
                 incident_log_id=incident_log.incident_log_id,
+                type=incident_log.type,
                 filename=incident_log.name,
-                size_bytes=(
-                    next(
-                        (
-                            row.size_bytes
-                            for row in file_rows
-                            if row.incident_log_id == incident_log.incident_log_id
-                        ),
-                        None,
-                    )
-                    if incident_log.type == EvidenceIncidentLogType.FILE
-                    else None
-                ),
+                size_bytes=fr.size_bytes
+                if (fr := file_by_id.get(incident_log.incident_log_id))
+                else None,
             )
             for incident_log in incident_logs
         ]
 
         return schemas.EvidenceIncidentLogPreviewListResponse(
             previews=previews,
+            total_count=total_count,
+        )
+
+    def get_detail_incident_logs(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceIncidentLogDetailListResponse:
+        incident_logs, total_count = self._get_limit_incident_logs_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        file_rows = self._get_file_rows(incident_logs, db)
+        file_by_id = {row.incident_log_id: row for row in file_rows}
+
+        details = [
+            schemas.EvidenceIncidentLogDetailResponse(
+                incident_log_id=incident_log.incident_log_id,
+                type=incident_log.type,
+                filename=incident_log.name,
+                size_bytes=fr.size_bytes
+                if (fr := file_by_id.get(incident_log.incident_log_id))
+                else None,
+                content_type=fr.content_type if fr else None,
+                created_at=incident_log.created_at,
+                updated_at=incident_log.updated_at,
+            )
+            for incident_log in incident_logs
+        ]
+        return schemas.EvidenceIncidentLogDetailListResponse(
+            details=details,
             total_count=total_count,
         )
 

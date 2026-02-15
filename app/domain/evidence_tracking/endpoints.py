@@ -52,8 +52,26 @@ def get_evidence_tracking_previews(
 
 
 @router.get(
+    "/{complaint_id}/evidences/trackings/details",
+    summary="TRACKING 타입 증거 상세 리스트 조회 (썸네일 이미지 30분 유효)",
+    description="TRACKING 타입 증거 상세 리스트를 조회합니다.",
+    response_model=schemas.EvidenceTrackingDetailListResponse,
+)
+def get_evidence_tracking_details(
+    complaint: Complaint = Depends(get_owned_complaint),
+    limit: int = Query(20, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    return evidence_tracking_service.get_detail_trackings(
+        complaint=complaint,
+        limit=limit,
+        db=db,
+    )
+
+
+@router.get(
     "/evidence/tracking/{tracking_id}/original",
-    summary="TRACKING 타입 증거 영상 원본 조회 (10분 유효)",
+    summary="TRACKING 타입 증거 영상 원본 조회 (원본 영상 10분 유효)",
     description="TRACKING 타입 증거 영상 원본을 조회합니다.",
     response_model=schemas.EvidenceTrackingOriginalResponse,
     responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,

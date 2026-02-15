@@ -208,6 +208,41 @@ class EvidenceTrackingService(EvidenceTypeService):
             total_count=total_count,
         )
 
+    def get_detail_trackings(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceTrackingDetailListResponse:
+        trackings, total_count = self._get_limit_trackings_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        details: list[schemas.EvidenceTrackingDetailResponse] = []
+        for tracking in trackings:
+            s3_key_base = tracking.s3_key.rsplit("/", 1)[0]
+            url = super()._get_presigned_url(
+                s3_key=f"{s3_key_base}/{EvidenceVariant.DETAIL.value}",
+                expires_in=60 * 30,  # 30분
+            )
+            details.append(
+                schemas.EvidenceTrackingDetailResponse(
+                    tracking_id=tracking.tracking_id,
+                    filename=tracking.filename,
+                    duration_seconds=tracking.duration_seconds,
+                    size_bytes=tracking.size_bytes,
+                    created_at=tracking.created_at,
+                    updated_at=tracking.updated_at,
+                    thumbnail_url=url,
+                )
+            )
+        return schemas.EvidenceTrackingDetailListResponse(
+            details=details,
+            total_count=total_count,
+        )
+
     def get_original_tracking(
         self,
         tracking_id: UUID,

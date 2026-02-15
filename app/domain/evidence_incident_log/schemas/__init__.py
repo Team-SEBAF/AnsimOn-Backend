@@ -1,4 +1,6 @@
 from .responses import (
+    EvidenceIncidentLogDetailListResponse,
+    EvidenceIncidentLogDetailResponse,
     EvidenceIncidentLogFileOriginalResponse,
     EvidenceIncidentLogFileResponse,
     EvidenceIncidentLogFileUploadResponse,
@@ -14,4 +16,6 @@ __all__ = [
     "EvidenceIncidentLogFileOriginalResponse",
     "EvidenceIncidentLogPreviewListResponse",
     "EvidenceIncidentLogPreviewResponse",
+    "EvidenceIncidentLogDetailListResponse",
+    "EvidenceIncidentLogDetailResponse",
 ]

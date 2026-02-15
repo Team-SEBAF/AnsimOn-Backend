@@ -250,7 +250,7 @@ class EvidenceMessageService(EvidenceTypeService):
                     size_bytes=message.size_bytes,
                     created_at=message.created_at,
                     updated_at=message.updated_at,
-                    url=url,
+                    thumbnail_url=url,
                 )
             )
         return schemas.EvidenceMessageDetailListResponse(

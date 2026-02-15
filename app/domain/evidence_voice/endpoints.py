@@ -52,8 +52,26 @@ def get_evidence_voice_previews(
 
 
 @router.get(
+    "/{complaint_id}/evidences/voices/details",
+    summary="VOICE 타입 증거 상세 리스트 조회",
+    description="VOICE 타입 증거 상세 리스트를 조회합니다.",
+    response_model=schemas.EvidenceVoiceDetailListResponse,
+)
+def get_evidence_voice_details(
+    complaint: Complaint = Depends(get_owned_complaint),
+    limit: int = Query(20, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    return evidence_voice_service.get_detail_voices(
+        complaint=complaint,
+        limit=limit,
+        db=db,
+    )
+
+
+@router.get(
     "/evidence/voice/{voice_id}/original",
-    summary="VOICE 타입 증거 음성 원본 조회 (10분 유효)",
+    summary="VOICE 타입 증거 음성 원본 조회 (원본 음성 10분 유효)",
     description="VOICE 타입 증거 음성 원본을 조회합니다.",
     response_model=schemas.EvidenceVoiceOriginalResponse,
     responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,

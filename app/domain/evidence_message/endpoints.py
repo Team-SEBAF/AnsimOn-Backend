@@ -53,7 +53,7 @@ def get_evidence_message_previews(
 
 @router.get(
     "/{complaint_id}/evidences/messages/details",
-    summary="MESSAGE 타입 증거 상세 리스트 조회 (30분 유효)",
+    summary="MESSAGE 타입 증거 상세 리스트 조회 (썸네일 이미지 30분 유효)",
     description="MESSAGE 타입 증거 상세 리스트를 조회합니다.",
     response_model=schemas.EvidenceMessageDetailListResponse,
 )
@@ -71,7 +71,7 @@ def get_evidence_message_details(
 
 @router.get(
     "/evidence/message/{message_id}/original",
-    summary="MESSAGE 타입 증거 이미지 원본 조회 (10분 유효)",
+    summary="MESSAGE 타입 증거 이미지 원본 조회 (원본 이미지 10분 유효)",
     description="MESSAGE 타입 증거 이미지 원본을 조회합니다.",
     response_model=schemas.EvidenceMessageOriginalImageResponse,
     responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,

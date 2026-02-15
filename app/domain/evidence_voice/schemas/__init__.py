@@ -1,4 +1,6 @@
 from .responses import (
+    EvidenceVoiceDetailListResponse,
+    EvidenceVoiceDetailResponse,
     EvidenceVoiceOriginalResponse,
     EvidenceVoicePreviewListResponse,
     EvidenceVoicePreviewResponse,
@@ -12,4 +14,6 @@ __all__ = [
     "EvidenceVoiceOriginalResponse",
     "EvidenceVoicePreviewListResponse",
     "EvidenceVoicePreviewResponse",
+    "EvidenceVoiceDetailListResponse",
+    "EvidenceVoiceDetailResponse",
 ]

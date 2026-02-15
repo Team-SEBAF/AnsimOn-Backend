@@ -52,6 +52,24 @@ def get_evidence_report_record_previews(
 
 
 @router.get(
+    "/{complaint_id}/evidences/report-records/details",
+    summary="REPORT_RECORD 타입 신고・사건 일지 상세 리스트 조회",
+    description="REPORT_RECORD 타입 신고・사건 일지 상세 리스트를 조회합니다.",
+    response_model=schemas.EvidenceReportRecordDetailListResponse,
+)
+def get_evidence_report_record_details(
+    complaint: Complaint = Depends(get_owned_complaint),
+    limit: int = Query(20, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    return evidence_report_record_service.get_detail_report_records(
+        complaint=complaint,
+        limit=limit,
+        db=db,
+    )
+
+
+@router.get(
     "/evidence/report-record/{report_record_id}/original",
     summary="REPORT_RECORD 타입 신고・사건 일지 원본 조회 (10분 유효)",
     description="REPORT_RECORD 타입 신고・사건 일지 원본을 조회합니다.",

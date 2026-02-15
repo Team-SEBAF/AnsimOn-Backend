@@ -52,6 +52,24 @@ def get_evidence_incident_log_previews(
 
 
 @router.get(
+    "/{complaint_id}/evidences/incident-logs/details",
+    summary="INCIDENT_LOG 타입 사건 일지 상세 리스트 조회",
+    description="INCIDENT_LOG 타입 사건 일지 상세 리스트를 조회합니다.",
+    response_model=schemas.EvidenceIncidentLogDetailListResponse,
+)
+def get_evidence_incident_log_details(
+    complaint: Complaint = Depends(get_owned_complaint),
+    limit: int = Query(20, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    return evidence_incident_log_service.get_detail_incident_logs(
+        complaint=complaint,
+        limit=limit,
+        db=db,
+    )
+
+
+@router.get(
     "/evidence/incident-log-file/{incident_log_id}/original",
     summary="INCIDENT_LOG 타입 사건 일지 원본 조회 (10분 유효)",
     description="INCIDENT_LOG 타입 사건 일지 원본을 조회합니다.",

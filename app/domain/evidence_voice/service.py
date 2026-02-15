@@ -183,6 +183,34 @@ class EvidenceVoiceService(EvidenceTypeService):
             total_count=total_count,
         )
 
+    def get_detail_voices(
+        self,
+        complaint: Complaint,
+        limit: int,
+        db: Session,
+    ) -> schemas.EvidenceVoiceDetailListResponse:
+        voices, total_count = self._get_limit_voices_and_total_count(
+            complaint=complaint,
+            limit=limit,
+            db=db,
+        )
+
+        details = [
+            schemas.EvidenceVoiceDetailResponse(
+                voice_id=voice.voice_id,
+                filename=voice.filename,
+                duration_seconds=voice.duration_seconds,
+                size_bytes=voice.size_bytes,
+                created_at=voice.created_at,
+                updated_at=voice.updated_at,
+            )
+            for voice in voices
+        ]
+        return schemas.EvidenceVoiceDetailListResponse(
+            details=details,
+            total_count=total_count,
+        )
+
     def get_original_voice(
         self,
         voice_id: UUID,
