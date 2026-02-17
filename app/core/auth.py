@@ -32,7 +32,7 @@ class AuthUser:
     email: str
     email_verified: bool
     name: str
-    birthdate: str
+    birthdate: str | None
 
 
 def get_cognito_user_by_access_token(access_token: str) -> dict:

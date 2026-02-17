@@ -1,3 +1,4 @@
+import re
 import subprocess
 import tempfile
 from io import BytesIO
@@ -10,16 +11,11 @@ def get_video_duration(file_bytes: bytes) -> int:
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
         f.write(file_bytes)
         path = Path(f.name)
+
     try:
         result = subprocess.run(
             [
-                "ffprobe",
-                "-v",
-                "error",
-                "-show_entries",
-                "format=duration",
-                "-of",
-                "default=noprint_wrappers=1:nokey=1",
+                "/opt/bin/ffmpeg",
                 "-i",
                 str(path),
             ],
@@ -27,19 +23,23 @@ def get_video_duration(file_bytes: bytes) -> int:
             text=True,
             timeout=30,
         )
-        if result.returncode != 0:
-            raise ValueError(
-                "영상 길이를 읽을 수 없습니다. 지원하지 않거나 손상된 형식일 수 있습니다."
-            )
-        duration_str = result.stdout.strip()
-        if not duration_str:
+
+        # ffmpeg는 -i만 쓰면 항상 returncode != 0 이 나옴
+        output = result.stderr
+
+        match = re.search(r"Duration:\s*(\d+):(\d+):(\d+\.\d+)", output)
+        if not match:
             raise ValueError("영상 길이를 읽을 수 없습니다.")
-        duration_seconds = float(duration_str)
-        return int(round(duration_seconds))
+
+        hours = int(match.group(1))
+        minutes = int(match.group(2))
+        seconds = float(match.group(3))
+
+        total_seconds = hours * 3600 + minutes * 60 + seconds
+        return int(round(total_seconds))
+
     except FileNotFoundError:
-        raise ValueError(
-            "영상 길이 계산에 필요한 ffprobe가 없습니다. ffmpeg를 설치해 주세요. (예: brew install ffmpeg)"
-        ) from None
+        raise ValueError("영상 길이 계산에 필요한 ffmpeg가 없습니다.") from None
     finally:
         path.unlink(missing_ok=True)
 

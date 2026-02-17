@@ -14,8 +14,10 @@ class UserDTO(BaseModel):
     email: str = Field(..., description="이메일", examples=["user999@example.com"])
     email_verified: bool = Field(..., description="이메일 인증 여부", examples=[True])
     name: str = Field(..., description="이름", examples=["홍길동"])
-    birthdate: datetime.date = Field(
-        ..., description="생년월일 (YYYY-MM-DD)", examples=[datetime.date(2000, 1, 1)]
+    birthdate: datetime.date | None = Field(
+        None,
+        description="생년월일 (YYYY-MM-DD). 구글 로그인 시 제공되지 않음.",
+        examples=[datetime.date(2000, 1, 1)],
     )
 
 
