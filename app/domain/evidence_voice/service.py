@@ -15,11 +15,11 @@ from app.domain.evidence.errors.register_validation_error import (
 from app.domain.evidence.utils import (
     check_register_max_count,
     fetch_s3_metadata_for_register,
-    get_audio_duration,
 )
 from app.domain.evidence_voice import schemas
 from app.domain.evidence_voice.models.evidence_voice_model import EvidenceVoice
 from app.domain.evidence_voice.repos.evidence_voice_repository import EvidenceVoiceRepository
+from app.domain.evidence_voice.utils import get_audio_duration
 
 
 def _collect_voice_register_restrict_failures_from_metadata(
