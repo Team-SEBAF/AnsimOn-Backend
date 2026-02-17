@@ -1,19 +1,25 @@
+from .requests import (
+    EvidenceVoiceRegisterItemRequest,
+    EvidenceVoiceRegisterRequest,
+)
 from .responses import (
     EvidenceVoiceDetailListResponse,
     EvidenceVoiceDetailResponse,
     EvidenceVoiceOriginalResponse,
     EvidenceVoicePreviewListResponse,
     EvidenceVoicePreviewResponse,
-    EvidenceVoiceResponse,
-    EvidenceVoiceUploadResponse,
+    EvidenceVoiceRegisterItemResponse,
+    EvidenceVoiceRegisterListResponse,
 )
 
 __all__ = [
-    "EvidenceVoiceResponse",
-    "EvidenceVoiceUploadResponse",
+    "EvidenceVoiceDetailListResponse",
+    "EvidenceVoiceDetailResponse",
     "EvidenceVoiceOriginalResponse",
     "EvidenceVoicePreviewListResponse",
     "EvidenceVoicePreviewResponse",
-    "EvidenceVoiceDetailListResponse",
-    "EvidenceVoiceDetailResponse",
+    "EvidenceVoiceRegisterItemRequest",
+    "EvidenceVoiceRegisterItemResponse",
+    "EvidenceVoiceRegisterListResponse",
+    "EvidenceVoiceRegisterRequest",
 ]

@@ -1,24 +1,76 @@
 from concurrent.futures import ThreadPoolExecutor
-from io import BytesIO
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
-from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import upload_fileobj
+from app.core.aws import download_s3_object
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
 from app.domain.evidence.constant import EVIDENCE_VOICE_RESTRICT
-from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
-    EvidenceMaxCountExceededErrorCode,
+from app.domain.evidence.errors.register_validation_error import (
+    raise_evidence_register_validation_failed,
 )
-from app.domain.evidence.utils import filter_evidence_files
+from app.domain.evidence.utils import (
+    check_register_max_count,
+    fetch_s3_metadata_for_register,
+    get_audio_duration,
+)
 from app.domain.evidence_voice import schemas
 from app.domain.evidence_voice.models.evidence_voice_model import EvidenceVoice
 from app.domain.evidence_voice.repos.evidence_voice_repository import EvidenceVoiceRepository
+
+
+def _collect_voice_register_restrict_failures_from_metadata(
+    metadata_list: list[dict],
+) -> tuple[list[str], list[str], list[dict]]:
+    """1차: metadata만으로 content_type, size 검사. raise 안 함.
+    Returns: (content_type_failed, size_bytes_failed, valid_metadata)
+    """
+    restrict = EVIDENCE_VOICE_RESTRICT
+    content_type_failed_evidence_ids: list[str] = []
+    size_bytes_failed_evidence_ids: list[str] = []
+    valid_metadata: list[dict] = []
+
+    for m in metadata_list:
+        eid_str = str(m["voice_id"])
+        if m.get("content_type") not in restrict.allowed_types:
+            content_type_failed_evidence_ids.append(eid_str)
+            continue
+        if m.get("size_bytes", 0) > restrict.max_size_bytes:
+            size_bytes_failed_evidence_ids.append(eid_str)
+            continue
+        valid_metadata.append(m)
+
+    return content_type_failed_evidence_ids, size_bytes_failed_evidence_ids, valid_metadata
+
+
+def _raise_voice_register_validation_if_failed(
+    content_type_failed_evidence_ids: list[str],
+    size_bytes_failed_evidence_ids: list[str],
+    content_type_extraction_failed_evidence_ids: list[str],
+    rows_with_duration: list[dict],
+) -> None:
+    """2차: 1차 failed + 추출 실패 + duration 검사. 모두 합쳐서 한 번에 raise."""
+    restrict = EVIDENCE_VOICE_RESTRICT
+    duration_seconds_failed_evidence_ids: list[str] = []
+
+    for r in rows_with_duration:
+        if r.get("duration_seconds", 0) > (restrict.max_duration_seconds or 0):
+            duration_seconds_failed_evidence_ids.append(str(r["voice_id"]))
+
+    content_type_total = (
+        content_type_failed_evidence_ids + content_type_extraction_failed_evidence_ids
+    )
+
+    raise_evidence_register_validation_failed(
+        content_type_failed_evidence_ids=content_type_total,
+        size_bytes_failed_evidence_ids=size_bytes_failed_evidence_ids,
+        duration_seconds_failed_evidence_ids=(
+            duration_seconds_failed_evidence_ids if restrict.max_duration_seconds else None
+        ),
+    )
 
 
 class EvidenceVoiceService(EvidenceTypeService):
@@ -65,97 +117,86 @@ class EvidenceVoiceService(EvidenceTypeService):
             db=db,
         )
 
-    def upload_voices(
+    def register_voice(
         self,
         complaint: Complaint,
-        files: list[UploadFile],
+        request: schemas.EvidenceVoiceRegisterRequest,
         db: Session,
-    ) -> schemas.EvidenceVoiceUploadResponse:
+    ) -> schemas.EvidenceVoiceRegisterListResponse:
+        # 1) max_count 검사
         total_count = self._get_total_count(
             complaint_id=complaint.complaint_id,
             db=db,
         )
-        if total_count >= EVIDENCE_VOICE_RESTRICT.max_count:
-            raise CodeException(
-                code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
-                message=f"VOICE 타입 증거의 최대 개수({EVIDENCE_VOICE_RESTRICT.max_count}개)를 초과했습니다.",
-                status_code=400,
-            )
-
-        evidence_voice_repo = EvidenceVoiceRepository(db)
-        results: list[EvidenceVoice] = []
-
-        # 음성 파일 필터링
-        filtered_result = filter_evidence_files(
-            files, EVIDENCE_VOICE_RESTRICT, need_audio_duration_check=True
+        check_register_max_count(
+            total_count=total_count,
+            request_count=len(request.items),
+            restrict=EVIDENCE_VOICE_RESTRICT,
+            type_name="VOICE",
         )
-        valid_files = filtered_result["valid_files"]
+        # 2) S3 메타데이터 조회
+        metadata_list = fetch_s3_metadata_for_register(
+            complaint=complaint,
+            items=request.items,
+            path_segment="voices",
+            get_evidence_id=lambda item: item.voice_id,
+            build_extra=lambda item, s3_key, ct, size: {
+                "voice_id": item.voice_id,
+                "complaint_id": complaint.complaint_id,
+                "filename": item.filename,
+            },
+        )
+        # 3) 1차 검증 (content_type, size) - failed 수집
+        (
+            content_type_failed_evidence_ids,
+            size_bytes_failed_evidence_ids,
+            valid_metadata,
+        ) = _collect_voice_register_restrict_failures_from_metadata(metadata_list)
 
-        # 최대 개수 초과 체크
-        available_count = EVIDENCE_VOICE_RESTRICT.max_count - total_count
-        upload_files = valid_files[:available_count]
+        # 4) 다운로드 → duration 추출 (병렬)
+        def _process_voice_item(m: dict) -> tuple[dict | None, str | None]:
+            file_bytes = download_s3_object(settings.S3_BUCKET_NAME, m["s3_key"])
+            try:
+                duration_seconds = get_audio_duration(file_bytes)
+            except (ValueError, TypeError):
+                return None, str(m["voice_id"])
+            return {
+                "voice_id": m["voice_id"],
+                "complaint_id": m["complaint_id"],
+                "filename": m["filename"],
+                "s3_key": m["s3_key"],
+                "content_type": m["content_type"],
+                "size_bytes": m["size_bytes"],
+                "duration_seconds": duration_seconds,
+            }, None
 
-        count_invalid_files = valid_files[available_count:]
-        count_invalid_filenames = [file.filename for file, _, _ in count_invalid_files]
+        with ThreadPoolExecutor(max_workers=max(1, min(len(valid_metadata), 5))) as executor:
+            results = list(executor.map(_process_voice_item, valid_metadata))
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            for file, file_bytes, duration_seconds in upload_files:
-                # voice_id 생성
-                voice_id = uuid4()
-
-                s3_key = (
-                    f"{complaint.user_sub}/complaints/"
-                    f"{complaint.complaint_id}/evidences/voices/{voice_id}/original"
-                )
-
-                # S3 업로드 (병렬)
-                futures = [
-                    executor.submit(
-                        upload_fileobj,
-                        fileobj=BytesIO(file_bytes),
-                        bucket=settings.S3_BUCKET_NAME,
-                        key=s3_key,
-                        content_type=file.content_type,
-                    ),
-                ]
-
-                # 업로드 실패 시 예외 전파
-                for future in futures:
-                    future.result()
-
-                # DB row 생성
-                voice = EvidenceVoice(
-                    voice_id=voice_id,
-                    complaint_id=complaint.complaint_id,
-                    filename=file.filename,
-                    s3_key=s3_key,
-                    content_type=file.content_type,
-                    size_bytes=len(file_bytes),
-                    duration_seconds=duration_seconds,
-                )
-
-                evidence_voice_repo.create(voice)
-                results.append(voice)
-
+        rows = [r for r, _ in results if r is not None]
+        content_type_extraction_failed_evidence_ids = [eid for _, eid in results if eid is not None]
+        # 5) 2차 검증 (duration) + 전체 실패 시 raise
+        _raise_voice_register_validation_if_failed(
+            content_type_failed_evidence_ids=content_type_failed_evidence_ids,
+            size_bytes_failed_evidence_ids=size_bytes_failed_evidence_ids,
+            content_type_extraction_failed_evidence_ids=content_type_extraction_failed_evidence_ids,
+            rows_with_duration=rows,
+        )
+        # 6) DB 저장
+        db.bulk_insert_mappings(EvidenceVoice, rows)
         db.commit()
 
-        return schemas.EvidenceVoiceUploadResponse(
-            voices=[
-                schemas.EvidenceVoiceResponse(
-                    voice_id=v.voice_id,
-                    filename=v.filename,
-                    duration_seconds=v.duration_seconds,
-                    size_bytes=v.size_bytes,
-                    created_at=v.created_at,
-                    updated_at=v.updated_at,
-                )
-                for v in results
-            ],
-            type_invalid_filenames=filtered_result["type_invalid_filenames"],
-            count_invalid_filenames=count_invalid_filenames,
-            size_invalid_filenames=filtered_result["size_invalid_filenames"],
-            duration_invalid_filenames=filtered_result["duration_invalid_filenames"],
-        )
+        results = [
+            schemas.EvidenceVoiceRegisterItemResponse(
+                voice_id=r["voice_id"],
+                filename=r["filename"],
+                content_type=r["content_type"],
+                duration_seconds=r["duration_seconds"],
+                size_bytes=r["size_bytes"],
+            )
+            for r in rows
+        ]
+        return schemas.EvidenceVoiceRegisterListResponse(items=results)
 
     def get_preview_voices(
         self,
@@ -232,6 +273,8 @@ class EvidenceVoiceService(EvidenceTypeService):
             size_bytes=voice.size_bytes,
             duration_seconds=voice.duration_seconds,
             url=url,
+            created_at=voice.created_at,
+            updated_at=voice.updated_at,
         )
 
     def update_filename(
