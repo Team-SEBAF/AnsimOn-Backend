@@ -9,66 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  deploy-layer:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install poetry
-        run: |
-          pip install poetry
-          poetry self add poetry-plugin-export
-
-      - name: Export requirements.txt
-        run: |
-          poetry export \
-            --format=requirements.txt \
-            --without-hashes \
-            --output requirements.txt
-
-      - name: Prepare layer requirements
-        run: |
-          cp requirements.txt requirements.layer.txt
-          sed -i '/^boto3/d;/^botocore/d;/^s3transfer/d' requirements.layer.txt
-
-      - name: Build layer
-        run: |
-          mkdir -p layer/python
-          docker run --rm \
-            -v "$PWD":/var/task \
-            --platform linux/amd64 \
-            public.ecr.aws/sam/build-python3.11 \
-            bash -c "
-              pip install --no-cache-dir -r requirements.layer.txt -t layer/python
-            "
-
-      - name: Zip layer
-        run: |
-          cd layer
-          zip -r layer.zip .
-          cd ..
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Publish layer
-        run: |
-          aws lambda publish-layer-version \
-            --layer-name ansimon-deps \
-            --zip-file fileb://layer/layer.zip \
-            --compatible-runtimes python3.11
-
   deploy-lambda:
     runs-on: ubuntu-latest
-    needs: deploy-layer
 
     steps:
       - uses: actions/checkout@v4
@@ -95,24 +37,6 @@ jobs:
             --zip-file fileb://lambda.zip
 
       - name: Wait for lambda update
-        run: |
-          aws lambda wait function-updated \
-            --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }}
-
-      - name: Attach latest layer
-        run: |
-          LAYER_ARN=$(aws lambda list-layer-versions \
-            --layer-name ansimon-deps \
-            --query 'LayerVersions[0].LayerVersionArn' \
-            --output text)
-
-          echo "Using layer: $LAYER_ARN"
-
-          aws lambda update-function-configuration \
-            --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
-            --layers "$LAYER_ARN"
-
-      - name: Wait after layer attach
         run: |
           aws lambda wait function-updated \
             --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }}
