@@ -1,21 +1,24 @@
-from concurrent.futures import ThreadPoolExecutor
-from io import BytesIO
 from uuid import UUID, uuid4
 
-from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import delete_s3_objects, upload_fileobj
-from app.core.settings import settings
+from app.core.aws import delete_s3_objects
+from app.core.settings import settings  # 1시간
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
 from app.domain.evidence.constant import EVIDENCE_DOCUMENT_RESTRICT
 from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
     EvidenceMaxCountExceededErrorCode,
 )
-from app.domain.evidence.utils import filter_evidence_files
+from app.domain.evidence.errors.register_validation_error import (
+    raise_evidence_register_validation_failed,
+)
+from app.domain.evidence.utils import (
+    check_register_max_count,
+    fetch_s3_metadata_for_register,
+)
 from app.domain.evidence_incident_log import schemas
 from app.domain.evidence_incident_log.errors.incident_log_type_mismatch_error import (
     IncidentLogTypeMismatchErrorCode,
@@ -31,6 +34,27 @@ from app.domain.evidence_incident_log.repos.evidence_incident_log_repository imp
     EvidenceIncidentLogFormDataRepository,
     EvidenceIncidentLogRepository,
 )
+
+
+def _validate_incident_log_register_restrict(metadata_list: list[dict]) -> None:
+    """content_type 먼저, 통과한 것만 size. duration 없음."""
+    restrict = EVIDENCE_DOCUMENT_RESTRICT
+    content_type_failed_evidence_ids: list[str] = []
+    size_bytes_failed_evidence_ids: list[str] = []
+
+    for m in metadata_list:
+        eid_str = str(m["incident_log_id"])
+        if m.get("content_type") not in restrict.allowed_types:
+            content_type_failed_evidence_ids.append(eid_str)
+            continue
+        if m.get("size_bytes", 0) > restrict.max_size_bytes:
+            size_bytes_failed_evidence_ids.append(eid_str)
+
+    raise_evidence_register_validation_failed(
+        content_type_failed_evidence_ids=content_type_failed_evidence_ids,
+        size_bytes_failed_evidence_ids=size_bytes_failed_evidence_ids,
+        duration_seconds_failed_evidence_ids=None,
+    )
 
 
 class EvidenceIncidentLogService(EvidenceTypeService):
@@ -124,97 +148,71 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             )
         return total_count
 
-    def upload_incident_log_files(
+    def register_incident_log_file(
         self,
         complaint: Complaint,
-        files: list[UploadFile],
+        request: schemas.EvidenceIncidentLogFileRegisterRequest,
         db: Session,
-    ) -> schemas.EvidenceIncidentLogFileUploadResponse:
-        total_count = self._check_max_count(
+    ) -> schemas.EvidenceIncidentLogFileRegisterListResponse:
+        # 1) max_count 검사
+        total_count = self._get_total_count(
             complaint_id=complaint.complaint_id,
             db=db,
         )
+        check_register_max_count(
+            total_count=total_count,
+            request_count=len(request.items),
+            restrict=EVIDENCE_DOCUMENT_RESTRICT,
+            type_name="INCIDENT_LOG",
+        )
+        # 2) S3 메타데이터 조회
+        metadata_list = fetch_s3_metadata_for_register(
+            complaint=complaint,
+            items=request.items,
+            path_segment="incident-logs",
+            get_evidence_id=lambda item: item.incident_log_id,
+            build_extra=lambda item, s3_key, ct, size: {
+                "incident_log_id": item.incident_log_id,
+                "complaint_id": complaint.complaint_id,
+                "filename": item.filename,
+            },
+        )
+        # 3) content_type, size 검증
+        _validate_incident_log_register_restrict(metadata_list)
+        # 4) DB 저장
+        incident_log_rows = [
+            {
+                "incident_log_id": m["incident_log_id"],
+                "complaint_id": m["complaint_id"],
+                "name": m["filename"],
+                "type": EvidenceIncidentLogType.FILE,
+            }
+            for m in metadata_list
+        ]
+        incident_log_file_rows = [
+            {
+                "incident_log_id": m["incident_log_id"],
+                "s3_key": m["s3_key"],
+                "content_type": m["content_type"],
+                "size_bytes": m["size_bytes"],
+            }
+            for m in metadata_list
+        ]
 
-        evidence_incident_log_repo = EvidenceIncidentLogRepository(db)
-        evidence_incident_log_file_repo = EvidenceIncidentLogFileRepository(db)
-        results: list[tuple[EvidenceIncidentLog, int]] = []
-
-        # 신고・사건 일지 파일 필터링
-        filtered_result = filter_evidence_files(files, EVIDENCE_DOCUMENT_RESTRICT)
-        valid_files = filtered_result["valid_files"]
-
-        # 최대 개수 초과 체크
-        available_count = EVIDENCE_DOCUMENT_RESTRICT.max_count - total_count
-        upload_files = valid_files[:available_count]
-
-        count_invalid_files = valid_files[available_count:]
-        count_invalid_filenames = [file.filename for file in count_invalid_files]
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            for file in upload_files:
-                # 파일 바이트 읽기 (1회)
-                file_bytes = file.file.read()
-
-                # incident_log_id 생성
-                incident_log_id = uuid4()
-
-                s3_key = (
-                    f"{complaint.user_sub}/complaints/"
-                    f"{complaint.complaint_id}/evidences/incident-logs/{incident_log_id}/original"
-                )
-
-                # S3 업로드 (병렬)
-                futures = [
-                    executor.submit(
-                        upload_fileobj,
-                        fileobj=BytesIO(file_bytes),
-                        bucket=settings.S3_BUCKET_NAME,
-                        key=s3_key,
-                        content_type=file.content_type,
-                    ),
-                ]
-
-                # 업로드 실패 시 예외 전파
-                for future in futures:
-                    future.result()
-
-                # DB row 생성
-                incident_log = EvidenceIncidentLog(
-                    incident_log_id=incident_log_id,
-                    complaint_id=complaint.complaint_id,
-                    name=file.filename,
-                    type=EvidenceIncidentLogType.FILE,
-                )
-                evidence_incident_log_repo.create(incident_log)
-
-                size_bytes = len(file_bytes)
-                incident_log_file = EvidenceIncidentLogFile(
-                    incident_log_id=incident_log_id,
-                    s3_key=s3_key,
-                    content_type=file.content_type,
-                    size_bytes=size_bytes,
-                )
-                evidence_incident_log_file_repo.create(incident_log_file)
-
-                results.append((incident_log, size_bytes))
-
+        db.bulk_insert_mappings(EvidenceIncidentLog, incident_log_rows)
+        db.bulk_insert_mappings(EvidenceIncidentLogFile, incident_log_file_rows)
         db.commit()
 
-        return schemas.EvidenceIncidentLogFileUploadResponse(
-            incident_log_files=[
-                schemas.EvidenceIncidentLogFileResponse(
-                    incident_log_id=log.incident_log_id,
-                    filename=log.name,
-                    size_bytes=size_bytes,
-                    created_at=log.created_at,
-                    updated_at=log.updated_at,
-                )
-                for log, size_bytes in results
-            ],
-            type_invalid_filenames=filtered_result["type_invalid_filenames"],
-            count_invalid_filenames=count_invalid_filenames,
-            size_invalid_filenames=filtered_result["size_invalid_filenames"],
-        )
+        results = [
+            schemas.EvidenceIncidentLogFileRegisterItemResponse(
+                incident_log_id=log_row["incident_log_id"],
+                filename=log_row["name"],
+                content_type=file_row["content_type"],
+                size_bytes=file_row["size_bytes"],
+            )
+            for log_row, file_row in zip(incident_log_rows, incident_log_file_rows)
+        ]
+        return schemas.EvidenceIncidentLogFileRegisterListResponse(items=results)
 
     def get_preview_incident_logs(
         self,
@@ -303,6 +301,8 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             content_type=file_row.content_type,
             size_bytes=file_row.size_bytes,
             url=url,
+            created_at=log.created_at,
+            updated_at=log.updated_at,
         )
 
     def upload_incident_log_form_data(

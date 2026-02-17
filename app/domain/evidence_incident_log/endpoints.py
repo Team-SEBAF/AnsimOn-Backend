@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 import app.domain.evidence.errors as evidence_errors
@@ -16,20 +16,20 @@ router = APIRouter(prefix="/api/v1", tags=["Evidence Incident Log"])
 
 
 @router.post(
-    "/{complaint_id}/evidences/incident-logs/file",
-    summary=f"INCIDENT_LOG 타입 사건 일지 파일 업로드 (파일 + 폼데이터, 최대 {EVIDENCE_DOCUMENT_RESTRICT.max_count}개)",
-    description="INCIDENT_LOG 타입 사건 일지 파일을 업로드합니다.",
-    response_model=schemas.EvidenceIncidentLogFileUploadResponse,
-    responses=evidence_errors.EVIDENCE_MAX_COUNT_EXCEEDED_ERRORS_RESPONSES,
+    "/{complaint_id}/evidences/incident-logs/file/register",
+    summary=f"INCIDENT_LOG 타입 사건 일지 Presigned URL로 S3 업로드 완료 후, 메타데이터 DB 저장 (복수 업로드 지원, 최대 {EVIDENCE_DOCUMENT_RESTRICT.max_count}개)",
+    description="Presigned URL로 S3 업로드 완료 후 호출하세요.",
+    response_model=schemas.EvidenceIncidentLogFileRegisterListResponse,
+    responses=evidence_errors.REGISTER_EVIDENCE_ERRORS_RESPONSES,
 )
-def upload_evidence_report_records(
+def register_incident_log_file(
     complaint: Complaint = Depends(get_owned_complaint),
-    files: list[UploadFile] = File(...),  # multipart/form-data
+    request: schemas.EvidenceIncidentLogFileRegisterRequest = ...,
     db: Session = Depends(get_db),
 ):
-    return evidence_incident_log_service.upload_incident_log_files(
+    return evidence_incident_log_service.register_incident_log_file(
         complaint=complaint,
-        files=files,
+        request=request,
         db=db,
     )
 

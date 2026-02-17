@@ -76,6 +76,9 @@ def head_s3_object(bucket: str, key: str) -> dict | None:
         client = get_s3_client()
         return client.head_object(Bucket=bucket, Key=key)
     except ClientError as e:
-        if e.response["Error"]["Code"] == "404":
+        code = e.response["Error"]["Code"]
+        if code == "404":
             return None
+        if code == "403":
+            return None  # 객체 없을 때 일부 설정에서 403 반환
         raise
