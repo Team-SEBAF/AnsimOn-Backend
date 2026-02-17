@@ -1,4 +1,5 @@
 import boto3
+from botocore.exceptions import ClientError
 
 from app.core.settings import settings
 
@@ -41,3 +42,23 @@ def delete_s3_objects(bucket: str, keys: list[str]) -> None:
         Bucket=bucket,
         Delete={"Objects": [{"Key": k} for k in keys], "Quiet": True},
     )
+
+
+def generate_presigned_put_url(
+    bucket: str,
+    key: str,
+    content_type: str,
+    expires_in: int = 3600,
+) -> str:
+    """S3 PUT 업로드용 presigned URL 생성. 프론트에서 직접 업로드 시 사용."""
+    client = get_s3_client()
+    return client.generate_presigned_url(
+        ClientMethod="put_object",
+        Params={
+            "Bucket": bucket,
+            "Key": key,
+            "ContentType": content_type,
+        },
+        ExpiresIn=expires_in,
+    )
+

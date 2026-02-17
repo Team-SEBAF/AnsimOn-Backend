@@ -64,6 +64,23 @@ EVIDENCE_DOCUMENT_RESTRICT = EvidenceTypeRestrict(
 )
 
 
+class EvidenceType(str, Enum):
+    """증거 타입
+
+    MESSAGE: 메신저, 문자, DM
+    VOICE: 통화, 음성
+    TRACKING: 접근, 추적 흔적
+    INCIDENT_LOG: 신고, 상담 기록
+    REPORT_RECORD: 사건 일지
+    """
+
+    MESSAGE = "MESSAGE"
+    VOICE = "VOICE"
+    TRACKING = "TRACKING"
+    REPORT_RECORD = "REPORT_RECORD"
+    INCIDENT_LOG = "INCIDENT_LOG"
+
+
 class EvidenceVariant(str, Enum):
     THUMBNAIL = "thumbnail"
     DETAIL = "detail"

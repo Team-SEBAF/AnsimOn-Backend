@@ -1,26 +1,52 @@
-from enum import Enum
 from uuid import UUID
 
 from pydantic import Field
 
 from app.base.base_request import BaseRequest
+from app.domain.evidence.constant import EvidenceType
 
 
-class EvidenceType(str, Enum):
-    """증거 타입
+class EvidencePresignedUrlItemRequest(BaseRequest):
+    index: int = Field(
+        ...,
+        description="클라이언트 식별용 인덱스. 검증 실패 시 failed_index_list에 그대로 반환",
+        examples=[0],
+        ge=0,
+    )
+    filename: str = Field(
+        ..., description="파일명 (가독성용, 식별자는 index)", examples=["evidence.jpg"]
+    )
+    content_type: str = Field(
+        ..., description="Content-Type (S3 시그니처에 필요)", examples=["image/jpeg"]
+    )
+    size_bytes: int = Field(
+        ...,
+        description="파일 크기(바이트). 타입별 max_size_bytes 제한 적용",
+        examples=[12345],
+        ge=1,
+    )
+    duration_seconds: int | None = Field(
+        None,
+        description="영상/음성 길이(초). VOICE, TRACKING 타입일 때 필수. 타입별 max_duration_seconds 제한 적용",
+        examples=[120],
+        ge=1,
+    )
 
-    MESSAGE: 메신저, 문자, DM
-    VOICE: 통화, 음성
-    TRACKING: 접근, 추적 흔적
-    INCIDENT_LOG: 신고, 상담 기록
-    REPORT_RECORD: 사건 일지
-    """
 
-    MESSAGE = "MESSAGE"
-    VOICE = "VOICE"
-    TRACKING = "TRACKING"
-    REPORT_RECORD = "REPORT_RECORD"
-    INCIDENT_LOG = "INCIDENT_LOG"
+class EvidencePresignedUrlRequest(BaseRequest):
+    """복수 업로드 지원. 한 요청당 한 타입만. items에 여러 개 넣으면 한 번에 presigned URL 발급."""
+
+    type: EvidenceType = Field(
+        ...,
+        description="증거 타입 (한 요청당 한 타입만)",
+        examples=[EvidenceType.MESSAGE],
+    )
+    items: list[EvidencePresignedUrlItemRequest] = Field(
+        ...,
+        min_length=1,
+        max_length=20,
+        description="발급할 presigned URL 목록 (타입별 max_count 제한 적용)",
+    )
 
 
 class UpdateEvidenceFilenameRequest(BaseRequest):

@@ -29,6 +29,7 @@ EVIDENCE_MAX_COUNT_EXCEEDED_ERRORS_RESPONSES = {
                         "value": {
                             "code": "EVIDENCE_MAX_COUNT_EXCEEDED",
                             "message": "증거 최대 개수를 초과했습니다.",
+                            "failed_evidence_ids": [],
                         },
                     }
                 }
