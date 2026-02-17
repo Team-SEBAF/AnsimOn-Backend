@@ -2,12 +2,23 @@ from io import BytesIO
 
 from PIL import Image, ImageOps
 
+IMAGE_FORMAT_TO_MIME = {
+    "JPEG": "image/jpeg",
+    "PNG": "image/png",
+    "GIF": "image/gif",
+    "WEBP": "image/webp",
+    "BMP": "image/bmp",
+}
 
-def extract_image_meta(file_bytes: bytes) -> tuple[int, int]:
+
+def extract_image_meta(file_bytes: bytes) -> tuple[int, int, str]:
+    """(width, height, content_type) 반환."""
     image = Image.open(BytesIO(file_bytes))
     image = ImageOps.exif_transpose(image)
     width, height = image.size
-    return width, height
+    fmt = image.format or "JPEG"
+    content_type = IMAGE_FORMAT_TO_MIME.get(fmt, "image/jpeg")
+    return width, height, content_type
 
 
 def make_image_top_crop(

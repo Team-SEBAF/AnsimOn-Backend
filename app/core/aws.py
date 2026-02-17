@@ -62,3 +62,20 @@ def generate_presigned_put_url(
         ExpiresIn=expires_in,
     )
 
+
+def download_s3_object(bucket: str, key: str) -> bytes:
+    """S3 객체 다운로드."""
+    client = get_s3_client()
+    response = client.get_object(Bucket=bucket, Key=key)
+    return response["Body"].read()
+
+
+def head_s3_object(bucket: str, key: str) -> dict | None:
+    """S3 객체 존재 여부 및 메타데이터 확인. 없으면 None."""
+    try:
+        client = get_s3_client()
+        return client.head_object(Bucket=bucket, Key=key)
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "404":
+            return None
+        raise

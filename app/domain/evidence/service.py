@@ -207,9 +207,7 @@ class EvidenceService:
             request.type, complaint.complaint_id, db
         )
 
-        is_total_count_valid = (
-            total_count + len(request.items) <= restrict.max_count
-        )
+        is_total_count_valid = total_count + len(request.items) <= restrict.max_count
         content_type_failed_index_list: list[int] = []
         size_bytes_failed_index_list: list[int] = []
         duration_seconds_failed_index_list: list[int] = []
@@ -239,12 +237,10 @@ class EvidenceService:
                 "size_bytes_failed_index_list": size_bytes_failed_index_list,
             }
             if restrict.max_duration_seconds is not None:
-                detail["duration_seconds_failed_index_list"] = (
-                    duration_seconds_failed_index_list
-                )
+                detail["duration_seconds_failed_index_list"] = duration_seconds_failed_index_list
             raise CodeException(
                 code=EvidencePresignedValidationErrorCode.EVIDENCE_PRESIGNED_VALIDATION_FAILED,
-                message="증거 유효성 검사에 실패하여 presigned_url 발급이 중단되었습니다. failed_index_list를 확인해주세요.",
+                message="증거 유효성 검사에 통과하지 못한 증거가 존재하여 presigned URL 발급이 중단되었습니다. failed_index_list를 확인해주세요.",
                 status_code=400,
                 detail=detail,
             )
