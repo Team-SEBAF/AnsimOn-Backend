@@ -61,7 +61,7 @@ def validate_s3_uploads_before_register(
             else None
         )
 
-    with ThreadPoolExecutor(max_workers=min(len(items), 10)) as executor:
+    with ThreadPoolExecutor(max_workers=max(1, min(len(items), 5))) as executor:
         failed_ids = [eid for eid in executor.map(_check, items) if eid is not None]
 
     if failed_ids:
@@ -106,7 +106,7 @@ def fetch_s3_metadata_for_register(
             row.update(build_extra(item, s3_key, content_type, size_bytes))
         return row, None
 
-    with ThreadPoolExecutor(max_workers=min(len(items), 10)) as executor:
+    with ThreadPoolExecutor(max_workers=max(1, min(len(items), 5))) as executor:
         results = list(executor.map(_fetch, items))
 
     failed_ids = [eid for _, eid in results if eid is not None]

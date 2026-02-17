@@ -153,7 +153,7 @@ class EvidenceMessageService(EvidenceTypeService):
                 "height": height,
             }
 
-        with ThreadPoolExecutor(max_workers=min(len(metadata_list), 10)) as executor:
+        with ThreadPoolExecutor(max_workers=max(1, min(len(metadata_list), 5))) as executor:
             rows = list(executor.map(_process_message_item, metadata_list))
         # 5) DB 저장
         db.bulk_insert_mappings(EvidenceMessage, rows)
