@@ -1,26 +1,48 @@
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
-from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import upload_fileobj
+from app.core.aws import download_s3_object, upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
 from app.domain.evidence.constant import EVIDENCE_MESSAGE_RESTRICT, EvidenceVariant
-from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
-    EvidenceMaxCountExceededErrorCode,
+from app.domain.evidence.errors.register_validation_error import (
+    raise_evidence_register_validation_failed,
 )
-from app.domain.evidence.utils import filter_evidence_files
+from app.domain.evidence.utils import (
+    check_register_max_count,
+    fetch_s3_metadata_for_register,
+)
 from app.domain.evidence_message import schemas
 
 from .models.evidence_message_model import EvidenceMessage
 from .repos.evidence_message_repository import EvidenceMessageRepository
 from .utils import extract_image_meta, make_image_top_crop
+
+
+def _validate_message_register_restrict(metadata_list: list[dict]) -> None:
+    """content_type 먼저, 통과한 것만 size. duration 없음."""
+    restrict = EVIDENCE_MESSAGE_RESTRICT
+    content_type_failed_evidence_ids: list[str] = []
+    size_bytes_failed_evidence_ids: list[str] = []
+
+    for m in metadata_list:
+        eid_str = str(m["message_id"])
+        if m.get("content_type") not in restrict.allowed_types:
+            content_type_failed_evidence_ids.append(eid_str)
+            continue
+        if m.get("size_bytes", 0) > restrict.max_size_bytes:
+            size_bytes_failed_evidence_ids.append(eid_str)
+
+    raise_evidence_register_validation_failed(
+        content_type_failed_evidence_ids=content_type_failed_evidence_ids,
+        size_bytes_failed_evidence_ids=size_bytes_failed_evidence_ids,
+        duration_seconds_failed_evidence_ids=None,
+    )
 
 
 class EvidenceMessageService(EvidenceTypeService):
@@ -67,131 +89,88 @@ class EvidenceMessageService(EvidenceTypeService):
             db=db,
         )
 
-    def upload_messages(
+    def register_message(
         self,
         complaint: Complaint,
-        files: list[UploadFile],
+        request: schemas.EvidenceMessageRegisterRequest,
         db: Session,
-    ) -> schemas.EvidenceMessageUploadResponse:
+    ) -> schemas.EvidenceMessageRegisterListResponse:
+        # 1) max_count 검사
         total_count = self._get_total_count(
             complaint_id=complaint.complaint_id,
             db=db,
         )
-        if total_count >= EVIDENCE_MESSAGE_RESTRICT.max_count:
-            raise CodeException(
-                code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
-                message=f"MESSAGE 타입 증거의 최대 개수({EVIDENCE_MESSAGE_RESTRICT.max_count}개)를 초과했습니다.",
-                status_code=400,
+        check_register_max_count(
+            total_count=total_count,
+            request_count=len(request.items),
+            restrict=EVIDENCE_MESSAGE_RESTRICT,
+            type_name="MESSAGE",
+        )
+        # 2) S3 메타데이터 조회
+        metadata_list = fetch_s3_metadata_for_register(
+            complaint=complaint,
+            items=request.items,
+            path_segment="messages",
+            get_evidence_id=lambda item: item.message_id,
+            build_extra=lambda item, s3_key, ct, size: {
+                "message_id": item.message_id,
+                "complaint_id": complaint.complaint_id,
+                "filename": item.filename,
+            },
+        )
+        # 3) content_type, size 검증
+        _validate_message_register_restrict(metadata_list)
+
+        # 4) 다운로드 → 이미지 추출 → 썸네일/디테일 S3 업로드 (병렬)
+        def _process_message_item(m: dict) -> dict:
+            file_bytes = download_s3_object(settings.S3_BUCKET_NAME, m["s3_key"])
+            width, height, _ = extract_image_meta(file_bytes)
+            base_key = m["s3_key"].rsplit("/", 1)[0]
+            thumbnail_key = f"{base_key}/thumbnail"
+            detail_key = f"{base_key}/detail"
+            thumbnail_bytes, _, _ = make_image_top_crop(file_bytes=file_bytes, size=120, quality=65)
+            detail_bytes, _, _ = make_image_top_crop(file_bytes=file_bytes, size=400, quality=75)
+            upload_fileobj(
+                fileobj=BytesIO(thumbnail_bytes),
+                bucket=settings.S3_BUCKET_NAME,
+                key=thumbnail_key,
+                content_type="image/jpeg",
             )
+            upload_fileobj(
+                fileobj=BytesIO(detail_bytes),
+                bucket=settings.S3_BUCKET_NAME,
+                key=detail_key,
+                content_type="image/jpeg",
+            )
+            return {
+                "message_id": m["message_id"],
+                "complaint_id": m["complaint_id"],
+                "filename": m["filename"],
+                "s3_key": m["s3_key"],
+                "content_type": m["content_type"],
+                "size_bytes": m["size_bytes"],
+                "width": width,
+                "height": height,
+            }
 
-        evidence_message_repo = EvidenceMessageRepository(db)
-        results: list[EvidenceMessage] = []
-
-        # 이미지 파일 필터링
-        filtered_result = filter_evidence_files(files, EVIDENCE_MESSAGE_RESTRICT)
-        valid_files = filtered_result["valid_files"]
-
-        # 최대 개수 초과 체크
-        available_count = EVIDENCE_MESSAGE_RESTRICT.max_count - total_count
-        upload_files = valid_files[:available_count]
-
-        count_invalid_files = valid_files[available_count:]
-        count_invalid_filenames = [file.filename for file in count_invalid_files]
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            for file in upload_files:
-                # 파일 바이트 읽기 (1회)
-                file_bytes = file.file.read()
-
-                # 원본 이미지 메타데이터
-                width, height = extract_image_meta(file_bytes)
-
-                # message_id 생성
-                message_id = uuid4()
-
-                base_key = (
-                    f"{complaint.user_sub}/complaints/"
-                    f"{complaint.complaint_id}/evidences/messages/{message_id}"
-                )
-
-                original_key = f"{base_key}/original"
-                thumbnail_key = f"{base_key}/thumbnail"
-                detail_key = f"{base_key}/detail"
-
-                # 파생 이미지 생성
-                thumbnail_bytes, _, _ = make_image_top_crop(
-                    file_bytes=file_bytes,
-                    size=120,
-                    quality=65,
-                )
-
-                detail_bytes, _, _ = make_image_top_crop(
-                    file_bytes=file_bytes,
-                    size=400,
-                    quality=75,
-                )
-
-                # S3 업로드 (병렬)
-                futures = [
-                    executor.submit(
-                        upload_fileobj,
-                        fileobj=BytesIO(file_bytes),
-                        bucket=settings.S3_BUCKET_NAME,
-                        key=original_key,
-                        content_type=file.content_type,
-                    ),
-                    executor.submit(
-                        upload_fileobj,
-                        fileobj=BytesIO(thumbnail_bytes),
-                        bucket=settings.S3_BUCKET_NAME,
-                        key=thumbnail_key,
-                        content_type="image/jpeg",
-                    ),
-                    executor.submit(
-                        upload_fileobj,
-                        fileobj=BytesIO(detail_bytes),
-                        bucket=settings.S3_BUCKET_NAME,
-                        key=detail_key,
-                        content_type="image/jpeg",
-                    ),
-                ]
-
-                # 업로드 실패 시 예외 전파
-                for future in futures:
-                    future.result()
-
-                # DB row 생성 (original 기준)
-                message = EvidenceMessage(
-                    message_id=message_id,
-                    complaint_id=complaint.complaint_id,
-                    filename=file.filename,
-                    s3_key=original_key,
-                    content_type=file.content_type,
-                    size_bytes=len(file_bytes),
-                    width=width,
-                    height=height,
-                )
-
-                evidence_message_repo.create(message)
-                results.append(message)
-
+        with ThreadPoolExecutor(max_workers=max(1, min(len(metadata_list), 5))) as executor:
+            rows = list(executor.map(_process_message_item, metadata_list))
+        # 5) DB 저장
+        db.bulk_insert_mappings(EvidenceMessage, rows)
         db.commit()
 
-        return schemas.EvidenceMessageUploadResponse(
-            messages=[
-                schemas.EvidenceMessageResponse(
-                    message_id=m.message_id,
-                    filename=m.filename,
-                    width=m.width,
-                    height=m.height,
-                    size_bytes=m.size_bytes,
-                )
-                for m in results
-            ],
-            type_invalid_filenames=filtered_result["type_invalid_filenames"],
-            count_invalid_filenames=count_invalid_filenames,
-            size_invalid_filenames=filtered_result["size_invalid_filenames"],
-        )
+        results = [
+            schemas.EvidenceMessageRegisterItemResponse(
+                message_id=r["message_id"],
+                filename=r["filename"],
+                content_type=r["content_type"],
+                width=r["width"],
+                height=r["height"],
+                size_bytes=r["size_bytes"],
+            )
+            for r in rows
+        ]
+        return schemas.EvidenceMessageRegisterListResponse(items=results)
 
     def get_preview_messages(
         self,
@@ -282,6 +261,8 @@ class EvidenceMessageService(EvidenceTypeService):
             width=message.width,
             height=message.height,
             url=url,
+            created_at=message.created_at,
+            updated_at=message.updated_at,
         )
 
     def update_filename(

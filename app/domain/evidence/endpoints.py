@@ -3,12 +3,33 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+import app.domain.evidence.errors.presigned_validation_error as presigned_validation_errors
 from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
+from app.domain.complaint import Complaint, get_owned_complaint
 from app.domain.evidence import schemas
 from app.domain.evidence.service import evidence_service
 
 router = APIRouter(prefix="/api/v1/evidences", tags=["Evidence"])
+
+
+@router.post(
+    "/{complaint_id}/presigned-url",
+    summary="증거 S3 업로드용 Presigned URL 발급 (복수 업로드 지원)",
+    description="API Gateway 용량 제한이 10MB이기 때문에, 프론트엔드에서 Presigned URL로 S3에 직접 업로드 후 register API를 호출합니다.",
+    response_model=schemas.EvidencePresignedUrlResponse,
+    responses=presigned_validation_errors.EVIDENCE_PRESIGNED_VALIDATION_ERRORS_RESPONSES,
+)
+def get_evidence_presigned_url(
+    complaint: Complaint = Depends(get_owned_complaint),
+    request: schemas.EvidencePresignedUrlRequest = ...,
+    db: Session = Depends(get_db),
+):
+    return evidence_service.get_presigned_url(
+        complaint=complaint,
+        request=request,
+        db=db,
+    )
 
 
 @router.patch(

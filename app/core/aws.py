@@ -1,4 +1,5 @@
 import boto3
+from botocore.exceptions import ClientError
 
 from app.core.settings import settings
 
@@ -41,3 +42,43 @@ def delete_s3_objects(bucket: str, keys: list[str]) -> None:
         Bucket=bucket,
         Delete={"Objects": [{"Key": k} for k in keys], "Quiet": True},
     )
+
+
+def generate_presigned_put_url(
+    bucket: str,
+    key: str,
+    content_type: str,
+    expires_in: int = 3600,
+) -> str:
+    """S3 PUT 업로드용 presigned URL 생성. 프론트에서 직접 업로드 시 사용."""
+    client = get_s3_client()
+    return client.generate_presigned_url(
+        ClientMethod="put_object",
+        Params={
+            "Bucket": bucket,
+            "Key": key,
+            "ContentType": content_type,
+        },
+        ExpiresIn=expires_in,
+    )
+
+
+def download_s3_object(bucket: str, key: str) -> bytes:
+    """S3 객체 다운로드."""
+    client = get_s3_client()
+    response = client.get_object(Bucket=bucket, Key=key)
+    return response["Body"].read()
+
+
+def head_s3_object(bucket: str, key: str) -> dict | None:
+    """S3 객체 존재 여부 및 메타데이터 확인. 없으면 None."""
+    try:
+        client = get_s3_client()
+        return client.head_object(Bucket=bucket, Key=key)
+    except ClientError as e:
+        code = e.response["Error"]["Code"]
+        if code == "404":
+            return None
+        if code == "403":
+            return None  # 객체 없을 때 일부 설정에서 403 반환
+        raise

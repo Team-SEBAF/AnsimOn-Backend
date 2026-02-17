@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 import app.domain.evidence.errors as evidence_errors
@@ -15,20 +15,20 @@ router = APIRouter(prefix="/api/v1", tags=["Evidence Report Record"])
 
 
 @router.post(
-    "/{complaint_id}/evidences/report-records",
-    summary=f"REPORT_RECORD 타입 신고・사건 일지 업로드 (최대 {EVIDENCE_DOCUMENT_RESTRICT.max_count}개)",
-    description="REPORT_RECORD 타입 신고・사건 일지를 업로드합니다.",
-    response_model=schemas.EvidenceReportRecordUploadResponse,
-    responses=evidence_errors.EVIDENCE_MAX_COUNT_EXCEEDED_ERRORS_RESPONSES,
+    "/{complaint_id}/evidences/report-records/register",
+    summary=f"REPORT_RECORD 타입 신고・사건 일지 Presigned URL로 S3 업로드 완료 후, 메타데이터 DB 저장 (복수 업로드 지원, 최대 {EVIDENCE_DOCUMENT_RESTRICT.max_count}개)",
+    description="Presigned URL로 S3 업로드 완료 후 호출하세요.",
+    response_model=schemas.EvidenceReportRecordRegisterListResponse,
+    responses=evidence_errors.REGISTER_EVIDENCE_ERRORS_RESPONSES,
 )
-def upload_evidence_report_records(
+def register_report_record(
     complaint: Complaint = Depends(get_owned_complaint),
-    files: list[UploadFile] = File(...),  # multipart/form-data
+    request: schemas.EvidenceReportRecordRegisterRequest = ...,
     db: Session = Depends(get_db),
 ):
-    return evidence_report_record_service.upload_report_records(
+    return evidence_report_record_service.register_report_record(
         complaint=complaint,
-        files=files,
+        request=request,
         db=db,
     )
 

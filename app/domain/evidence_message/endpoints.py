@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 import app.domain.evidence.errors as evidence_errors
@@ -15,20 +15,20 @@ router = APIRouter(prefix="/api/v1", tags=["Evidence Message"])
 
 
 @router.post(
-    "/{complaint_id}/evidences/messages",
-    summary=f"MESSAGE 타입 증거 이미지 업로드 (최대 {EVIDENCE_MESSAGE_RESTRICT.max_count}개)",
-    description="MESSAGE 타입 증거 이미지를 업로드합니다.",
-    response_model=schemas.EvidenceMessageUploadResponse,
-    responses=evidence_errors.EVIDENCE_MAX_COUNT_EXCEEDED_ERRORS_RESPONSES,
+    "/{complaint_id}/evidences/messages/register",
+    summary=f"MESSAGE 타입 증거 Presigned URL로 S3 업로드 완료 후, 메타데이터 DB 저장 + 썸네일/상세 이미지 생성 (복수 업로드 지원, 최대 {EVIDENCE_MESSAGE_RESTRICT.max_count}개)",
+    description="Presigned URL로 S3 업로드 완료 후 호출하세요. 썸네일/상세 이미지는 백엔드에서 생성합니다.",
+    response_model=schemas.EvidenceMessageRegisterListResponse,
+    responses=evidence_errors.REGISTER_EVIDENCE_ERRORS_RESPONSES,
 )
-def upload_evidence_message_images(
+def register_message(
     complaint: Complaint = Depends(get_owned_complaint),
-    files: list[UploadFile] = File(...),  # multipart/form-data
+    request: schemas.EvidenceMessageRegisterRequest = ...,
     db: Session = Depends(get_db),
 ):
-    return evidence_message_service.upload_messages(
+    return evidence_message_service.register_message(
         complaint=complaint,
-        files=files,
+        request=request,
         db=db,
     )
 

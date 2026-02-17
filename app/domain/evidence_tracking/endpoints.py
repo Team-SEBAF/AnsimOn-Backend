@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 import app.domain.evidence.errors as evidence_errors
@@ -15,20 +15,20 @@ router = APIRouter(prefix="/api/v1", tags=["Evidence Tracking"])
 
 
 @router.post(
-    "/{complaint_id}/evidences/trackings",
-    summary=f"TRACKING 타입 증거 영상 업로드 (최대 {EVIDENCE_TRACKING_RESTRICT.max_count}개)",
-    description="TRACKING 타입 증거 영상을 업로드합니다.",
-    response_model=schemas.EvidenceTrackingUploadResponse,
-    responses=evidence_errors.EVIDENCE_MAX_COUNT_EXCEEDED_ERRORS_RESPONSES,
+    "/{complaint_id}/evidences/trackings/register",
+    summary=f"TRACKING 타입 증거 Presigned URL로 S3 업로드 완료 후, 메타데이터 DB 저장 + 썸네일/상세 이미지 생성 (복수 업로드 지원, 최대 {EVIDENCE_TRACKING_RESTRICT.max_count}개)",
+    description="Presigned URL로 S3 업로드 완료 후 호출하세요. 썸네일/상세 이미지는 백엔드에서 생성합니다.",
+    response_model=schemas.EvidenceTrackingRegisterListResponse,
+    responses=evidence_errors.REGISTER_EVIDENCE_ERRORS_RESPONSES,
 )
-def upload_evidence_tracking_videos(
+def register_tracking(
     complaint: Complaint = Depends(get_owned_complaint),
-    files: list[UploadFile] = File(...),
+    request: schemas.EvidenceTrackingRegisterRequest = ...,
     db: Session = Depends(get_db),
 ):
-    return evidence_tracking_service.upload_trackings(
+    return evidence_tracking_service.register_tracking(
         complaint=complaint,
-        files=files,
+        request=request,
         db=db,
     )
 

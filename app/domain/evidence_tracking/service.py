@@ -1,26 +1,79 @@
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
-from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import upload_fileobj
+from app.core.aws import download_s3_object, upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
 from app.domain.evidence.constant import EVIDENCE_TRACKING_RESTRICT, EvidenceVariant
-from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
-    EvidenceMaxCountExceededErrorCode,
+from app.domain.evidence.errors.register_validation_error import (
+    raise_evidence_register_validation_failed,
 )
-from app.domain.evidence.utils import filter_evidence_files, get_video_image_at_0
+from app.domain.evidence.utils import (
+    check_register_max_count,
+    fetch_s3_metadata_for_register,
+)
 from app.domain.evidence_tracking import schemas
 from app.domain.evidence_tracking.models.evidence_tracking_model import EvidenceTracking
 from app.domain.evidence_tracking.repos.evidence_tracking_repository import (
     EvidenceTrackingRepository,
 )
+from app.domain.evidence_tracking.utils import get_video_duration, get_video_image_at_0
+
+
+def _collect_tracking_register_restrict_failures_from_metadata(
+    metadata_list: list[dict],
+) -> tuple[list[str], list[str], list[dict]]:
+    """1차: metadata만으로 content_type, size 검사. raise 안 함.
+    Returns: (content_type_failed, size_bytes_failed, valid_metadata)
+    """
+    restrict = EVIDENCE_TRACKING_RESTRICT
+    content_type_failed_evidence_ids: list[str] = []
+    size_bytes_failed_evidence_ids: list[str] = []
+    valid_metadata: list[dict] = []
+
+    for m in metadata_list:
+        eid_str = str(m["tracking_id"])
+        if m.get("content_type") not in restrict.allowed_types:
+            content_type_failed_evidence_ids.append(eid_str)
+            continue
+        if m.get("size_bytes", 0) > restrict.max_size_bytes:
+            size_bytes_failed_evidence_ids.append(eid_str)
+            continue
+        valid_metadata.append(m)
+
+    return content_type_failed_evidence_ids, size_bytes_failed_evidence_ids, valid_metadata
+
+
+def _raise_tracking_register_validation_if_failed(
+    content_type_failed_evidence_ids: list[str],
+    size_bytes_failed_evidence_ids: list[str],
+    content_type_extraction_failed_evidence_ids: list[str],
+    rows_with_duration: list[dict],
+) -> None:
+    """2차: 1차 failed + 추출 실패 + duration 검사. 모두 합쳐서 한 번에 raise."""
+    restrict = EVIDENCE_TRACKING_RESTRICT
+    duration_seconds_failed_evidence_ids: list[str] = []
+
+    for r in rows_with_duration:
+        if r.get("duration_seconds", 0) > (restrict.max_duration_seconds or 0):
+            duration_seconds_failed_evidence_ids.append(str(r["tracking_id"]))
+
+    content_type_total = (
+        content_type_failed_evidence_ids + content_type_extraction_failed_evidence_ids
+    )
+
+    raise_evidence_register_validation_failed(
+        content_type_failed_evidence_ids=content_type_total,
+        size_bytes_failed_evidence_ids=size_bytes_failed_evidence_ids,
+        duration_seconds_failed_evidence_ids=(
+            duration_seconds_failed_evidence_ids if restrict.max_duration_seconds else None
+        ),
+    )
 
 
 class EvidenceTrackingService(EvidenceTypeService):
@@ -67,114 +120,112 @@ class EvidenceTrackingService(EvidenceTypeService):
             db=db,
         )
 
-    def upload_trackings(
+    def register_tracking(
         self,
         complaint: Complaint,
-        files: list[UploadFile],
+        request: schemas.EvidenceTrackingRegisterRequest,
         db: Session,
-    ) -> schemas.EvidenceTrackingUploadResponse:
+    ) -> schemas.EvidenceTrackingRegisterListResponse:
+        # 1) max_count 검사
         total_count = self._get_total_count(
             complaint_id=complaint.complaint_id,
             db=db,
         )
-        if total_count >= EVIDENCE_TRACKING_RESTRICT.max_count:
-            raise CodeException(
-                code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
-                message=f"TRACKING 타입 증거의 최대 개수({EVIDENCE_TRACKING_RESTRICT.max_count}개)를 초과했습니다.",
-                status_code=400,
-            )
-
-        evidence_tracking_repo = EvidenceTrackingRepository(db)
-        results: list[EvidenceTracking] = []
-
-        # 음성 파일 필터링
-        filtered_result = filter_evidence_files(
-            files, EVIDENCE_TRACKING_RESTRICT, need_video_duration_check=True
+        check_register_max_count(
+            total_count=total_count,
+            request_count=len(request.items),
+            restrict=EVIDENCE_TRACKING_RESTRICT,
+            type_name="TRACKING",
         )
-        valid_files = filtered_result["valid_files"]
+        # 2) S3 메타데이터 조회
+        metadata_list = fetch_s3_metadata_for_register(
+            complaint=complaint,
+            items=request.items,
+            path_segment="trackings",
+            get_evidence_id=lambda item: item.tracking_id,
+            build_extra=lambda item, s3_key, ct, size: {
+                "tracking_id": item.tracking_id,
+                "complaint_id": complaint.complaint_id,
+                "filename": item.filename,
+            },
+        )
+        # 3) 1차 검증 (content_type, size) - failed 수집
+        (
+            content_type_failed_evidence_ids,
+            size_bytes_failed_evidence_ids,
+            valid_metadata,
+        ) = _collect_tracking_register_restrict_failures_from_metadata(metadata_list)
 
-        # 최대 개수 초과 체크
-        available_count = EVIDENCE_TRACKING_RESTRICT.max_count - total_count
-        upload_files = valid_files[:available_count]
+        # 4) 다운로드 → duration 추출 (병렬)
+        def _process_tracking_item(m: dict) -> tuple[dict | None, str | None]:
+            file_bytes = download_s3_object(settings.S3_BUCKET_NAME, m["s3_key"])
+            try:
+                duration_seconds = get_video_duration(file_bytes)
+            except Exception:
+                return None, str(m["tracking_id"])
+            return {
+                "tracking_id": m["tracking_id"],
+                "complaint_id": m["complaint_id"],
+                "filename": m["filename"],
+                "s3_key": m["s3_key"],
+                "content_type": m["content_type"],
+                "size_bytes": m["size_bytes"],
+                "duration_seconds": duration_seconds,
+                "_file_bytes": file_bytes,
+            }, None
 
-        count_invalid_files = valid_files[available_count:]
-        count_invalid_filenames = [file.filename for file, _, _ in count_invalid_files]
+        with ThreadPoolExecutor(max_workers=max(1, min(len(valid_metadata), 5))) as executor:
+            results = list(executor.map(_process_tracking_item, valid_metadata))
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            for file, file_bytes, duration_seconds in upload_files:
-                tracking_id = uuid4()
+        rows = [r for r, _ in results if r is not None]
+        content_type_extraction_failed_evidence_ids = [eid for _, eid in results if eid is not None]
+        # 5) 2차 검증 (duration) + 전체 실패 시 raise
+        _raise_tracking_register_validation_if_failed(
+            content_type_failed_evidence_ids=content_type_failed_evidence_ids,
+            size_bytes_failed_evidence_ids=size_bytes_failed_evidence_ids,
+            content_type_extraction_failed_evidence_ids=content_type_extraction_failed_evidence_ids,
+            rows_with_duration=rows,
+        )
 
-                base_key = (
-                    f"{complaint.user_sub}/complaints/"
-                    f"{complaint.complaint_id}/evidences/trackings/{tracking_id}"
-                )
+        # 6) 썸네일/디테일 추출 → S3 업로드 (병렬)
+        def _upload_tracking_thumbnails(r: dict) -> dict:
+            file_bytes = r.pop("_file_bytes")
+            base_key = r["s3_key"].rsplit("/", 1)[0]
+            thumbnail_key = f"{base_key}/thumbnail"
+            detail_key = f"{base_key}/detail"
+            thumbnail_bytes, _, _ = get_video_image_at_0(file_bytes, size=120, quality=65)
+            detail_bytes, _, _ = get_video_image_at_0(file_bytes, size=400, quality=75)
+            upload_fileobj(
+                fileobj=BytesIO(thumbnail_bytes),
+                bucket=settings.S3_BUCKET_NAME,
+                key=thumbnail_key,
+                content_type="image/jpeg",
+            )
+            upload_fileobj(
+                fileobj=BytesIO(detail_bytes),
+                bucket=settings.S3_BUCKET_NAME,
+                key=detail_key,
+                content_type="image/jpeg",
+            )
+            return r
 
-                original_key = f"{base_key}/original"
-                thumbnail_key = f"{base_key}/thumbnail"
-                detail_key = f"{base_key}/detail"
-
-                thumbnail_bytes, _, _ = get_video_image_at_0(file_bytes, size=120, quality=65)
-                detail_bytes, _, _ = get_video_image_at_0(file_bytes, size=400, quality=75)
-
-                futures = [
-                    executor.submit(
-                        upload_fileobj,
-                        fileobj=BytesIO(file_bytes),
-                        bucket=settings.S3_BUCKET_NAME,
-                        key=original_key,
-                        content_type=file.content_type,
-                    ),
-                    executor.submit(
-                        upload_fileobj,
-                        fileobj=BytesIO(thumbnail_bytes),
-                        bucket=settings.S3_BUCKET_NAME,
-                        key=thumbnail_key,
-                        content_type="image/jpeg",
-                    ),
-                    executor.submit(
-                        upload_fileobj,
-                        fileobj=BytesIO(detail_bytes),
-                        bucket=settings.S3_BUCKET_NAME,
-                        key=detail_key,
-                        content_type="image/jpeg",
-                    ),
-                ]
-
-                for future in futures:
-                    future.result()
-
-                tracking = EvidenceTracking(
-                    tracking_id=tracking_id,
-                    complaint_id=complaint.complaint_id,
-                    filename=file.filename,
-                    s3_key=original_key,
-                    content_type=file.content_type,
-                    size_bytes=len(file_bytes),
-                    duration_seconds=duration_seconds,
-                )
-
-                evidence_tracking_repo.create(tracking)
-                results.append(tracking)
-
+        with ThreadPoolExecutor(max_workers=max(1, min(len(rows), 5))) as executor:
+            rows = list(executor.map(_upload_tracking_thumbnails, rows))
+        # 7) DB 저장
+        db.bulk_insert_mappings(EvidenceTracking, rows)
         db.commit()
 
-        return schemas.EvidenceTrackingUploadResponse(
-            trackings=[
-                schemas.EvidenceTrackingResponse(
-                    tracking_id=v.tracking_id,
-                    filename=v.filename,
-                    duration_seconds=v.duration_seconds,
-                    size_bytes=v.size_bytes,
-                    created_at=v.created_at,
-                    updated_at=v.updated_at,
-                )
-                for v in results
-            ],
-            type_invalid_filenames=filtered_result["type_invalid_filenames"],
-            count_invalid_filenames=count_invalid_filenames,
-            size_invalid_filenames=filtered_result["size_invalid_filenames"],
-            duration_invalid_filenames=filtered_result["duration_invalid_filenames"],
-        )
+        results = [
+            schemas.EvidenceTrackingRegisterItemResponse(
+                tracking_id=r["tracking_id"],
+                filename=r["filename"],
+                content_type=r["content_type"],
+                duration_seconds=r["duration_seconds"],
+                size_bytes=r["size_bytes"],
+            )
+            for r in rows
+        ]
+        return schemas.EvidenceTrackingRegisterListResponse(items=results)
 
     def get_preview_trackings(
         self,
@@ -264,6 +315,8 @@ class EvidenceTrackingService(EvidenceTypeService):
             size_bytes=tracking.size_bytes,
             duration_seconds=tracking.duration_seconds,
             url=url,
+            created_at=tracking.created_at,
+            updated_at=tracking.updated_at,
         )
 
     def update_filename(

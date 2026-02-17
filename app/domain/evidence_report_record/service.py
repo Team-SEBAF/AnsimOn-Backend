@@ -1,21 +1,18 @@
-from concurrent.futures import ThreadPoolExecutor
-from io import BytesIO
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
-from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import upload_fileobj
-from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
 from app.domain.evidence.constant import EVIDENCE_DOCUMENT_RESTRICT
-from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
-    EvidenceMaxCountExceededErrorCode,
+from app.domain.evidence.errors.register_validation_error import (
+    raise_evidence_register_validation_failed,
 )
-from app.domain.evidence.utils import filter_evidence_files
+from app.domain.evidence.utils import (
+    check_register_max_count,
+    fetch_s3_metadata_for_register,
+)
 from app.domain.evidence_report_record import schemas
 from app.domain.evidence_report_record.models.evidence_report_record_model import (
     EvidenceReportRecord,
@@ -23,6 +20,27 @@ from app.domain.evidence_report_record.models.evidence_report_record_model impor
 from app.domain.evidence_report_record.repos.evidence_report_record_repository import (
     EvidenceReportRecordRepository,
 )
+
+
+def _validate_report_record_register_restrict(metadata_list: list[dict]) -> None:
+    """content_type 먼저, 통과한 것만 size. duration 없음."""
+    restrict = EVIDENCE_DOCUMENT_RESTRICT
+    content_type_failed_evidence_ids: list[str] = []
+    size_bytes_failed_evidence_ids: list[str] = []
+
+    for m in metadata_list:
+        eid_str = str(m["report_record_id"])
+        if m.get("content_type") not in restrict.allowed_types:
+            content_type_failed_evidence_ids.append(eid_str)
+            continue
+        if m.get("size_bytes", 0) > restrict.max_size_bytes:
+            size_bytes_failed_evidence_ids.append(eid_str)
+
+    raise_evidence_register_validation_failed(
+        content_type_failed_evidence_ids=content_type_failed_evidence_ids,
+        size_bytes_failed_evidence_ids=size_bytes_failed_evidence_ids,
+        duration_seconds_failed_evidence_ids=None,
+    )
 
 
 class EvidenceReportRecordService(EvidenceTypeService):
@@ -71,95 +89,63 @@ class EvidenceReportRecordService(EvidenceTypeService):
             db=db,
         )
 
-    def upload_report_records(
+    def register_report_record(
         self,
         complaint: Complaint,
-        files: list[UploadFile],
+        request: schemas.EvidenceReportRecordRegisterRequest,
         db: Session,
-    ) -> schemas.EvidenceReportRecordUploadResponse:
+    ) -> schemas.EvidenceReportRecordRegisterListResponse:
+        # 1) max_count 검사
         total_count = self._get_total_count(
             complaint_id=complaint.complaint_id,
             db=db,
         )
-        if total_count >= EVIDENCE_DOCUMENT_RESTRICT.max_count:
-            raise CodeException(
-                code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
-                message=f"REPORT_RECORD 타입 신고・사건 일지의 최대 개수({EVIDENCE_DOCUMENT_RESTRICT.max_count}개)를 초과했습니다.",
-                status_code=400,
-            )
+        check_register_max_count(
+            total_count=total_count,
+            request_count=len(request.items),
+            restrict=EVIDENCE_DOCUMENT_RESTRICT,
+            type_name="REPORT_RECORD",
+        )
+        # 2) S3 메타데이터 조회
+        metadata_list = fetch_s3_metadata_for_register(
+            complaint=complaint,
+            items=request.items,
+            path_segment="report-records",
+            get_evidence_id=lambda item: item.report_record_id,
+            build_extra=lambda item, s3_key, ct, size: {
+                "report_record_id": item.report_record_id,
+                "complaint_id": complaint.complaint_id,
+                "filename": item.filename,
+            },
+        )
+        # 3) content_type, size 검증
+        _validate_report_record_register_restrict(metadata_list)
+        # 4) DB 저장
+        rows = [
+            {
+                "report_record_id": m["report_record_id"],
+                "complaint_id": m["complaint_id"],
+                "filename": m["filename"],
+                "s3_key": m["s3_key"],
+                "content_type": m["content_type"],
+                "size_bytes": m["size_bytes"],
+            }
+            for m in metadata_list
+        ]
 
-        evidence_report_record_repo = EvidenceReportRecordRepository(db)
-        results: list[EvidenceReportRecord] = []
-
-        # 신고・사건 일지 파일 필터링
-        filtered_result = filter_evidence_files(files, EVIDENCE_DOCUMENT_RESTRICT)
-        valid_files = filtered_result["valid_files"]
-
-        # 최대 개수 초과 체크
-        available_count = EVIDENCE_DOCUMENT_RESTRICT.max_count - total_count
-        upload_files = valid_files[:available_count]
-
-        count_invalid_files = valid_files[available_count:]
-        count_invalid_filenames = [file.filename for file in count_invalid_files]
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            for file in upload_files:
-                # 파일 바이트 읽기 (1회)
-                file_bytes = file.file.read()
-
-                # report_record_id 생성
-                report_record_id = uuid4()
-
-                s3_key = (
-                    f"{complaint.user_sub}/complaints/"
-                    f"{complaint.complaint_id}/evidences/report-records/{report_record_id}/original"
-                )
-
-                # S3 업로드 (병렬)
-                futures = [
-                    executor.submit(
-                        upload_fileobj,
-                        fileobj=BytesIO(file_bytes),
-                        bucket=settings.S3_BUCKET_NAME,
-                        key=s3_key,
-                        content_type=file.content_type,
-                    ),
-                ]
-
-                # 업로드 실패 시 예외 전파
-                for future in futures:
-                    future.result()
-
-                # DB row 생성
-                report_record = EvidenceReportRecord(
-                    report_record_id=report_record_id,
-                    complaint_id=complaint.complaint_id,
-                    filename=file.filename,
-                    s3_key=s3_key,
-                    content_type=file.content_type,
-                    size_bytes=len(file_bytes),
-                )
-
-                evidence_report_record_repo.create(report_record)
-                results.append(report_record)
-
+        db.bulk_insert_mappings(EvidenceReportRecord, rows)
         db.commit()
 
-        return schemas.EvidenceReportRecordUploadResponse(
-            report_records=[
-                schemas.EvidenceReportRecordResponse(
-                    report_record_id=v.report_record_id,
-                    filename=v.filename,
-                    size_bytes=v.size_bytes,
-                    created_at=v.created_at,
-                    updated_at=v.updated_at,
-                )
-                for v in results
-            ],
-            type_invalid_filenames=filtered_result["type_invalid_filenames"],
-            count_invalid_filenames=count_invalid_filenames,
-            size_invalid_filenames=filtered_result["size_invalid_filenames"],
-        )
+        results = [
+            schemas.EvidenceReportRecordRegisterItemResponse(
+                report_record_id=r["report_record_id"],
+                filename=r["filename"],
+                content_type=r["content_type"],
+                size_bytes=r["size_bytes"],
+            )
+            for r in rows
+        ]
+        return schemas.EvidenceReportRecordRegisterListResponse(items=results)
 
     def get_preview_report_records(
         self,
@@ -236,6 +222,8 @@ class EvidenceReportRecordService(EvidenceTypeService):
             content_type=report_record.content_type,
             size_bytes=report_record.size_bytes,
             url=url,
+            created_at=report_record.created_at,
+            updated_at=report_record.updated_at,
         )
 
     def update_filename(
