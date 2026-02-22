@@ -94,17 +94,30 @@ jobs:
           aws-region: ${{ 'ap-northeast-2' }}
 
       - name: Attach latest layer
+        env:
+          FUNC_NAME: ${{ env.ENV == 'dev' && 'ansimon-api' || 'ansimon-api-prod' }}
         run: |
-          LAYER_ARN=$(aws lambda list-layer-versions \
+          # 새 ansimon-deps 버전
+          NEW_DEPS_ARN=$(aws lambda list-layer-versions \
             --layer-name ansimon-deps \
             --query 'LayerVersions[0].LayerVersionArn' \
             --output text)
+          echo "New ansimon-deps: $NEW_DEPS_ARN"
 
-          echo "Using layer: $LAYER_ARN"
+          # 기존 레이어 중 ansimon-deps 제외 (다른 레이어 유지)
+          CURRENT_LAYERS=$(aws lambda get-function-configuration \
+            --function-name $FUNC_NAME \
+            --query 'Layers[*].Arn' \
+            --output text)
+          OTHER_LAYERS=$(echo "$CURRENT_LAYERS" | tr '\t' ' ' | tr ' ' '\n' | grep -v 'ansimon-deps' | tr '\n' ' ' | xargs)
+
+          # ansimon-deps(최신) + 기존 다른 레이어들
+          LAYERS=$(echo "$NEW_DEPS_ARN $OTHER_LAYERS" | xargs)
+          echo "Layers to attach: $LAYERS"
 
           aws lambda update-function-configuration \
-            --function-name ${{ env.ENV == 'dev' && 'ansimon-api' || 'ansimon-api-prod' }} \
-            --layers "$LAYER_ARN"
+            --function-name $FUNC_NAME \
+            --layers $LAYERS
 
       - name: Wait after layer attach
         run: |
