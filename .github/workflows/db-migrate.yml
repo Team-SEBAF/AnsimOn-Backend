@@ -1,8 +1,18 @@
-name: DB Migrate (dev)
+name: DB Migrate
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment (push to main은 항상 dev)"
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - prod
 
 permissions:
   id-token: write
@@ -11,6 +21,8 @@ permissions:
 jobs:
   migrate:
     runs-on: ubuntu-latest
+    env:
+      ENV: ${{ github.event.inputs.environment || 'dev' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -29,18 +41,9 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ 'ap-northeast-2' }}
 
       - name: Alembic upgrade
         env:
-          DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
-
-          WEB_APP_URL: ${{ vars.WEB_APP_URL }}
-          COGNITO_CLIENT_ID: ${{ vars.COGNITO_CLIENT_ID }}
-          COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
-          COGNITO_CLIENT_SECRET: ${{ vars.COGNITO_CLIENT_SECRET }}
-          COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN }}
-          S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
-
-        run: |
-          poetry run alembic upgrade head
+          DATABASE_URL: ${{ env.ENV == 'prod' && secrets.PROD_DATABASE_URL || secrets.DEV_DATABASE_URL }}
+        run: poetry run alembic upgrade head

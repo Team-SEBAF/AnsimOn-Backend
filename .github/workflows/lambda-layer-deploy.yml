@@ -1,7 +1,16 @@
-name: Deploy Lambda Layer (dev)
+name: Deploy Lambda Layer
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment"
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - prod
 
 permissions:
   id-token: write
@@ -10,8 +19,14 @@ permissions:
 jobs:
   deploy-layer:
     runs-on: ubuntu-latest
+    env:
+      ENV: ${{ github.event.inputs.environment }}
+    outputs:
+      ENV: ${{ steps.set-env.outputs.ENV }}
 
     steps:
+      - id: set-env
+        run: echo "ENV=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
@@ -56,7 +71,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ 'ap-northeast-2' }}
 
       - name: Publish layer
         run: |
@@ -68,13 +83,15 @@ jobs:
   attach-layer-and-publish:
     runs-on: ubuntu-latest
     needs: deploy-layer
+    env:
+      ENV: ${{ needs.deploy-layer.outputs.ENV }}
 
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ 'ap-northeast-2' }}
 
       - name: Attach latest layer
         run: |
@@ -86,19 +103,19 @@ jobs:
           echo "Using layer: $LAYER_ARN"
 
           aws lambda update-function-configuration \
-            --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
+            --function-name ${{ env.ENV == 'dev' && 'lambda-api' || 'lambda-api-prod' }} \
             --layers "$LAYER_ARN"
 
       - name: Wait after layer attach
         run: |
           aws lambda wait function-updated \
-            --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }}
+            --function-name ${{ env.ENV == 'dev' && 'lambda-api' || 'lambda-api-prod' }}
 
       - name: Publish version
         id: publish
         run: |
           VERSION=$(aws lambda publish-version \
-            --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
+            --function-name ${{ env.ENV == 'dev' && 'lambda-api' || 'lambda-api-prod' }} \
             --query Version \
             --output text)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -106,6 +123,6 @@ jobs:
       - name: Update alias
         run: |
           aws lambda update-alias \
-            --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
-            --name dev \
+            --function-name ${{ env.ENV == 'dev' && 'lambda-api' || 'lambda-api-prod' }} \
+            --name ${{ env.ENV }} \
             --function-version ${{ steps.publish.outputs.version }}
