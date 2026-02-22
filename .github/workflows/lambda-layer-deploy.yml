@@ -103,19 +103,19 @@ jobs:
           echo "Using layer: $LAYER_ARN"
 
           aws lambda update-function-configuration \
-            --function-name ${{ env.ENV == 'dev' && 'lambda-api' || 'lambda-api-prod' }} \
+            --function-name ${{ env.ENV == 'dev' && 'ansimon-api' || 'ansimon-api-prod' }} \
             --layers "$LAYER_ARN"
 
       - name: Wait after layer attach
         run: |
           aws lambda wait function-updated \
-            --function-name ${{ env.ENV == 'dev' && 'lambda-api' || 'lambda-api-prod' }}
+            --function-name ${{ env.ENV == 'dev' && 'ansimon-api' || 'ansimon-api-prod' }}
 
       - name: Publish version
         id: publish
         run: |
           VERSION=$(aws lambda publish-version \
-            --function-name ${{ env.ENV == 'dev' && 'lambda-api' || 'lambda-api-prod' }} \
+            --function-name ${{ env.ENV == 'dev' && 'ansimon-api' || 'ansimon-api-prod' }} \
             --query Version \
             --output text)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -123,6 +123,6 @@ jobs:
       - name: Update alias
         run: |
           aws lambda update-alias \
-            --function-name ${{ env.ENV == 'dev' && 'lambda-api' || 'lambda-api-prod' }} \
+            --function-name ${{ env.ENV == 'dev' && 'ansimon-api' || 'ansimon-api-prod' }} \
             --name ${{ env.ENV }} \
             --function-version ${{ steps.publish.outputs.version }}
