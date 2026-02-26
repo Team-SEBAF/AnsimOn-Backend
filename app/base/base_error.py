@@ -14,8 +14,14 @@ class BaseErrorResponse(BaseModel):
     )
     message: str = Field(
         ...,
-        description="에러 메시지 (사람이 읽는 용도)",
+        description="에러 메시지 (사용자가 읽는 용도)",
         examples=["잘못된 요청입니다."],
+    )
+    debug_message: str | None = Field(
+        ...,
+        description="디버그 메시지 (개발자가 읽는 용도)",
+        examples=["잘못된 요청입니다."],
+        default=None,
     )
 
 
@@ -29,12 +35,14 @@ class CodeException(Exception):
         message: str,
         status_code: int,
         detail: dict | None = None,
+        debug_message: str | None = None,
     ):
         super().__init__(message)
         self.status_code = status_code
         self.code = code
         self.message = message
         self.detail = detail or {}
+        self.debug_message = debug_message
 
 
 def register_exception_handlers(app):
@@ -66,6 +74,7 @@ def register_exception_handlers(app):
         content = {
             "code": exc.code.value if isinstance(exc.code, Enum) else exc.code,
             "message": exc.message,
+            "debug_message": exc.debug_message,
             **exc.detail,
         }
         return JSONResponse(status_code=exc.status_code, content=content)

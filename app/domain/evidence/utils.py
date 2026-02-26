@@ -27,7 +27,8 @@ def check_register_max_count(
     if total_count + request_count > restrict.max_count:
         raise CodeException(
             code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
-            message=f"{type_name} 타입 증거의 최대 개수({restrict.max_count}개)를 초과합니다. (현재 {total_count}개 + 요청 {request_count}개)",
+            message="해당 증거 타입의 최대 개수를 초과했습니다.",
+            debug_message=f"{type_name} 타입 증거의 최대 개수({restrict.max_count}개)를 초과합니다. (현재 {total_count}개 + 요청 {request_count}개)",
             status_code=400,
         )
 
@@ -57,7 +58,8 @@ def validate_s3_uploads_before_register(
     if failed_ids:
         raise CodeException(
             code=S3NotUploadedYetErrorCode.S3_NOT_UPLOADED_YET,
-            message="S3에 파일이 업로드되지 않은 증거가 있습니다. 먼저 presigned URL로 업로드해 주세요.",
+            message="에러가 발생하여 작업이 중단되었습니다. 잠시 후 다시 시도해 주세요.",
+            debug_message="S3에 파일이 업로드되지 않은 증거가 있습니다. 먼저 presigned URL로 업로드해 주세요.",
             status_code=400,
             detail={"failed_evidence_ids": [str(eid) for eid in failed_ids]},
         )
@@ -104,7 +106,8 @@ def fetch_s3_metadata_for_register(
     if failed_ids:
         raise CodeException(
             code=S3NotUploadedYetErrorCode.S3_NOT_UPLOADED_YET,
-            message="S3에 파일이 업로드되지 않은 증거가 있습니다. 먼저 presigned URL로 업로드해 주세요.",
+            message="에러가 발생하여 작업이 중단되었습니다. 잠시 후 다시 시도해 주세요.",
+            debug_message="S3에 파일이 업로드되지 않은 증거가 있습니다. 먼저 presigned URL로 업로드해 주세요.",
             status_code=400,
             detail={"failed_evidence_ids": [str(eid) for eid in failed_ids]},
         )

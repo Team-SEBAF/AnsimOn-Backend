@@ -52,7 +52,8 @@ def raise_evidence_register_validation_failed(
         detail["duration_seconds_failed_evidence_ids"] = duration_seconds_failed_evidence_ids
     raise CodeException(
         code=EvidenceRegisterValidationErrorCode.EVIDENCE_REGISTER_VALIDATION_FAILED,
-        message="증거 유효성 검사에 통과하지 못한 증거가 존재하여 작업이 중단되었습니다. failed_evidence_ids를 확인해 주세요.",
+        message="증거 유효성 검사에 통과하지 못한 증거가 존재하여 작업이 중단되었습니다.",
+        debug_message="증거 유효성 검사에 통과하지 못한 증거가 존재하여 작업이 중단되었습니다. failed_evidence_ids를 확인해 주세요.",
         status_code=400,
         detail=detail,
     )
@@ -68,7 +69,8 @@ EVIDENCE_REGISTER_VALIDATION_FAILED_ERRORS_RESPONSES = {
                         "summary": "restrict 검증 실패 (content_type/size_bytes/duration)",
                         "value": {
                             "code": "EVIDENCE_REGISTER_VALIDATION_FAILED",
-                            "message": "증거 파일이 제한 조건을 충족하지 않습니다. failed_evidence_ids를 확인해 주세요.",
+                            "message": "증거 유효성 검사에 통과하지 못한 증거가 존재하여 작업이 중단되었습니다.",
+                            "debug_message": "증거 유효성 검사에 통과하지 못한 증거가 존재하여 작업이 중단되었습니다. failed_evidence_ids를 확인해 주세요.",
                             "content_type_failed_evidence_ids": [],
                             "size_bytes_failed_evidence_ids": [],
                             "duration_seconds_failed_evidence_ids": [],

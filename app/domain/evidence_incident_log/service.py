@@ -79,7 +79,8 @@ class EvidenceIncidentLogService(EvidenceTypeService):
         if log.type != type:
             raise CodeException(
                 code=IncidentLogTypeMismatchErrorCode.INCIDENT_LOG_TYPE_MISMATCH,
-                message=f"ID: {incident_log_id}에 해당하는 사건 일지 타입이 {type.value}가 아닙니다.",
+                message="사건 일지 타입이 불일치한 작업을 시도했습니다.",
+                debug_message=f"ID: {incident_log_id}에 해당하는 사건 일지 타입이 {type.value}가 아닙니다.",
                 status_code=400,
             )
 
@@ -143,7 +144,8 @@ class EvidenceIncidentLogService(EvidenceTypeService):
         if total_count >= EVIDENCE_DOCUMENT_RESTRICT.max_count:
             raise CodeException(
                 code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
-                message=f"INCIDENT_LOG 타입 사건 일지 파일의 최대 개수({EVIDENCE_DOCUMENT_RESTRICT.max_count}개)를 초과했습니다.",
+                message="해당 증거 타입의 최대 개수를 초과했습니다.",
+                debug_message=f"INCIDENT_LOG 타입 사건 일지 파일의 최대 개수({EVIDENCE_DOCUMENT_RESTRICT.max_count}개)를 초과했습니다.",
                 status_code=400,
             )
         return total_count

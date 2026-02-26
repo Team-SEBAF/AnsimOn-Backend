@@ -33,6 +33,7 @@ VERIFY_EMAIL_ERRORS_RESPONSES = {
                         "value": {
                             "code": "INVALID_CODE",
                             "message": "인증 코드가 일치하지 않습니다.",
+                            "debug_message": "인증 코드가 일치하지 않습니다. code: CodeMismatchException",
                         },
                     }
                 }
@@ -49,6 +50,7 @@ VERIFY_EMAIL_ERRORS_RESPONSES = {
                         "value": {
                             "code": "EXPIRED_CODE",
                             "message": "인증 코드가 만료되었습니다.",
+                            "debug_message": "인증 코드가 만료되었습니다. code: ExpiredCodeException",
                         },
                     }
                 }
@@ -65,11 +67,13 @@ def handle_verify_email_error(e: ClientError):
         raise CodeException(
             code=VerifyEmailErrorCode.INVALID_CODE,
             message="인증 코드가 일치하지 않습니다.",
+            debug_message=f"인증 코드가 일치하지 않습니다. code: {code}",
             status_code=400,
         )
     elif code == "ExpiredCodeException":
         raise CodeException(
             code=VerifyEmailErrorCode.EXPIRED_CODE,
             message="인증 코드가 만료되었습니다.",
+            debug_message=f"인증 코드가 만료되었습니다. code: {code}",
             status_code=400,
         )

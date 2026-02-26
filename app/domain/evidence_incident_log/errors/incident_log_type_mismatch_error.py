@@ -28,7 +28,8 @@ INCIDENT_LOG_TYPE_MISMATCH_ERRORS_RESPONSES = {
                         "summary": "사건 일지 타입이 불일치합니다.",
                         "value": {
                             "code": "INCIDENT_LOG_TYPE_MISMATCH",
-                            "message": "FILE 타입이 아닙니다.",
+                            "message": "사건 일지 타입이 불일치한 작업을 시도했습니다.",
+                            "debug_message": "ID: 123e4567-e89b-12d3-a456-426614174000에 해당하는 사건 일지 타입이 FILE가 아닙니다.",
                         },
                     }
                 }

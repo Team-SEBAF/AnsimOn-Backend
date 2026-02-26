@@ -248,7 +248,8 @@ class UserService:
         except urllib.error.HTTPError as e:
             raise CodeException(
                 code="GoogleOAuthFailed",
-                message="구글 로그인 처리에 실패했습니다." + e.read().decode("utf-8"),
+                message="구글 로그인에 실패했습니다.",
+                debug_message="구글 로그인 처리에 실패했습니다." + e.read().decode("utf-8"),
                 status_code=401,
             )
 

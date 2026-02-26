@@ -240,7 +240,8 @@ class EvidenceService:
                 detail["duration_seconds_failed_index_list"] = duration_seconds_failed_index_list
             raise CodeException(
                 code=EvidencePresignedValidationErrorCode.EVIDENCE_PRESIGNED_VALIDATION_FAILED,
-                message="증거 유효성 검사에 통과하지 못한 증거가 존재하여 presigned URL 발급이 중단되었습니다. failed_index_list를 확인해주세요.",
+                message="증거 유효성 검사에 통과하지 못한 증거가 존재하여 작업이 중단되었습니다.",
+                debug_message="증거 유효성 검사에 통과하지 못한 증거가 존재하여 presigned URL 발급이 중단되었습니다. failed_index_list를 확인해주세요.",
                 status_code=400,
                 detail=detail,
             )
@@ -319,7 +320,8 @@ class EvidenceTypeService:
         if not evidence:
             raise CodeException(
                 code=GetEvidenceErrorCode.EVIDENCE_NOT_FOUND,
-                message=f"evidence_id: {evidence_id}에 해당하는 증거를 찾을 수 없습니다.",
+                message="증거를 찾을 수 없습니다.",
+                debug_message=f"evidence_id: {evidence_id}에 해당하는 증거를 찾을 수 없습니다.",
                 status_code=404,
             )
         return evidence
@@ -345,7 +347,8 @@ class EvidenceTypeService:
         if complaint.user_sub != current_user.user_sub:
             raise CodeException(
                 code=GetEvidenceErrorCode.NO_PERMISSION,
-                message=f"evidence_id: {evidence_id}에 해당하는 증거 접근 권한이 없습니다.",
+                message="해당 증거에 대한 접근 권한이 없습니다.",
+                debug_message=f"evidence_id: {evidence_id}에 해당하는 증거 접근 권한이 없습니다.",
                 status_code=403,
             )
 
@@ -417,6 +420,7 @@ class EvidenceTypeService:
             raise CodeException(
                 code="DELETE_EVIDENCE_FAILED",
                 message="증거 삭제에 실패했습니다.",
+                debug_message=f"evidence_id: {evidence_id}에 해당하는 증거 삭제에 실패했습니다.",
                 status_code=500,
             )
         repo.delete(entity)

@@ -33,6 +33,7 @@ SIGNUP_EMAIL_ERRORS_RESPONSES = {
                         "value": {
                             "code": "INVALID_PASSWORD",
                             "message": "비밀번호가 정책을 만족하지 않습니다.",
+                            "debug_message": "비밀번호가 정책을 만족하지 않습니다. code: InvalidPasswordException",
                         },
                     }
                 }
@@ -49,6 +50,7 @@ SIGNUP_EMAIL_ERRORS_RESPONSES = {
                         "value": {
                             "code": "EMAIL_ALREADY_EXISTS",
                             "message": "이미 가입된 이메일입니다.",
+                            "debug_message": "이미 가입된 이메일입니다. code: UsernameExistsException",
                         },
                     }
                 }
@@ -65,11 +67,13 @@ def handle_signup_email_error(e: ClientError):
         raise CodeException(
             code=SignupErrorCode.EMAIL_ALREADY_EXISTS,
             message="이미 가입된 이메일입니다.",
+            debug_message=f"이미 가입된 이메일입니다. code: {code}",
             status_code=409,
         )
     elif code == "InvalidPasswordException":
         raise CodeException(
             code=SignupErrorCode.INVALID_PASSWORD,
             message="비밀번호가 정책을 만족하지 않습니다.",
+            debug_message=f"비밀번호가 정책을 만족하지 않습니다. code: {code}",
             status_code=400,
         )

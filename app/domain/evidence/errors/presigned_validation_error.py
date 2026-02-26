@@ -46,7 +46,8 @@ EVIDENCE_PRESIGNED_VALIDATION_ERRORS_RESPONSES = {
                         "summary": "증거 유효성 검사 실패 (fail 결과 확인)",
                         "value": {
                             "code": "EVIDENCE_PRESIGNED_VALIDATION_FAILED",
-                            "message": "증거 유효성 검사에 통과하지 못한 증거가 존재하여 presigned URL 발급이 중단되었습니다. failed_index_list를 확인해주세요.",
+                            "message": "증거 유효성 검사에 통과하지 못한 증거가 존재하여 작업이 중단되었습니다.",
+                            "debug_message": "증거 유효성 검사에 통과하지 못한 증거가 존재하여 presigned URL 발급이 중단되었습니다. failed_index_list를 확인해주세요.",
                             "is_total_count_valid": True,
                             "content_type_failed_index_list": [0, 2],
                             "size_bytes_failed_index_list": [1],

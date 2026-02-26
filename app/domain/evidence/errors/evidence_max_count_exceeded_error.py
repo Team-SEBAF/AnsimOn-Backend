@@ -28,7 +28,8 @@ EVIDENCE_MAX_COUNT_EXCEEDED_ERRORS_RESPONSES = {
                         "summary": "증거 최대 개수를 초과했습니다.",
                         "value": {
                             "code": "EVIDENCE_MAX_COUNT_EXCEEDED",
-                            "message": "증거 최대 개수를 초과했습니다.",
+                            "message": "해당 증거 타입의 최대 개수를 초과했습니다.",
+                            "debug_message": "MESSAGE 타입 증거의 최대 개수(10개)를 초과합니다. (현재 8개 + 요청 5개)",
                         },
                     }
                 }

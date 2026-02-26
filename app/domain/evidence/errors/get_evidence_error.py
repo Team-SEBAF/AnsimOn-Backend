@@ -31,6 +31,7 @@ GET_EVIDENCE_ERRORS_RESPONSES = {
                         "value": {
                             "code": "EVIDENCE_NOT_FOUND",
                             "message": "증거를 찾을 수 없습니다.",
+                            "debug_message": "evidence_id: 123e4567-e89b-12d3-a456-426614174000에 해당하는 증거를 찾을 수 없습니다.",
                         },
                     }
                 }
@@ -46,7 +47,8 @@ GET_EVIDENCE_ERRORS_RESPONSES = {
                         "summary": "증거 접근 권한이 없습니다.",
                         "value": {
                             "code": "NO_PERMISSION",
-                            "message": "증거 접근 권한이 없습니다.",
+                            "message": "해당 증거에 대한 접근 권한이 없습니다.",
+                            "debug_message": "evidence_id: 123e4567-e89b-12d3-a456-426614174000에 해당하는 증거 접근 권한이 없습니다.",
                         },
                     }
                 }

@@ -34,7 +34,8 @@ S3_NOT_UPLOADED_YET_ERRORS_RESPONSES = {
                         "summary": "S3에 파일이 업로드되지 않았습니다.",
                         "value": {
                             "code": "S3_NOT_UPLOADED_YET",
-                            "message": "S3에 파일이 업로드되지 않았습니다. 먼저 presigned URL로 업로드해 주세요.",
+                            "message": "에러가 발생하여 작업이 중단되었습니다. 잠시 후 다시 시도해 주세요.",
+                            "debug_message": "S3에 파일이 업로드되지 않은 증거가 있습니다. 먼저 presigned URL로 업로드해 주세요.",
                             "failed_evidence_ids": [
                                 "123e4567-e89b-12d3-a456-426614174000",
                                 "223e4567-e89b-12d3-a456-426614174001",

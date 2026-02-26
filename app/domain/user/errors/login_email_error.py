@@ -35,6 +35,7 @@ LOGIN_EMAIL_ERRORS_RESPONSES = {
                         "value": {
                             "code": "USER_NOT_FOUND",
                             "message": "사용자를 찾을 수 없습니다.",
+                            "debug_message": "해당하는 사용자를 찾을 수 없습니다. code: UserNotFoundException",
                         },
                     }
                 }
@@ -51,6 +52,7 @@ LOGIN_EMAIL_ERRORS_RESPONSES = {
                         "value": {
                             "code": "INVALID_CREDENTIALS",
                             "message": "잘못된 이메일 또는 비밀번호입니다.",
+                            "debug_message": "잘못된 이메일 또는 비밀번호입니다. code: NotAuthorizedException",
                         },
                     }
                 }
@@ -67,6 +69,7 @@ LOGIN_EMAIL_ERRORS_RESPONSES = {
                         "value": {
                             "code": "USER_NOT_CONFIRMED",
                             "message": "이메일 인증이 완료되지 않았습니다. 이메일 인증을 완료한 후 다시 시도해 주세요.",
+                            "debug_message": "이메일 인증이 완료되지 않았습니다. code: UserNotConfirmedException",
                         },
                     }
                 }
@@ -83,17 +86,20 @@ def handle_login_email_error(e: ClientError):
         raise CodeException(
             code=LoginEmailErrorCode.USER_NOT_FOUND,
             message="사용자를 찾을 수 없습니다.",
+            debug_message=f"해당하는 사용자를 찾을 수 없습니다. code: {code}",
             status_code=404,
         )
     elif code == "NotAuthorizedException":
         raise CodeException(
             code=LoginEmailErrorCode.INVALID_CREDENTIALS,
             message="잘못된 이메일 또는 비밀번호입니다.",
+            debug_message=f"잘못된 이메일 또는 비밀번호입니다. code: {code}",
             status_code=401,
         )
     elif code == "UserNotConfirmedException":
         raise CodeException(
             code=LoginEmailErrorCode.USER_NOT_CONFIRMED,
             message="이메일 인증이 완료되지 않았습니다. 이메일 인증을 완료한 후 다시 시도해 주세요.",
+            debug_message=f"이메일 인증이 완료되지 않았습니다. code: {code}",
             status_code=400,
         )

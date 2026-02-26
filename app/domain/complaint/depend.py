@@ -24,13 +24,15 @@ def get_owned_complaint(
         raise CodeException(
             code=GetComplaintErrorCode.COMPLAINT_NOT_FOUND,
             message="고소장을 찾을 수 없습니다.",
+            debug_message=f"complaint_id: {complaint_id}에 해당하는 고소장을 찾을 수 없습니다.",
             status_code=404,
         )
 
     if complaint.user_sub != current_user.user_sub:
         raise CodeException(
             code=GetComplaintErrorCode.NO_PERMISSION,
-            message="고소장 접근 권한이 없습니다.",
+            message="해당 고소장 스페이스에 대한 접근 권한이 없습니다.",
+            debug_message=f"complaint_id: {complaint_id}에 해당하는 고소장 접근 권한이 없습니다.",
             status_code=403,
         )
 

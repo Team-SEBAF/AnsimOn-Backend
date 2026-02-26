@@ -46,7 +46,8 @@ def get_cognito_user_by_access_token(access_token: str) -> dict:
         if code == "NotAuthorizedException":
             raise CodeException(
                 code="INVALID_ACCESS_TOKEN",
-                message="액세스 토큰이 유효하지 않거나 만료되었습니다. 로그아웃 상태가 아니라면 리프레시 토큰을 사용해 새 액세스 토큰을 발급받아 주세요.",
+                message="로그인이 만료되었습니다. 잠시 후 다시 시도해 주세요.",
+                debug_message="액세스 토큰이 유효하지 않거나 만료되었습니다. 로그아웃 상태가 아니라면 리프레시 토큰을 사용해 새 액세스 토큰을 발급받아 주세요.",
                 status_code=401,
             )
 
