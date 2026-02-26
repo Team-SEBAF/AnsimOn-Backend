@@ -18,10 +18,9 @@ class BaseErrorResponse(BaseModel):
         examples=["잘못된 요청입니다."],
     )
     debug_message: str | None = Field(
-        ...,
+        None,
         description="디버그 메시지 (개발자가 읽는 용도)",
         examples=["잘못된 요청입니다."],
-        default=None,
     )
 
 
