@@ -2,15 +2,6 @@ name: Deploy Lambda Layer
 
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: "Environment"
-        required: true
-        default: dev
-        type: choice
-        options:
-          - dev
-          - prod
 
 permissions:
   id-token: write
@@ -20,13 +11,10 @@ jobs:
   deploy-layer:
     runs-on: ubuntu-latest
     env:
-      ENV: ${{ github.event.inputs.environment }}
-    outputs:
-      ENV: ${{ steps.set-env.outputs.ENV }}
+      # Use workflow from: main → prod, dev → dev
+      ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
 
     steps:
-      - id: set-env
-        run: echo "ENV=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
@@ -84,7 +72,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy-layer
     env:
-      ENV: ${{ needs.deploy-layer.outputs.ENV }}
+      ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
 
     steps:
       - name: Configure AWS credentials
