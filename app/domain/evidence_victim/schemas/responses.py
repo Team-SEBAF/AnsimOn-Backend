@@ -70,6 +70,7 @@ class EvidenceVictimDetailResponse(BaseResponse):
         description="피해 사진/영상 ID",
         examples=[UUID("123e4567-e89b-12d3-a456-426614174000")],
     )
+    type: str = Field(..., description="video | image. duration_seconds > 0이면 video, 0이면 image")
     filename: str = Field(..., description="파일명", examples=["evidence.mp4"])
     duration_seconds: int = Field(..., description="영상 길이(초)", examples=[123])
     size_bytes: int = Field(..., description="파일 크기(바이트)", examples=[12345])

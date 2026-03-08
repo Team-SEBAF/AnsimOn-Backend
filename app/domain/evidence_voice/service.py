@@ -262,6 +262,7 @@ class EvidenceVoiceService(EvidenceTypeService):
         details = [
             schemas.EvidenceVoiceDetailResponse(
                 voice_id=voice.voice_id,
+                type="audio" if (voice.duration_seconds or 0) > 0 else "image",
                 filename=voice.filename,
                 duration_seconds=voice.duration_seconds or 0,
                 size_bytes=voice.size_bytes,

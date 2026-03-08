@@ -298,11 +298,13 @@ class EvidenceVictimService(EvidenceTypeService):
                 s3_key=f"{s3_key_base}/{EvidenceVariant.DETAIL.value}",
                 expires_in=60 * 30,
             )
+            dur = victim.duration_seconds or 0
             details.append(
                 schemas.EvidenceVictimDetailResponse(
                     victim_id=victim.victim_id,
+                    type="video" if dur > 0 else "image",
                     filename=victim.filename,
-                    duration_seconds=victim.duration_seconds or 0,
+                    duration_seconds=dur,
                     size_bytes=victim.size_bytes,
                     created_at=victim.created_at,
                     updated_at=victim.updated_at,
