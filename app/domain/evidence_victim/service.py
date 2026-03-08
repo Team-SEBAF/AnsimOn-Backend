@@ -9,7 +9,12 @@ from app.core.aws import download_s3_object, upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
-from app.domain.evidence.constant import EVIDENCE_VICTIM_RESTRICT, EvidenceVariant
+from app.domain.evidence.constant import (
+    EVIDENCE_VICTIM_IMAGE_RESTRICT,
+    EVIDENCE_VICTIM_RESTRICT,
+    EVIDENCE_VICTIM_VIDEO_RESTRICT,
+    EvidenceVariant,
+)
 from app.domain.evidence.errors.register_validation_error import (
     raise_evidence_register_validation_failed,
 )
@@ -17,6 +22,7 @@ from app.domain.evidence.utils import (
     check_register_max_count,
     fetch_s3_metadata_for_register,
 )
+from app.domain.evidence_message.utils import make_image_top_crop
 from app.domain.evidence_victim import schemas
 from app.domain.evidence_victim.models.evidence_victim_model import EvidenceVictim
 from app.domain.evidence_victim.repos.evidence_victim_repository import (
@@ -30,18 +36,27 @@ def _collect_victim_register_restrict_failures_from_metadata(
 ) -> tuple[list[str], list[str], list[dict]]:
     """1차: metadata만으로 content_type, size 검사. raise 안 함.
     Returns: (content_type_failed, size_bytes_failed, valid_metadata)
+    영상: 500MB, 이미지: 10MB (MESSAGE와 동일)
     """
-    restrict = EVIDENCE_VICTIM_RESTRICT
     content_type_failed_evidence_ids: list[str] = []
     size_bytes_failed_evidence_ids: list[str] = []
     valid_metadata: list[dict] = []
 
     for m in metadata_list:
         eid_str = str(m["victim_id"])
-        if m.get("content_type") not in restrict.allowed_types:
+        ct = m.get("content_type")
+        if ct not in (
+            EVIDENCE_VICTIM_VIDEO_RESTRICT.allowed_types
+            | EVIDENCE_VICTIM_IMAGE_RESTRICT.allowed_types
+        ):
             content_type_failed_evidence_ids.append(eid_str)
             continue
-        if m.get("size_bytes", 0) > restrict.max_size_bytes:
+        size = m.get("size_bytes", 0)
+        if ct in EVIDENCE_VICTIM_VIDEO_RESTRICT.allowed_types:
+            max_size = EVIDENCE_VICTIM_VIDEO_RESTRICT.max_size_bytes
+        else:
+            max_size = EVIDENCE_VICTIM_IMAGE_RESTRICT.max_size_bytes
+        if size > max_size:
             size_bytes_failed_evidence_ids.append(eid_str)
             continue
         valid_metadata.append(m)
@@ -55,13 +70,14 @@ def _raise_victim_register_validation_if_failed(
     content_type_extraction_failed_evidence_ids: list[str],
     rows_with_duration: list[dict],
 ) -> None:
-    """2차: 1차 failed + 추출 실패 + duration 검사. 모두 합쳐서 한 번에 raise."""
-    restrict = EVIDENCE_VICTIM_RESTRICT
+    """2차: 1차 failed + 추출 실패 + duration 검사. duration은 영상에만 적용."""
     duration_seconds_failed_evidence_ids: list[str] = []
 
     for r in rows_with_duration:
-        if r.get("duration_seconds", 0) > (restrict.max_duration_seconds or 0):
-            duration_seconds_failed_evidence_ids.append(str(r["victim_id"]))
+        if r.get("content_type") in EVIDENCE_VICTIM_VIDEO_RESTRICT.allowed_types:
+            dur = r.get("duration_seconds", 0)
+            if dur > (EVIDENCE_VICTIM_VIDEO_RESTRICT.max_duration_seconds or 0):
+                duration_seconds_failed_evidence_ids.append(str(r["victim_id"]))
 
     content_type_total = (
         content_type_failed_evidence_ids + content_type_extraction_failed_evidence_ids
@@ -71,7 +87,7 @@ def _raise_victim_register_validation_if_failed(
         content_type_failed_evidence_ids=content_type_total,
         size_bytes_failed_evidence_ids=size_bytes_failed_evidence_ids,
         duration_seconds_failed_evidence_ids=(
-            duration_seconds_failed_evidence_ids if restrict.max_duration_seconds else None
+            duration_seconds_failed_evidence_ids if duration_seconds_failed_evidence_ids else None
         ),
     )
 
@@ -154,16 +170,20 @@ class EvidenceVictimService(EvidenceTypeService):
 
         def _process_victim_item(m: dict) -> tuple[dict | None, str | None]:
             file_bytes = download_s3_object(settings.S3_BUCKET_NAME, m["s3_key"])
-            try:
-                duration_seconds = get_video_duration(file_bytes)
-            except Exception:
-                return None, str(m["victim_id"])
+            ct = m["content_type"]
+            if ct in EVIDENCE_VICTIM_VIDEO_RESTRICT.allowed_types:
+                try:
+                    duration_seconds = get_video_duration(file_bytes)
+                except Exception:
+                    return None, str(m["victim_id"])
+            else:
+                duration_seconds = 0
             return {
                 "victim_id": m["victim_id"],
                 "complaint_id": m["complaint_id"],
                 "filename": m["filename"],
                 "s3_key": m["s3_key"],
-                "content_type": m["content_type"],
+                "content_type": ct,
                 "size_bytes": m["size_bytes"],
                 "duration_seconds": duration_seconds,
                 "_file_bytes": file_bytes,
@@ -186,8 +206,16 @@ class EvidenceVictimService(EvidenceTypeService):
             base_key = r["s3_key"].rsplit("/", 1)[0]
             thumbnail_key = f"{base_key}/thumbnail"
             detail_key = f"{base_key}/detail"
-            thumbnail_bytes, _, _ = get_video_image_at_0(file_bytes, size=120, quality=65)
-            detail_bytes, _, _ = get_video_image_at_0(file_bytes, size=400, quality=75)
+            if r["content_type"] in EVIDENCE_VICTIM_VIDEO_RESTRICT.allowed_types:
+                thumbnail_bytes, _, _ = get_video_image_at_0(file_bytes, size=120, quality=65)
+                detail_bytes, _, _ = get_video_image_at_0(file_bytes, size=400, quality=75)
+            else:
+                thumbnail_bytes, _, _ = make_image_top_crop(
+                    file_bytes=file_bytes, size=120, quality=65
+                )
+                detail_bytes, _, _ = make_image_top_crop(
+                    file_bytes=file_bytes, size=400, quality=75
+                )
             upload_fileobj(
                 fileobj=BytesIO(thumbnail_bytes),
                 bucket=settings.S3_BUCKET_NAME,
@@ -241,7 +269,7 @@ class EvidenceVictimService(EvidenceTypeService):
             previews.append(
                 schemas.EvidenceVictimPreviewResponse(
                     victim_id=victim.victim_id,
-                    duration_seconds=victim.duration_seconds,
+                    duration_seconds=victim.duration_seconds or 0,
                     thumbnail_url=url,
                 )
             )
@@ -274,7 +302,7 @@ class EvidenceVictimService(EvidenceTypeService):
                 schemas.EvidenceVictimDetailResponse(
                     victim_id=victim.victim_id,
                     filename=victim.filename,
-                    duration_seconds=victim.duration_seconds,
+                    duration_seconds=victim.duration_seconds or 0,
                     size_bytes=victim.size_bytes,
                     created_at=victim.created_at,
                     updated_at=victim.updated_at,
@@ -305,7 +333,7 @@ class EvidenceVictimService(EvidenceTypeService):
             filename=victim.filename,
             content_type=victim.content_type,
             size_bytes=victim.size_bytes,
-            duration_seconds=victim.duration_seconds,
+            duration_seconds=victim.duration_seconds or 0,
             url=url,
             created_at=victim.created_at,
             updated_at=victim.updated_at,

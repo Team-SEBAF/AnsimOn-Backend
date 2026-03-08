@@ -17,4 +17,4 @@ class EvidenceVictim(Base, Evidence):
         primary_key=True,
         default=uuid4,
     )
-    duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)

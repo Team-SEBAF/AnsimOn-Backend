@@ -14,10 +14,13 @@ from app.domain.evidence import schemas
 from app.domain.evidence.constant import (
     EVIDENCE_DOCUMENT_RESTRICT,
     EVIDENCE_MESSAGE_RESTRICT,
+    EVIDENCE_VICTIM_IMAGE_RESTRICT,
     EVIDENCE_VICTIM_RESTRICT,
+    EVIDENCE_VICTIM_VIDEO_RESTRICT,
     EVIDENCE_VOICE_RESTRICT,
     EvidenceType,
     EvidenceTypeRestrict,
+    MediaTypeRestrict,
 )
 from app.domain.evidence.errors.get_evidence_error import GetEvidenceErrorCode
 from app.domain.evidence.errors.presigned_validation_error import (
@@ -196,6 +199,21 @@ def _get_presigned_config(
     return restrict_map[evidence_type], total_count, path_map[evidence_type]
 
 
+def _get_item_restrict(
+    evidence_type: EvidenceType,
+    content_type: str,
+    type_restrict: EvidenceTypeRestrict,
+) -> EvidenceTypeRestrict | MediaTypeRestrict | None:
+    """item별 적용할 restrict. VICTIM/VOICE는 content_type에 따라 VIDEO/IMAGE 등 선택."""
+    if evidence_type == EvidenceType.VICTIM:
+        if content_type in EVIDENCE_VICTIM_VIDEO_RESTRICT.allowed_types:
+            return EVIDENCE_VICTIM_VIDEO_RESTRICT
+        if content_type in EVIDENCE_VICTIM_IMAGE_RESTRICT.allowed_types:
+            return EVIDENCE_VICTIM_IMAGE_RESTRICT
+        return None
+    return type_restrict
+
+
 class EvidenceService:
     def get_presigned_url(
         self,
@@ -213,14 +231,14 @@ class EvidenceService:
         duration_seconds_failed_index_list: list[int] = []
 
         for item in request.items:
-            if item.content_type not in restrict.allowed_types:
+            r = _get_item_restrict(request.type, item.content_type, restrict)
+            if r is None or item.content_type not in r.allowed_types:
                 content_type_failed_index_list.append(item.index)
-            if item.size_bytes > restrict.max_size_bytes:
+                continue
+            if item.size_bytes > r.max_size_bytes:
                 size_bytes_failed_index_list.append(item.index)
-            if (
-                restrict.max_duration_seconds is not None
-                and item.duration_seconds is not None
-                and item.duration_seconds > restrict.max_duration_seconds
+            if r.max_duration_seconds is not None and (
+                item.duration_seconds is None or item.duration_seconds > r.max_duration_seconds
             ):
                 duration_seconds_failed_index_list.append(item.index)
 
@@ -236,7 +254,7 @@ class EvidenceService:
                 "content_type_failed_index_list": content_type_failed_index_list,
                 "size_bytes_failed_index_list": size_bytes_failed_index_list,
             }
-            if restrict.max_duration_seconds is not None:
+            if duration_seconds_failed_index_list:
                 detail["duration_seconds_failed_index_list"] = duration_seconds_failed_index_list
             raise CodeException(
                 code=EvidencePresignedValidationErrorCode.EVIDENCE_PRESIGNED_VALIDATION_FAILED,
