@@ -2,11 +2,11 @@ name: Deploy Lambda
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
   workflow_dispatch:
     inputs:
       environment:
-        description: "Environment (push to main은 항상 dev)"
+        description: "Environment (push to dev→자동 dev 배포, main→수동 실행 시 prod)"
         required: true
         default: dev
         type: choice
@@ -22,7 +22,7 @@ jobs:
   deploy-lambda:
     runs-on: ubuntu-latest
     env:
-      ENV: ${{ github.event.inputs.environment || 'dev' }}
+      ENV: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'dev' }}
 
     steps:
       - uses: actions/checkout@v4
