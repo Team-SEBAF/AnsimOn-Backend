@@ -44,6 +44,18 @@ def delete_s3_objects(bucket: str, keys: list[str]) -> None:
     )
 
 
+def delete_s3_objects_by_prefix(bucket: str, prefix: str) -> None:
+    """prefix로 시작하는 모든 객체 삭제. S3는 폴더 개념이 없어 prefix 매칭으로 삭제."""
+    client = get_s3_client()
+    paginator = client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        if contents := page.get("Contents"):
+            client.delete_objects(
+                Bucket=bucket,
+                Delete={"Objects": [{"Key": obj["Key"]} for obj in contents], "Quiet": True},
+            )
+
+
 def generate_presigned_put_url(
     bucket: str,
     key: str,
