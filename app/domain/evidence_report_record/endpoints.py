@@ -35,7 +35,7 @@ def register_report_record(
 
 @router.get(
     "/{complaint_id}/evidences/report-records/previews",
-    summary="REPORT_RECORD 타입 신고・사건 일지 프리뷰 리스트 조회",
+    summary="REPORT_RECORD 타입 신고・사건 일지 프리뷰 리스트 조회 [미사용]",
     description="REPORT_RECORD 타입 신고・사건 일지 프리뷰 리스트를 조회합니다.",
     response_model=schemas.EvidenceReportRecordPreviewListResponse,
 )
@@ -71,7 +71,7 @@ def get_evidence_report_record_details(
 
 @router.get(
     "/evidence/report-record/{report_record_id}/original",
-    summary="REPORT_RECORD 타입 신고・사건 일지 원본 조회 (10분 유효)",
+    summary="REPORT_RECORD 타입 신고・사건 일지 원본 조회 (10분 유효) [미사용]",
     description="REPORT_RECORD 타입 신고・사건 일지 원본을 조회합니다.",
     response_model=schemas.EvidenceReportRecordOriginalResponse,
     responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,

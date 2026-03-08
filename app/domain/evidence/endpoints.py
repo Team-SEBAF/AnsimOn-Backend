@@ -34,7 +34,7 @@ def get_evidence_presigned_url(
 
 @router.patch(
     "/{evidence_id}/filename",
-    summary="증거 파일명 수정",
+    summary="증거 파일명 수정 [미사용]",
     description="증거 파일명을 수정합니다.",
     response_model=schemas.UpdateEvidenceFileNameResponse,
 )

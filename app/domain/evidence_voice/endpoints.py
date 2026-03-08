@@ -35,7 +35,7 @@ def register_voice(
 
 @router.get(
     "/{complaint_id}/evidences/voices/previews",
-    summary="VOICE 타입 증거 프리뷰 리스트 조회",
+    summary="VOICE 타입 증거 프리뷰 리스트 조회 [미사용]",
     description="VOICE 타입 증거 프리뷰 리스트를 조회합니다.",
     response_model=schemas.EvidenceVoicePreviewListResponse,
 )
@@ -71,7 +71,7 @@ def get_evidence_voice_details(
 
 @router.get(
     "/evidence/voice/{voice_id}/original",
-    summary="VOICE 타입 증거 음성 원본 조회 (원본 음성 10분 유효)",
+    summary="VOICE 타입 증거 음성 원본 조회 (원본 음성 10분 유효) [미사용]",
     description="VOICE 타입 증거 음성 원본을 조회합니다.",
     response_model=schemas.EvidenceVoiceOriginalResponse,
     responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,

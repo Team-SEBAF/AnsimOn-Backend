@@ -36,7 +36,7 @@ def register_incident_log_file(
 
 @router.get(
     "/{complaint_id}/evidences/incident-logs/previews",
-    summary="INCIDENT_LOG 타입 사건 일지 프리뷰 리스트 조회",
+    summary="INCIDENT_LOG 타입 사건 일지 프리뷰 리스트 조회 [미사용]",
     description="INCIDENT_LOG 타입 사건 일지 프리뷰 리스트를 조회합니다.",
     response_model=schemas.EvidenceIncidentLogPreviewListResponse,
 )
@@ -72,7 +72,7 @@ def get_evidence_incident_log_details(
 
 @router.get(
     "/evidence/incident-log-file/{incident_log_id}/original",
-    summary="INCIDENT_LOG 타입 사건 일지 원본 조회 (10분 유효)",
+    summary="INCIDENT_LOG 타입 사건 일지 원본 조회 (10분 유효) [미사용]",
     description="INCIDENT_LOG 타입 사건 일지 원본을 조회합니다.",
     response_model=schemas.EvidenceIncidentLogFileOriginalResponse,
     responses=INCIDENT_LOG_ACCESS_AND_TYPE_CHECK_RESPONSES,
