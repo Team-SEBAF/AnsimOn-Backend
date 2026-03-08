@@ -33,7 +33,8 @@ EVIDENCE_IMAGE_RESTRICT = EvidenceTypeRestrict(
 
 EVIDENCE_MESSAGE_RESTRICT = EVIDENCE_IMAGE_RESTRICT
 
-EVIDENCE_VOICE_RESTRICT = EvidenceTypeRestrict(
+# VOICE: 음성 + 이미지. max_count는 EVIDENCE_VOICE_RESTRICT에만.
+EVIDENCE_VOICE_AUDIO_RESTRICT = MediaTypeRestrict(
     allowed_types={
         "audio/mp4",  # m4a
         "audio/x-m4a",
@@ -41,9 +42,21 @@ EVIDENCE_VOICE_RESTRICT = EvidenceTypeRestrict(
         "audio/wav",
         "audio/x-wav",
     },
-    max_count=5,
     max_size_bytes=20 * 1024 * 1024,  # 20MB
     max_duration_seconds=300,  # 5분
+)
+
+EVIDENCE_VOICE_IMAGE_RESTRICT = MediaTypeRestrict(
+    allowed_types=EVIDENCE_IMAGE_RESTRICT.allowed_types,
+    max_size_bytes=EVIDENCE_IMAGE_RESTRICT.max_size_bytes,  # 10MB, MESSAGE와 동일
+)
+
+EVIDENCE_VOICE_RESTRICT = EvidenceTypeRestrict(
+    allowed_types=EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types
+    | EVIDENCE_VOICE_IMAGE_RESTRICT.allowed_types,
+    max_count=5,
+    max_size_bytes=0,  # presigned/register에서 타입별 EVIDENCE_VOICE_AUDIO/IMAGE_RESTRICT 사용
+    max_duration_seconds=None,
 )
 
 # VICTIM: 영상 + 이미지. max_count는 EVIDENCE_VICTIM_RESTRICT에만.

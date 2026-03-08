@@ -17,6 +17,8 @@ from app.domain.evidence.constant import (
     EVIDENCE_VICTIM_IMAGE_RESTRICT,
     EVIDENCE_VICTIM_RESTRICT,
     EVIDENCE_VICTIM_VIDEO_RESTRICT,
+    EVIDENCE_VOICE_AUDIO_RESTRICT,
+    EVIDENCE_VOICE_IMAGE_RESTRICT,
     EVIDENCE_VOICE_RESTRICT,
     EvidenceType,
     EvidenceTypeRestrict,
@@ -204,12 +206,18 @@ def _get_item_restrict(
     content_type: str,
     type_restrict: EvidenceTypeRestrict,
 ) -> EvidenceTypeRestrict | MediaTypeRestrict | None:
-    """item별 적용할 restrict. VICTIM/VOICE는 content_type에 따라 VIDEO/IMAGE 등 선택."""
+    """item별 적용할 restrict. VICTIM/VOICE는 content_type에 따라 VIDEO/AUDIO/IMAGE 등 선택."""
     if evidence_type == EvidenceType.VICTIM:
         if content_type in EVIDENCE_VICTIM_VIDEO_RESTRICT.allowed_types:
             return EVIDENCE_VICTIM_VIDEO_RESTRICT
         if content_type in EVIDENCE_VICTIM_IMAGE_RESTRICT.allowed_types:
             return EVIDENCE_VICTIM_IMAGE_RESTRICT
+        return None
+    if evidence_type == EvidenceType.VOICE:
+        if content_type in EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types:
+            return EVIDENCE_VOICE_AUDIO_RESTRICT
+        if content_type in EVIDENCE_VOICE_IMAGE_RESTRICT.allowed_types:
+            return EVIDENCE_VOICE_IMAGE_RESTRICT
         return None
     return type_restrict
 
