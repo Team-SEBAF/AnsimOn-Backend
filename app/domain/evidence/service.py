@@ -14,7 +14,7 @@ from app.domain.evidence import schemas
 from app.domain.evidence.constant import (
     EVIDENCE_DOCUMENT_RESTRICT,
     EVIDENCE_MESSAGE_RESTRICT,
-    EVIDENCE_TRACKING_RESTRICT,
+    EVIDENCE_VICTIM_RESTRICT,
     EVIDENCE_VOICE_RESTRICT,
     EvidenceType,
     EvidenceTypeRestrict,
@@ -52,16 +52,16 @@ def _update_filename_dispatch(
             db=db,
         )
         return entity.voice_id, entity.filename, entity.updated_at
-    elif evidence_type == EvidenceType.TRACKING:
-        from app.domain.evidence_tracking.service import evidence_tracking_service
+    elif evidence_type == EvidenceType.VICTIM:
+        from app.domain.evidence_victim.service import evidence_victim_service
 
-        entity = evidence_tracking_service.update_filename(
-            tracking_id=evidence_id,
+        entity = evidence_victim_service.update_filename(
+            victim_id=evidence_id,
             filename=filename,
             current_user=current_user,
             db=db,
         )
-        return entity.tracking_id, entity.filename, entity.updated_at
+        return entity.victim_id, entity.filename, entity.updated_at
     elif evidence_type == EvidenceType.REPORT_RECORD:
         from app.domain.evidence_report_record.service import (
             evidence_report_record_service,
@@ -112,11 +112,11 @@ def _delete_evidence_dispatch(
             db=db,
         )
         return
-    if evidence_type == EvidenceType.TRACKING:
-        from app.domain.evidence_tracking.service import evidence_tracking_service
+    if evidence_type == EvidenceType.VICTIM:
+        from app.domain.evidence_victim.service import evidence_victim_service
 
-        evidence_tracking_service.delete_tracking(
-            tracking_id=evidence_id,
+        evidence_victim_service.delete_victim(
+            victim_id=evidence_id,
             current_user=current_user,
             db=db,
         )
@@ -151,14 +151,14 @@ def _get_presigned_config(
     restrict_map = {
         EvidenceType.MESSAGE: EVIDENCE_MESSAGE_RESTRICT,
         EvidenceType.VOICE: EVIDENCE_VOICE_RESTRICT,
-        EvidenceType.TRACKING: EVIDENCE_TRACKING_RESTRICT,
+        EvidenceType.VICTIM: EVIDENCE_VICTIM_RESTRICT,
         EvidenceType.REPORT_RECORD: EVIDENCE_DOCUMENT_RESTRICT,
         EvidenceType.INCIDENT_LOG: EVIDENCE_DOCUMENT_RESTRICT,
     }
     path_map = {
         EvidenceType.MESSAGE: "messages",
         EvidenceType.VOICE: "voices",
-        EvidenceType.TRACKING: "trackings",
+        EvidenceType.VICTIM: "victims",
         EvidenceType.REPORT_RECORD: "report-records",
         EvidenceType.INCIDENT_LOG: "incident-logs",
     }
@@ -174,12 +174,12 @@ def _get_presigned_config(
         )
 
         total_count = EvidenceVoiceRepository(db).count_by_complaint(complaint_id)
-    elif evidence_type == EvidenceType.TRACKING:
-        from app.domain.evidence_tracking.repos.evidence_tracking_repository import (
-            EvidenceTrackingRepository,
+    elif evidence_type == EvidenceType.VICTIM:
+        from app.domain.evidence_victim.repos.evidence_victim_repository import (
+            EvidenceVictimRepository,
         )
 
-        total_count = EvidenceTrackingRepository(db).count_by_complaint(complaint_id)
+        total_count = EvidenceVictimRepository(db).count_by_complaint(complaint_id)
     elif evidence_type == EvidenceType.REPORT_RECORD:
         from app.domain.evidence_report_record.repos.evidence_report_record_repository import (
             EvidenceReportRecordRepository,

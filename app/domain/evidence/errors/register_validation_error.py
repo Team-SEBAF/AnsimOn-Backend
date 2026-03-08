@@ -28,7 +28,7 @@ class EvidenceRegisterValidationErrorResponse(BaseErrorResponse):
     )
     duration_seconds_failed_evidence_ids: list[str] | None = Field(
         default=None,
-        description="duration_seconds 검사 실패한 evidence_id 목록 (VOICE, TRACKING 타입일 때만 포함)",
+        description="duration_seconds 검사 실패한 evidence_id 목록 (VOICE, VICTIM 타입일 때만 포함)",
     )
 
 

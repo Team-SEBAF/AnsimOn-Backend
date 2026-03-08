@@ -14,6 +14,6 @@ from app.domain.evidence_incident_log import (
 )
 from app.domain.evidence_message import EvidenceMessage
 from app.domain.evidence_report_record import EvidenceReportRecord
-from app.domain.evidence_tracking import EvidenceTracking
+from app.domain.evidence_victim import EvidenceVictim
 from app.domain.evidence_voice import EvidenceVoice
 from app.domain.user import User

@@ -32,7 +32,7 @@ class EvidencePresignedValidationErrorResponse(BaseErrorResponse):
     )
     duration_seconds_failed_index_list: list[int] | None = Field(
         default=None,
-        description="duration_seconds 검사 실패한 item index 목록 (VOICE, TRACKING 타입일 때만 포함)",
+        description="duration_seconds 검사 실패한 item index 목록 (VOICE, VICTIM 타입일 때만 포함)",
     )
 
 

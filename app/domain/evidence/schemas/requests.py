@@ -27,7 +27,7 @@ class EvidencePresignedUrlItemRequest(BaseRequest):
     )
     duration_seconds: int | None = Field(
         None,
-        description="영상/음성 길이(초). VOICE, TRACKING 타입일 때 필수. 타입별 max_duration_seconds 제한 적용",
+        description="영상/음성 길이(초). VOICE, VICTIM 타입일 때 필수. 타입별 max_duration_seconds 제한 적용",
         examples=[120],
         ge=1,
     )

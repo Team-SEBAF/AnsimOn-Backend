@@ -35,7 +35,7 @@ EVIDENCE_VOICE_RESTRICT = EvidenceTypeRestrict(
     max_duration_seconds=300,  # 5분
 )
 
-EVIDENCE_TRACKING_RESTRICT = EvidenceTypeRestrict(
+EVIDENCE_VICTIM_RESTRICT = EvidenceTypeRestrict(
     allowed_types={
         "video/mp4",
         "video/quicktime",  # mov
@@ -69,14 +69,14 @@ class EvidenceType(str, Enum):
 
     MESSAGE: 메신저, 문자, DM
     VOICE: 통화, 음성
-    TRACKING: 접근, 추적 흔적
+    VICTIM: 피해 사진/영상
     INCIDENT_LOG: 신고, 상담 기록
     REPORT_RECORD: 사건 일지
     """
 
     MESSAGE = "MESSAGE"
     VOICE = "VOICE"
-    TRACKING = "TRACKING"
+    VICTIM = "VICTIM"
     REPORT_RECORD = "REPORT_RECORD"
     INCIDENT_LOG = "INCIDENT_LOG"
 
