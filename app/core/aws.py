@@ -37,11 +37,20 @@ def upload_fileobj(
 
 
 def delete_s3_objects(bucket: str, keys: list[str]) -> None:
+    """지정한 키의 S3 객체 삭제."""
+    if not keys:
+        return
     client = get_s3_client()
     client.delete_objects(
         Bucket=bucket,
         Delete={"Objects": [{"Key": k} for k in keys], "Quiet": True},
     )
+
+
+def delete_s3_by_prefixes(bucket: str, prefixes: list[str]) -> None:
+    """prefix 목록에 대해 각 prefix 하위 객체 전체 삭제 (빈 폴더 placeholder 포함)."""
+    for prefix in prefixes:
+        delete_s3_objects_by_prefix(bucket, prefix)
 
 
 def delete_s3_objects_by_prefix(bucket: str, prefix: str) -> None:

@@ -362,16 +362,16 @@ class EvidenceVictimService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> None:
-        def s3_keys_fn(e: EvidenceVictim) -> list[str]:
+        def s3_prefix_fn(e: EvidenceVictim) -> str:
             base = e.s3_key.rsplit("/", 1)[0]
-            return [f"{base}/original", f"{base}/thumbnail", f"{base}/detail"]
+            return f"{base}/"
 
         self.delete_evidence_with_s3(
             victim_id,
             current_user,
             db,
             EvidenceVictimRepository(db),
-            s3_keys_fn=s3_keys_fn,
+            s3_prefix_fn=s3_prefix_fn,
         )
 
 

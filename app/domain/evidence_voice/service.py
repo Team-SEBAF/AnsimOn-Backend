@@ -322,12 +322,16 @@ class EvidenceVoiceService(EvidenceTypeService):
         current_user: AuthUser,
         db: Session,
     ) -> None:
+        def s3_prefix_fn(e) -> str:
+            base = e.s3_key.rsplit("/", 1)[0]
+            return f"{base}/"
+
         self.delete_evidence_with_s3(
             voice_id,
             current_user,
             db,
             EvidenceVoiceRepository(db),
-            s3_keys_fn=lambda e: [e.s3_key],
+            s3_prefix_fn=s3_prefix_fn,
         )
 
 

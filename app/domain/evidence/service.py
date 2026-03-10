@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import delete_s3_objects, generate_presigned_put_url, get_s3_client
+from app.core.aws import delete_s3_by_prefixes, generate_presigned_put_url, get_s3_client
 from app.core.database import SessionLocal
 from app.core.settings import settings
 from app.domain.complaint import Complaint, ComplaintRepository
@@ -436,12 +436,13 @@ class EvidenceTypeService:
         current_user: AuthUser,
         db: Session,
         repo: Any,
-        s3_keys_fn: Any,
+        s3_prefix_fn: Any,
     ) -> None:
         entity = self._get_evidence_and_check_access(evidence_id, repo, current_user, db)
-        s3_keys = s3_keys_fn(entity)
+        prefixes = s3_prefix_fn(entity)
+        prefixes = [prefixes] if isinstance(prefixes, str) else prefixes
         try:
-            delete_s3_objects(settings.S3_BUCKET_NAME, s3_keys)
+            delete_s3_by_prefixes(settings.S3_BUCKET_NAME, prefixes)
         except Exception:
             raise CodeException(
                 code="DELETE_EVIDENCE_FAILED",

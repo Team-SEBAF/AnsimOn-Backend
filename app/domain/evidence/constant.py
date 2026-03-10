@@ -59,12 +59,15 @@ EVIDENCE_VOICE_RESTRICT = EvidenceTypeRestrict(
     max_duration_seconds=None,
 )
 
-# VICTIM: 영상 + 이미지. max_count는 EVIDENCE_VICTIM_RESTRICT에만.
-EVIDENCE_VICTIM_VIDEO_RESTRICT = MediaTypeRestrict(
+# 영상 제한. VICTIM, form-data 첨부, Timeline 등에서 공통 사용.
+EVIDENCE_VIDEO_RESTRICT = MediaTypeRestrict(
     allowed_types={"video/mp4", "video/quicktime"},
     max_size_bytes=500 * 1024 * 1024,  # 500MB
     max_duration_seconds=300,  # 5분
 )
+
+# VICTIM: 영상 + 이미지. max_count는 EVIDENCE_VICTIM_RESTRICT에만.
+EVIDENCE_VICTIM_VIDEO_RESTRICT = EVIDENCE_VIDEO_RESTRICT
 
 EVIDENCE_VICTIM_IMAGE_RESTRICT = MediaTypeRestrict(
     allowed_types=EVIDENCE_IMAGE_RESTRICT.allowed_types,

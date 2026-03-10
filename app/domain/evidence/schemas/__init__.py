@@ -1,8 +1,8 @@
 from app.domain.evidence.constant import EvidenceType
 
+from .common import EvidencePresignedUrlItemRequest
 from .requests import (
     DeleteEvidenceRequest,
-    EvidencePresignedUrlItemRequest,
     EvidencePresignedUrlRequest,
     UpdateEvidenceFilenameRequest,
 )
