@@ -59,6 +59,34 @@ class TimelineService:
         db.refresh(timeline)
         return timeline
 
+    def _resolve_has_thumbnail(
+        self,
+        evidence_id: UUID,
+        timeline_id: UUID,
+        db: Session,
+    ) -> bool:
+        """MESSAGE, VICTIM, VOICE(image) 중 하나라도 있으면 True."""
+        evidence_repo = TimelineEvidenceRepository(db)
+        message_repo = EvidenceMessageRepository(db)
+        victim_repo = EvidenceVictimRepository(db)
+        voice_repo = EvidenceVoiceRepository(db)
+
+        rows = evidence_repo.list_by_evidence_id(timeline_id, evidence_id)
+        for row in rows:
+            if row.type == EvidenceType.MESSAGE.value:
+                if message_repo.get(row.original_id):
+                    return True
+        for row in rows:
+            if row.type == EvidenceType.VICTIM.value:
+                if victim_repo.get(row.original_id):
+                    return True
+        for row in rows:
+            if row.type == EvidenceType.VOICE.value:
+                voice = voice_repo.get(row.original_id)
+                if voice and voice.content_type in EVIDENCE_VOICE_IMAGE_RESTRICT.allowed_types:
+                    return True
+        return False
+
     def _resolve_thumbnail_url(
         self,
         evidence_id: UUID,
@@ -117,34 +145,6 @@ class TimelineService:
                     )
 
         return ""
-
-    def _resolve_has_thumbnail(
-        self,
-        evidence_id: UUID,
-        timeline_id: UUID,
-        db: Session,
-    ) -> bool:
-        """MESSAGE, VICTIM, VOICE(image) 중 하나라도 있으면 True."""
-        evidence_repo = TimelineEvidenceRepository(db)
-        message_repo = EvidenceMessageRepository(db)
-        victim_repo = EvidenceVictimRepository(db)
-        voice_repo = EvidenceVoiceRepository(db)
-
-        rows = evidence_repo.list_by_evidence_id(timeline_id, evidence_id)
-        for row in rows:
-            if row.type == EvidenceType.MESSAGE.value:
-                if message_repo.get(row.original_id):
-                    return True
-        for row in rows:
-            if row.type == EvidenceType.VICTIM.value:
-                if victim_repo.get(row.original_id):
-                    return True
-        for row in rows:
-            if row.type == EvidenceType.VOICE.value:
-                voice = voice_repo.get(row.original_id)
-                if voice and voice.content_type in EVIDENCE_VOICE_IMAGE_RESTRICT.allowed_types:
-                    return True
-        return False
 
     def _resolve_duration_seconds(
         self,
