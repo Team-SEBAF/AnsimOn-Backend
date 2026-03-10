@@ -68,5 +68,3 @@ class EvidenceIncidentLogFormData(Base):
     time: Mapped[time] = mapped_column(Time, nullable=False)  # HH:MM
     location: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    witness: Mapped[str] = mapped_column(Text, nullable=True)
-    perceived_risk: Mapped[str] = mapped_column(Text, nullable=True)

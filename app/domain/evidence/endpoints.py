@@ -34,7 +34,7 @@ def get_evidence_presigned_url(
 
 @router.patch(
     "/{evidence_id}/filename",
-    summary="증거 파일명 수정",
+    summary="증거 파일명 수정 [미사용]",
     description="증거 파일명을 수정합니다.",
     response_model=schemas.UpdateEvidenceFileNameResponse,
 )
@@ -54,7 +54,7 @@ def update_evidence_filename(
 
 @router.delete(
     "",
-    summary="증거 삭제",
+    summary="증거 삭제 (복수 삭제 지원)",
     description="같은 타입의 증거를 여러 건 삭제할 수 있습니다.",
     status_code=204,
 )

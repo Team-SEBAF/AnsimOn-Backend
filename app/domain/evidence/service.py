@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import delete_s3_objects, generate_presigned_put_url, get_s3_client
+from app.core.aws import delete_s3_by_prefixes, generate_presigned_put_url, get_s3_client
 from app.core.database import SessionLocal
 from app.core.settings import settings
 from app.domain.complaint import Complaint, ComplaintRepository
@@ -14,10 +14,15 @@ from app.domain.evidence import schemas
 from app.domain.evidence.constant import (
     EVIDENCE_DOCUMENT_RESTRICT,
     EVIDENCE_MESSAGE_RESTRICT,
-    EVIDENCE_TRACKING_RESTRICT,
+    EVIDENCE_VICTIM_IMAGE_RESTRICT,
+    EVIDENCE_VICTIM_RESTRICT,
+    EVIDENCE_VICTIM_VIDEO_RESTRICT,
+    EVIDENCE_VOICE_AUDIO_RESTRICT,
+    EVIDENCE_VOICE_IMAGE_RESTRICT,
     EVIDENCE_VOICE_RESTRICT,
     EvidenceType,
     EvidenceTypeRestrict,
+    MediaTypeRestrict,
 )
 from app.domain.evidence.errors.get_evidence_error import GetEvidenceErrorCode
 from app.domain.evidence.errors.presigned_validation_error import (
@@ -52,16 +57,16 @@ def _update_filename_dispatch(
             db=db,
         )
         return entity.voice_id, entity.filename, entity.updated_at
-    elif evidence_type == EvidenceType.TRACKING:
-        from app.domain.evidence_tracking.service import evidence_tracking_service
+    elif evidence_type == EvidenceType.VICTIM:
+        from app.domain.evidence_victim.service import evidence_victim_service
 
-        entity = evidence_tracking_service.update_filename(
-            tracking_id=evidence_id,
+        entity = evidence_victim_service.update_filename(
+            victim_id=evidence_id,
             filename=filename,
             current_user=current_user,
             db=db,
         )
-        return entity.tracking_id, entity.filename, entity.updated_at
+        return entity.victim_id, entity.filename, entity.updated_at
     elif evidence_type == EvidenceType.REPORT_RECORD:
         from app.domain.evidence_report_record.service import (
             evidence_report_record_service,
@@ -112,11 +117,11 @@ def _delete_evidence_dispatch(
             db=db,
         )
         return
-    if evidence_type == EvidenceType.TRACKING:
-        from app.domain.evidence_tracking.service import evidence_tracking_service
+    if evidence_type == EvidenceType.VICTIM:
+        from app.domain.evidence_victim.service import evidence_victim_service
 
-        evidence_tracking_service.delete_tracking(
-            tracking_id=evidence_id,
+        evidence_victim_service.delete_victim(
+            victim_id=evidence_id,
             current_user=current_user,
             db=db,
         )
@@ -151,14 +156,14 @@ def _get_presigned_config(
     restrict_map = {
         EvidenceType.MESSAGE: EVIDENCE_MESSAGE_RESTRICT,
         EvidenceType.VOICE: EVIDENCE_VOICE_RESTRICT,
-        EvidenceType.TRACKING: EVIDENCE_TRACKING_RESTRICT,
+        EvidenceType.VICTIM: EVIDENCE_VICTIM_RESTRICT,
         EvidenceType.REPORT_RECORD: EVIDENCE_DOCUMENT_RESTRICT,
         EvidenceType.INCIDENT_LOG: EVIDENCE_DOCUMENT_RESTRICT,
     }
     path_map = {
         EvidenceType.MESSAGE: "messages",
         EvidenceType.VOICE: "voices",
-        EvidenceType.TRACKING: "trackings",
+        EvidenceType.VICTIM: "victims",
         EvidenceType.REPORT_RECORD: "report-records",
         EvidenceType.INCIDENT_LOG: "incident-logs",
     }
@@ -174,12 +179,12 @@ def _get_presigned_config(
         )
 
         total_count = EvidenceVoiceRepository(db).count_by_complaint(complaint_id)
-    elif evidence_type == EvidenceType.TRACKING:
-        from app.domain.evidence_tracking.repos.evidence_tracking_repository import (
-            EvidenceTrackingRepository,
+    elif evidence_type == EvidenceType.VICTIM:
+        from app.domain.evidence_victim.repos.evidence_victim_repository import (
+            EvidenceVictimRepository,
         )
 
-        total_count = EvidenceTrackingRepository(db).count_by_complaint(complaint_id)
+        total_count = EvidenceVictimRepository(db).count_by_complaint(complaint_id)
     elif evidence_type == EvidenceType.REPORT_RECORD:
         from app.domain.evidence_report_record.repos.evidence_report_record_repository import (
             EvidenceReportRecordRepository,
@@ -194,6 +199,27 @@ def _get_presigned_config(
         total_count = EvidenceIncidentLogRepository(db).count_by_complaint(complaint_id)
 
     return restrict_map[evidence_type], total_count, path_map[evidence_type]
+
+
+def _get_item_restrict(
+    evidence_type: EvidenceType,
+    content_type: str,
+    type_restrict: EvidenceTypeRestrict,
+) -> EvidenceTypeRestrict | MediaTypeRestrict | None:
+    """item별 적용할 restrict. VICTIM/VOICE는 content_type에 따라 VIDEO/AUDIO/IMAGE 등 선택."""
+    if evidence_type == EvidenceType.VICTIM:
+        if content_type in EVIDENCE_VICTIM_VIDEO_RESTRICT.allowed_types:
+            return EVIDENCE_VICTIM_VIDEO_RESTRICT
+        if content_type in EVIDENCE_VICTIM_IMAGE_RESTRICT.allowed_types:
+            return EVIDENCE_VICTIM_IMAGE_RESTRICT
+        return None
+    if evidence_type == EvidenceType.VOICE:
+        if content_type in EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types:
+            return EVIDENCE_VOICE_AUDIO_RESTRICT
+        if content_type in EVIDENCE_VOICE_IMAGE_RESTRICT.allowed_types:
+            return EVIDENCE_VOICE_IMAGE_RESTRICT
+        return None
+    return type_restrict
 
 
 class EvidenceService:
@@ -213,14 +239,14 @@ class EvidenceService:
         duration_seconds_failed_index_list: list[int] = []
 
         for item in request.items:
-            if item.content_type not in restrict.allowed_types:
+            r = _get_item_restrict(request.type, item.content_type, restrict)
+            if r is None or item.content_type not in r.allowed_types:
                 content_type_failed_index_list.append(item.index)
-            if item.size_bytes > restrict.max_size_bytes:
+                continue
+            if item.size_bytes > r.max_size_bytes:
                 size_bytes_failed_index_list.append(item.index)
-            if (
-                restrict.max_duration_seconds is not None
-                and item.duration_seconds is not None
-                and item.duration_seconds > restrict.max_duration_seconds
+            if r.max_duration_seconds is not None and (
+                item.duration_seconds is None or item.duration_seconds > r.max_duration_seconds
             ):
                 duration_seconds_failed_index_list.append(item.index)
 
@@ -236,7 +262,7 @@ class EvidenceService:
                 "content_type_failed_index_list": content_type_failed_index_list,
                 "size_bytes_failed_index_list": size_bytes_failed_index_list,
             }
-            if restrict.max_duration_seconds is not None:
+            if duration_seconds_failed_index_list:
                 detail["duration_seconds_failed_index_list"] = duration_seconds_failed_index_list
             raise CodeException(
                 code=EvidencePresignedValidationErrorCode.EVIDENCE_PRESIGNED_VALIDATION_FAILED,
@@ -410,12 +436,13 @@ class EvidenceTypeService:
         current_user: AuthUser,
         db: Session,
         repo: Any,
-        s3_keys_fn: Any,
+        s3_prefix_fn: Any,
     ) -> None:
         entity = self._get_evidence_and_check_access(evidence_id, repo, current_user, db)
-        s3_keys = s3_keys_fn(entity)
+        prefixes = s3_prefix_fn(entity)
+        prefixes = [prefixes] if isinstance(prefixes, str) else prefixes
         try:
-            delete_s3_objects(settings.S3_BUCKET_NAME, s3_keys)
+            delete_s3_by_prefixes(settings.S3_BUCKET_NAME, prefixes)
         except Exception:
             raise CodeException(
                 code="DELETE_EVIDENCE_FAILED",

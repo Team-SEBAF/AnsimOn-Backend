@@ -6,8 +6,11 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
+from app.core.settings import settings
+
 
 def get_video_duration(file_bytes: bytes) -> int:
+    ffmpeg = "ffmpeg" if settings.env == "local" else "/opt/bin/ffmpeg"
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
         f.write(file_bytes)
         path = Path(f.name)
@@ -15,7 +18,7 @@ def get_video_duration(file_bytes: bytes) -> int:
     try:
         result = subprocess.run(
             [
-                "/opt/bin/ffmpeg",
+                ffmpeg,
                 "-i",
                 str(path),
             ],

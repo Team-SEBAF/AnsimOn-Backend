@@ -8,12 +8,13 @@ from app.base.base_db import Base
 from app.domain.evidence.models.evidence_base_model import Evidence
 
 
-class EvidenceTracking(Base, Evidence):
-    __tablename__ = "evidence_trackings"
+class EvidenceVictim(Base, Evidence):
+    __tablename__ = "evidence_victims"
 
-    tracking_id: Mapped[UUID] = mapped_column(
+    victim_id: Mapped[UUID] = mapped_column(
+        "victim_id",
         PostgresUUID[UUID](as_uuid=True),
         primary_key=True,
         default=uuid4,
     )
-    duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)

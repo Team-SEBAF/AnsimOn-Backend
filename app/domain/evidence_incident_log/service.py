@@ -1,14 +1,20 @@
+from concurrent.futures import ThreadPoolExecutor
 from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
 from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import delete_s3_objects
-from app.core.settings import settings  # 1시간
+from app.core.aws import delete_s3_by_prefixes, download_s3_object
+from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
-from app.domain.evidence.constant import EVIDENCE_DOCUMENT_RESTRICT
+from app.domain.evidence.constant import (
+    EVIDENCE_DOCUMENT_RESTRICT,
+    EVIDENCE_IMAGE_RESTRICT,
+    EVIDENCE_VIDEO_RESTRICT,
+    EVIDENCE_VOICE_AUDIO_RESTRICT,
+)
 from app.domain.evidence.errors.evidence_max_count_exceeded_error import (
     EvidenceMaxCountExceededErrorCode,
 )
@@ -20,6 +26,7 @@ from app.domain.evidence.utils import (
     fetch_s3_metadata_for_register,
 )
 from app.domain.evidence_incident_log import schemas
+from app.domain.evidence_incident_log.constant import get_attachment_type_from_content_type
 from app.domain.evidence_incident_log.errors.incident_log_type_mismatch_error import (
     IncidentLogTypeMismatchErrorCode,
 )
@@ -29,11 +36,19 @@ from app.domain.evidence_incident_log.models.evidence_incident_log_model import 
     EvidenceIncidentLogFormData,
     EvidenceIncidentLogType,
 )
+from app.domain.evidence_incident_log.models.incident_log_form_data_attachment_model import (
+    IncidentLogFormDataAttachment,
+)
 from app.domain.evidence_incident_log.repos.evidence_incident_log_repository import (
     EvidenceIncidentLogFileRepository,
     EvidenceIncidentLogFormDataRepository,
     EvidenceIncidentLogRepository,
 )
+from app.domain.evidence_incident_log.repos.incident_log_form_data_attachment_repository import (
+    IncidentLogFormDataAttachmentRepository,
+)
+from app.domain.evidence_victim.utils import get_video_duration
+from app.domain.evidence_voice.utils import get_audio_duration
 
 
 def _validate_incident_log_register_restrict(metadata_list: list[dict]) -> None:
@@ -55,6 +70,55 @@ def _validate_incident_log_register_restrict(metadata_list: list[dict]) -> None:
         size_bytes_failed_evidence_ids=size_bytes_failed_evidence_ids,
         duration_seconds_failed_evidence_ids=None,
     )
+
+
+def _collect_form_data_attachment_register_failures_from_metadata(
+    metadata_list: list[dict],
+) -> tuple[list[str], list[dict]]:
+    """1차: metadata만으로 size 검사. raise 안 함. content_type 제한 없음.
+    Returns: (size_bytes_failed_attachment_ids, valid_metadata)
+    """
+    size_bytes_failed_attachment_ids: list[str] = []
+    valid_metadata: list[dict] = []
+
+    for m in metadata_list:
+        aid_str = str(m["attachment_id"])
+        r = _get_form_data_attachment_restrict(m.get("content_type", ""))
+        if m.get("size_bytes", 0) > r.max_size_bytes:
+            size_bytes_failed_attachment_ids.append(aid_str)
+            continue
+        valid_metadata.append(m)
+
+    return size_bytes_failed_attachment_ids, valid_metadata
+
+
+def _raise_form_data_attachment_register_validation_if_failed(
+    size_bytes_failed_attachment_ids: list[str],
+    duration_seconds_failed_attachment_ids: list[str],
+    extraction_failed_attachment_ids: list[str],
+) -> None:
+    """2차: 전체 실패 수집 후 한 번에 raise."""
+    duration_total = duration_seconds_failed_attachment_ids + extraction_failed_attachment_ids
+    if not (size_bytes_failed_attachment_ids or duration_total):
+        return
+    raise_evidence_register_validation_failed(
+        content_type_failed_evidence_ids=[],
+        size_bytes_failed_evidence_ids=size_bytes_failed_attachment_ids,
+        duration_seconds_failed_evidence_ids=duration_total if duration_total else [],
+    )
+
+
+def _get_form_data_attachment_restrict(content_type: str):
+    """content_type별 restrict. form-data 첨부는 타입 제한 없음, size/duration만 기존 constant와 동일."""
+    if content_type in EVIDENCE_VIDEO_RESTRICT.allowed_types:
+        return EVIDENCE_VIDEO_RESTRICT
+    if content_type in EVIDENCE_IMAGE_RESTRICT.allowed_types:
+        return EVIDENCE_IMAGE_RESTRICT
+    if content_type in EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types:
+        return EVIDENCE_VOICE_AUDIO_RESTRICT
+    if content_type in EVIDENCE_DOCUMENT_RESTRICT.allowed_types:
+        return EVIDENCE_DOCUMENT_RESTRICT
+    return EVIDENCE_DOCUMENT_RESTRICT  # 알 수 없는 타입: 10MB 기본
 
 
 class EvidenceIncidentLogService(EvidenceTypeService):
@@ -90,6 +154,22 @@ class EvidenceIncidentLogService(EvidenceTypeService):
         elif type == EvidenceIncidentLogType.FORM_DATA:
             form_data_row = form_data_repo.get(incident_log_id)
             return log, form_data_row
+
+    def _get_attachments(self, incident_log_id: UUID, db: Session) -> list:
+        attachment_repo = IncidentLogFormDataAttachmentRepository(db)
+        attachments = attachment_repo.list_by_incident_log_id(incident_log_id)
+        return [
+            schemas.FormDataAttachmentResponse(
+                attachment_id=att.attachment_id,
+                type=get_attachment_type_from_content_type(att.content_type),
+                filename=att.filename,
+                content_type=att.content_type,
+                size_bytes=att.size_bytes,
+                duration_seconds=att.duration_seconds,
+                created_at=att.created_at,
+            )
+            for att in attachments
+        ]
 
     def _get_total_count(self, complaint_id: UUID, db: Session) -> int:
         repo = EvidenceIncidentLogRepository(db)
@@ -336,8 +416,6 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             time=request.time,
             location=request.location,
             description=request.description,
-            witness=request.witness,
-            perceived_risk=request.perceived_risk,
         )
         incident_log_form_data_repo.create(incident_log_form_data)
         db.commit()
@@ -352,8 +430,7 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             time=incident_log_form_data.time,
             location=incident_log_form_data.location,
             description=incident_log_form_data.description,
-            witness=incident_log_form_data.witness,
-            perceived_risk=incident_log_form_data.perceived_risk,
+            attachments=[],
             created_at=incident_log.created_at,
             updated_at=incident_log.updated_at,
         )
@@ -374,8 +451,7 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             time=form_data_row.time,
             location=form_data_row.location,
             description=form_data_row.description,
-            witness=form_data_row.witness,
-            perceived_risk=form_data_row.perceived_risk,
+            attachments=self._get_attachments(incident_log_id, db),
             created_at=log.created_at,
             updated_at=log.updated_at,
         )
@@ -397,7 +473,7 @@ class EvidenceIncidentLogService(EvidenceTypeService):
         if "filename" in update_data:
             incident_log_repo.update(log, {"name": update_data["filename"]})
 
-        form_data_fields = {"date", "time", "location", "description", "witness", "perceived_risk"}
+        form_data_fields = {"date", "time", "location", "description"}
         for key in form_data_fields:
             if key in update_data:
                 setattr(form_data_row, key, update_data[key])
@@ -413,27 +489,186 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             time=form_data_row.time,
             location=form_data_row.location,
             description=form_data_row.description,
-            witness=form_data_row.witness,
-            perceived_risk=form_data_row.perceived_risk,
+            attachments=self._get_attachments(incident_log_id, db),
             created_at=log.created_at,
             updated_at=log.updated_at,
         )
 
-    def update_filename(
+    def get_form_data_attachment_presigned_url(
         self,
+        complaint: Complaint,
         incident_log_id: UUID,
-        filename: str,
+        request: schemas.FormDataAttachmentPresignedRequest,
         current_user: AuthUser,
         db: Session,
-    ) -> EvidenceIncidentLog:
-        return self.update_evidence_filename(
-            incident_log_id,
-            filename,
-            current_user,
-            db,
-            EvidenceIncidentLogRepository(db),
-            filename_attr="name",
+    ) -> schemas.FormDataAttachmentPresignedResponse:
+        self._get_incident_log_with_type_check(
+            incident_log_id, EvidenceIncidentLogType.FORM_DATA, current_user, db
         )
+        from app.core.aws import generate_presigned_put_url
+
+        size_bytes_failed_index_list: list[int] = []
+        duration_seconds_failed_index_list: list[int] = []
+        for item in request.items:
+            r = _get_form_data_attachment_restrict(item.content_type)
+            if item.size_bytes > r.max_size_bytes:
+                size_bytes_failed_index_list.append(item.index)
+            if r.max_duration_seconds is not None and (
+                item.duration_seconds is None or item.duration_seconds > r.max_duration_seconds
+            ):
+                duration_seconds_failed_index_list.append(item.index)
+        if size_bytes_failed_index_list or duration_seconds_failed_index_list:
+            from app.domain.evidence.errors.presigned_validation_error import (
+                EvidencePresignedValidationErrorCode,
+            )
+
+            detail: dict = {"size_bytes_failed_index_list": size_bytes_failed_index_list}
+            if duration_seconds_failed_index_list:
+                detail["duration_seconds_failed_index_list"] = duration_seconds_failed_index_list
+            raise CodeException(
+                code=EvidencePresignedValidationErrorCode.EVIDENCE_PRESIGNED_VALIDATION_FAILED,
+                message="증거 유효성 검사에 통과하지 못한 증거가 존재하여 작업이 중단되었습니다.",
+                debug_message="증거 유효성 검사에 통과하지 못한 증거가 존재하여 presigned URL 발급이 중단되었습니다. failed_index_list를 확인해주세요.",
+                status_code=400,
+                detail=detail,
+            )
+        items = []
+        path_segment = f"incident-logs/attachments/{incident_log_id}"
+        for item in request.items:
+            attachment_id = uuid4()
+            s3_key = (
+                f"{complaint.user_sub}/complaints/"
+                f"{complaint.complaint_id}/evidences/{path_segment}/{attachment_id}/original"
+            )
+            url = generate_presigned_put_url(
+                bucket=settings.S3_BUCKET_NAME,
+                key=s3_key,
+                content_type=item.content_type,
+                expires_in=600,
+            )
+            items.append(
+                schemas.FormDataAttachmentPresignedItemResponse(
+                    index=item.index,
+                    filename=item.filename,
+                    url=url,
+                    attachment_id=attachment_id,
+                )
+            )
+        return schemas.FormDataAttachmentPresignedResponse(items=items)
+
+    def register_form_data_attachments(
+        self,
+        complaint: Complaint,
+        incident_log_id: UUID,
+        request: schemas.FormDataAttachmentRegisterRequest,
+        current_user: AuthUser,
+        db: Session,
+    ) -> schemas.FormDataAttachmentRegisterResponse:
+        self._get_incident_log_with_type_check(
+            incident_log_id, EvidenceIncidentLogType.FORM_DATA, current_user, db
+        )
+        path_segment = f"incident-logs/attachments/{incident_log_id}"
+        metadata_list = fetch_s3_metadata_for_register(
+            complaint=complaint,
+            items=request.items,
+            path_segment=path_segment,
+            get_evidence_id=lambda item: item.attachment_id,
+            build_extra=lambda item, s3_key, ct, size: {
+                "attachment_id": item.attachment_id,
+                "incident_log_id": incident_log_id,
+                "filename": item.filename,
+            },
+        )
+        (
+            size_bytes_failed_attachment_ids,
+            valid_metadata,
+        ) = _collect_form_data_attachment_register_failures_from_metadata(metadata_list)
+
+        def _process_attachment(m: dict) -> tuple[dict | None, str | None]:
+            ct = m["content_type"]
+            r = _get_form_data_attachment_restrict(ct)
+            duration_seconds = None
+            if ct in EVIDENCE_VIDEO_RESTRICT.allowed_types:
+                try:
+                    file_bytes = download_s3_object(settings.S3_BUCKET_NAME, m["s3_key"])
+                    duration_seconds = get_video_duration(file_bytes)
+                    if r.max_duration_seconds and duration_seconds > r.max_duration_seconds:
+                        return None, str(m["attachment_id"])
+                except Exception:
+                    return None, str(m["attachment_id"])
+            elif ct in EVIDENCE_IMAGE_RESTRICT.allowed_types:
+                duration_seconds = 0
+            elif ct in EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types:
+                try:
+                    file_bytes = download_s3_object(settings.S3_BUCKET_NAME, m["s3_key"])
+                    duration_seconds = get_audio_duration(file_bytes)
+                    if r.max_duration_seconds and duration_seconds > r.max_duration_seconds:
+                        return None, str(m["attachment_id"])
+                except (ValueError, TypeError):
+                    return None, str(m["attachment_id"])
+            row = {
+                "attachment_id": m["attachment_id"],
+                "incident_log_id": m["incident_log_id"],
+                "filename": m["filename"],
+                "s3_key": m["s3_key"],
+                "content_type": ct,
+                "size_bytes": m["size_bytes"],
+                "duration_seconds": duration_seconds,
+            }
+            return row, None
+
+        with ThreadPoolExecutor(max_workers=max(1, min(len(valid_metadata), 5))) as executor:
+            results = list(executor.map(_process_attachment, valid_metadata))
+        rows = [r for r, _ in results if r is not None]
+        extraction_failed_attachment_ids = [eid for _, eid in results if eid is not None]
+        duration_seconds_failed_attachment_ids: list[str] = []
+        for r in rows:
+            ct = r.get("content_type", "")
+            restrict = _get_form_data_attachment_restrict(ct)
+            if restrict.max_duration_seconds is not None:
+                dur = r.get("duration_seconds", 0)
+                if dur > restrict.max_duration_seconds:
+                    duration_seconds_failed_attachment_ids.append(str(r["attachment_id"]))
+        _raise_form_data_attachment_register_validation_if_failed(
+            size_bytes_failed_attachment_ids=size_bytes_failed_attachment_ids,
+            duration_seconds_failed_attachment_ids=duration_seconds_failed_attachment_ids,
+            extraction_failed_attachment_ids=extraction_failed_attachment_ids,
+        )
+        db.bulk_insert_mappings(IncidentLogFormDataAttachment, rows)
+        db.commit()
+        results_resp = [
+            schemas.FormDataAttachmentRegisterItemResponse(
+                attachment_id=r["attachment_id"],
+                type=get_attachment_type_from_content_type(r["content_type"]),
+                filename=r["filename"],
+                content_type=r["content_type"],
+                size_bytes=r["size_bytes"],
+                duration_seconds=r["duration_seconds"],
+            )
+            for r in rows
+        ]
+        return schemas.FormDataAttachmentRegisterResponse(items=results_resp)
+
+    def delete_form_data_attachments(
+        self,
+        incident_log_id: UUID,
+        attachment_ids: list[UUID],
+        current_user: AuthUser,
+        db: Session,
+    ) -> None:
+        self._get_incident_log_with_type_check(
+            incident_log_id, EvidenceIncidentLogType.FORM_DATA, current_user, db
+        )
+        attachment_repo = IncidentLogFormDataAttachmentRepository(db)
+        attachments = attachment_repo.list_by_incident_log_id(incident_log_id)
+        to_delete = [a for a in attachments if a.attachment_id in attachment_ids]
+        if not to_delete:
+            return
+        prefixes = [a.s3_key.rsplit("/", 1)[0] + "/" for a in to_delete]
+        delete_s3_by_prefixes(settings.S3_BUCKET_NAME, prefixes)
+        for att in to_delete:
+            attachment_repo.delete(att)
+        db.commit()
 
     def delete_incident_log_file(
         self,
@@ -453,16 +688,38 @@ class EvidenceIncidentLogService(EvidenceTypeService):
         if log.type == EvidenceIncidentLogType.FILE:
             file_repo = EvidenceIncidentLogFileRepository(db)
             file_row = file_repo.get(incident_log_id)
-            delete_s3_objects(settings.S3_BUCKET_NAME, [file_row.s3_key])
+            prefix = file_row.s3_key.rsplit("/", 1)[0] + "/"
+            delete_s3_by_prefixes(settings.S3_BUCKET_NAME, [prefix])
             file_repo.delete(file_row)
 
         elif log.type == EvidenceIncidentLogType.FORM_DATA:
+            attachment_repo = IncidentLogFormDataAttachmentRepository(db)
+            attachments = attachment_repo.list_by_incident_log_id(incident_log_id)
+            if attachments:
+                prefix = attachments[0].s3_key.rsplit("/", 2)[0] + "/"
+                delete_s3_by_prefixes(settings.S3_BUCKET_NAME, [prefix])
             form_data_repo = EvidenceIncidentLogFormDataRepository(db)
             form_data_row = form_data_repo.get(incident_log_id)
             form_data_repo.delete(form_data_row)
 
         incident_log_repo.delete(log)
         db.commit()
+
+    def update_filename(
+        self,
+        incident_log_id: UUID,
+        filename: str,
+        current_user: AuthUser,
+        db: Session,
+    ) -> EvidenceIncidentLog:
+        return self.update_evidence_filename(
+            incident_log_id,
+            filename,
+            current_user,
+            db,
+            EvidenceIncidentLogRepository(db),
+            filename_attr="name",
+        )
 
 
 evidence_incident_log_service = EvidenceIncidentLogService()
