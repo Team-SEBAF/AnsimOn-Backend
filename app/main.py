@@ -13,6 +13,7 @@ from app.domain.evidence_message.endpoints import router as evidence_message_rou
 from app.domain.evidence_report_record.endpoints import router as evidence_report_record_router
 from app.domain.evidence_victim.endpoints import router as evidence_victim_router
 from app.domain.evidence_voice.endpoints import router as evidence_voice_router
+from app.domain.timeline.endpoints import router as timeline_router
 from app.domain.user.endpoints import router as user_router
 
 if settings.AWS_PROFILE:
@@ -46,5 +47,6 @@ app.include_router(evidence_voice_router)
 app.include_router(evidence_victim_router)
 app.include_router(evidence_report_record_router)
 app.include_router(evidence_incident_log_router)
+app.include_router(timeline_router)
 
 handler = Mangum(app)
