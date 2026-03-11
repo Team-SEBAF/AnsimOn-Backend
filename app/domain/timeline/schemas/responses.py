@@ -130,3 +130,31 @@ class TimelineEvidenceDetailResponse(BaseResponse):
         default_factory=list,
         description="수동 추가 증거",
     )
+
+
+class ManualEvidencePresignedItemResponse(BaseResponse):
+    index: int = Field(..., description="요청 item의 index")
+    filename: str = Field(..., description="파일명")
+    url: str = Field(..., description="S3 PUT 업로드용 presigned URL")
+    manual_evidence_id: UUID = Field(..., description="DB 저장 시 전달할 ID")
+
+
+class ManualEvidencePresignedResponse(BaseResponse):
+    items: list[ManualEvidencePresignedItemResponse] = Field(
+        ..., description="발급된 Presigned URL 목록"
+    )
+
+
+class ManualEvidenceRegisterItemResponse(BaseResponse):
+    manual_evidence_id: UUID = Field(..., description="수동 증거 ID")
+    file_type: str = Field(..., description="파일 타입. IMAGE, AUDIO, VIDEO, DOCUMENT, ETC")
+    filename: str = Field(..., description="파일명")
+    content_type: str = Field(..., description="Content-Type")
+    size_bytes: int = Field(..., description="파일 크기(바이트)")
+    duration_seconds: int | None = Field(None, description="영상/음성 길이(초)")
+
+
+class ManualEvidenceRegisterResponse(BaseResponse):
+    items: list[ManualEvidenceRegisterItemResponse] = Field(
+        ..., description="등록된 수동 증거 목록"
+    )

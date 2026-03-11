@@ -24,6 +24,8 @@ from app.domain.evidence.errors.register_validation_error import (
 from app.domain.evidence.utils import (
     check_register_max_count,
     fetch_s3_metadata_for_register,
+    generate_presigned_urls_for_unrestricted_content,
+    get_restrict_by_content_type,
 )
 from app.domain.evidence_incident_log import schemas
 from app.domain.evidence_incident_log.constant import get_attachment_type_from_content_type
@@ -83,7 +85,7 @@ def _collect_form_data_attachment_register_failures_from_metadata(
 
     for m in metadata_list:
         aid_str = str(m["attachment_id"])
-        r = _get_form_data_attachment_restrict(m.get("content_type", ""))
+        r = get_restrict_by_content_type(m.get("content_type", ""))
         if m.get("size_bytes", 0) > r.max_size_bytes:
             size_bytes_failed_attachment_ids.append(aid_str)
             continue
@@ -106,19 +108,6 @@ def _raise_form_data_attachment_register_validation_if_failed(
         size_bytes_failed_evidence_ids=size_bytes_failed_attachment_ids,
         duration_seconds_failed_evidence_ids=duration_total if duration_total else [],
     )
-
-
-def _get_form_data_attachment_restrict(content_type: str):
-    """content_type별 restrict. form-data 첨부는 타입 제한 없음, size/duration만 기존 constant와 동일."""
-    if content_type in EVIDENCE_VIDEO_RESTRICT.allowed_types:
-        return EVIDENCE_VIDEO_RESTRICT
-    if content_type in EVIDENCE_IMAGE_RESTRICT.allowed_types:
-        return EVIDENCE_IMAGE_RESTRICT
-    if content_type in EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types:
-        return EVIDENCE_VOICE_AUDIO_RESTRICT
-    if content_type in EVIDENCE_DOCUMENT_RESTRICT.allowed_types:
-        return EVIDENCE_DOCUMENT_RESTRICT
-    return EVIDENCE_DOCUMENT_RESTRICT  # 알 수 없는 타입: 10MB 기본
 
 
 class EvidenceIncidentLogService(EvidenceTypeService):
@@ -505,56 +494,31 @@ class EvidenceIncidentLogService(EvidenceTypeService):
         self._get_incident_log_with_type_check(
             incident_log_id, EvidenceIncidentLogType.FORM_DATA, current_user, db
         )
-        from app.core.aws import generate_presigned_put_url
-
-        size_bytes_failed_index_list: list[int] = []
-        duration_seconds_failed_index_list: list[int] = []
-        for item in request.items:
-            r = _get_form_data_attachment_restrict(item.content_type)
-            if item.size_bytes > r.max_size_bytes:
-                size_bytes_failed_index_list.append(item.index)
-            if r.max_duration_seconds is not None and (
-                item.duration_seconds is None or item.duration_seconds > r.max_duration_seconds
-            ):
-                duration_seconds_failed_index_list.append(item.index)
-        if size_bytes_failed_index_list or duration_seconds_failed_index_list:
-            from app.domain.evidence.errors.presigned_validation_error import (
-                EvidencePresignedValidationErrorCode,
-            )
-
-            detail: dict = {"size_bytes_failed_index_list": size_bytes_failed_index_list}
-            if duration_seconds_failed_index_list:
-                detail["duration_seconds_failed_index_list"] = duration_seconds_failed_index_list
-            raise CodeException(
-                code=EvidencePresignedValidationErrorCode.EVIDENCE_PRESIGNED_VALIDATION_FAILED,
-                message="증거 유효성 검사에 통과하지 못한 증거가 존재하여 작업이 중단되었습니다.",
-                debug_message="증거 유효성 검사에 통과하지 못한 증거가 존재하여 presigned URL 발급이 중단되었습니다. failed_index_list를 확인해주세요.",
-                status_code=400,
-                detail=detail,
-            )
-        items = []
         path_segment = f"incident-logs/attachments/{incident_log_id}"
-        for item in request.items:
-            attachment_id = uuid4()
-            s3_key = (
-                f"{complaint.user_sub}/complaints/"
-                f"{complaint.complaint_id}/evidences/{path_segment}/{attachment_id}/original"
+
+        def s3_key_builder(c: Complaint, eid: UUID) -> str:
+            return (
+                f"{c.user_sub}/complaints/{c.complaint_id}/evidences/"
+                f"{path_segment}/{eid}/original"
             )
-            url = generate_presigned_put_url(
-                bucket=settings.S3_BUCKET_NAME,
-                key=s3_key,
-                content_type=item.content_type,
-                expires_in=600,
-            )
-            items.append(
+
+        rows = generate_presigned_urls_for_unrestricted_content(
+            complaint=complaint,
+            items=request.items,
+            s3_key_builder=s3_key_builder,
+            id_field_name="attachment_id",
+        )
+        return schemas.FormDataAttachmentPresignedResponse(
+            items=[
                 schemas.FormDataAttachmentPresignedItemResponse(
-                    index=item.index,
-                    filename=item.filename,
-                    url=url,
-                    attachment_id=attachment_id,
+                    index=r["index"],
+                    filename=r["filename"],
+                    url=r["url"],
+                    attachment_id=r["attachment_id"],
                 )
-            )
-        return schemas.FormDataAttachmentPresignedResponse(items=items)
+                for r in rows
+            ]
+        )
 
     def register_form_data_attachments(
         self,
@@ -586,7 +550,7 @@ class EvidenceIncidentLogService(EvidenceTypeService):
 
         def _process_attachment(m: dict) -> tuple[dict | None, str | None]:
             ct = m["content_type"]
-            r = _get_form_data_attachment_restrict(ct)
+            r = get_restrict_by_content_type(ct)
             duration_seconds = None
             if ct in EVIDENCE_VIDEO_RESTRICT.allowed_types:
                 try:
@@ -624,7 +588,7 @@ class EvidenceIncidentLogService(EvidenceTypeService):
         duration_seconds_failed_attachment_ids: list[str] = []
         for r in rows:
             ct = r.get("content_type", "")
-            restrict = _get_form_data_attachment_restrict(ct)
+            restrict = get_restrict_by_content_type(ct)
             if restrict.max_duration_seconds is not None:
                 dur = r.get("duration_seconds", 0)
                 if dur > restrict.max_duration_seconds:
