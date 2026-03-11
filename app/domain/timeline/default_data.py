@@ -66,7 +66,7 @@ DEFAULT_TIMELINE_JSON = {
                             "title": "거절 의사 전달",
                             "description": "피해자가 스토킹범에게 명확한 거절 의사를 전달하였다. 문자 메시지를 통해 더 이상의 연락을 원하지 않음을 명시하며, 법적 대응을 예고하였다. 이는 피해자가 스스로를 보호하기 위해 취한 적극적인 조치였다.",
                             "tags": ["REFUSAL_INTENT", "REPEAT"],
-                            "referenced_evidence_count": 2,
+                            "referenced_evidence_count": 1,
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
@@ -87,7 +87,7 @@ DEFAULT_TIMELINE_JSON = {
                             "title": "야간 협박 문자",
                             "description": "새벽 시간대에 반복적인 협박성 문자가 수신되었다. 메시지 내용은 피해자의 생명을 위협하는 수준이었으며, 피해자는 극심한 공포로 인해 수면을 취할 수 없었다. 이는 명백한 정신적 위협에 해당한다.",
                             "tags": ["REPEAT", "THREAT_COERCION"],
-                            "referenced_evidence_count": 4,
+                            "referenced_evidence_count": 3,
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
@@ -119,7 +119,7 @@ DEFAULT_TIMELINE_JSON = {
                             "title": "카카오톡 대화 기록",
                             "description": "피해자와 스토킹범 간의 카카오톡 대화 기록이다. 스토킹범은 피해자의 거절에도 불구하고 지속적으로 연락을 시도하였으며, 피해자의 심리적 상태를 악화시키는 발언을 반복하였다. 대화 내용에는 성적 모욕적 표현도 포함되어 있다.",
                             "tags": ["REPEAT", "SEXUAL_INSULT"],
-                            "referenced_evidence_count": 3,
+                            "referenced_evidence_count": 2,
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
@@ -151,7 +151,7 @@ DEFAULT_TIMELINE_JSON = {
                             "title": "출근길 추적 사진",
                             "description": "피해자가 출근하는 길에 스토킹범이 촬영한 것으로 추정되는 사진이다. 사진에는 피해자의 일상 동선이 파악되었음을 보여주는 위치 정보가 포함되어 있으며, 이는 피해자에 대한 지속적인 감시가 이루어졌음을 의미한다.",
                             "tags": ["REPEAT", "THREAT_COERCION"],
-                            "referenced_evidence_count": 2,
+                            "referenced_evidence_count": 1,
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
@@ -204,7 +204,7 @@ DEFAULT_TIMELINE_JSON = {
                             "title": "SNS 스토킹 사례",
                             "description": "스토킹범이 피해자의 SNS 계정을 통해 피해자의 일상을 지속적으로 추적한 증거이다. 스토킹범은 피해자의 게시물에 즉시 반응하며, 피해자가 차단한 후에도 부계정을 만들어 접근을 시도하였다. 이는 사이버 스토킹의 전형적인 사례이다.",
                             "tags": ["REPEAT", "SEXUAL_INSULT"],
-                            "referenced_evidence_count": 5,
+                            "referenced_evidence_count": 1,
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
@@ -241,7 +241,7 @@ DEFAULT_TIMELINE_JSON = {
                             "title": "추가 협박 문자",
                             "description": "경찰 신고 이후에도 스토킹범이 보낸 추가 협박 문자이다. 스토킹범은 피해자의 신고 사실을 인지하고 오히려 더욱 공격적인 메시지를 보내기 시작했으며, 이는 스토킹범의 위험성을 보여준다.",
                             "tags": ["THREAT_COERCION", "PHYSICAL_HARM", "REPEAT"],
-                            "referenced_evidence_count": 2,
+                            "referenced_evidence_count": 1,
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
@@ -249,8 +249,8 @@ DEFAULT_TIMELINE_JSON = {
                         {
                             "timeline_evidence_id": str(EVIDENCE_ID_14),
                             "index": 2,
-                            "title": "음성 메시지 - 위협 내용",
-                            "description": "스토킹범이 보낸 음성 메시지로, 피해자의 생명을 직접적으로 위협하는 내용이 포함되어 있다. 이 증거는 스토킹 사건의 심각성을 입증하는 결정적 자료가 된다.",
+                            "title": "상담 기록 파일",
+                            "description": "스토킹 피해 상담 시 작성된 기록 파일이다. 피해자의 진술과 상담 내용이 문서로 정리되어 있으며, 사건의 경과를 파악하는 데 중요한 자료가 된다.",
                             "tags": ["THREAT_COERCION", "PHYSICAL_HARM"],
                             "referenced_evidence_count": 1,
                             "has_thumbnail": False,
@@ -264,9 +264,10 @@ DEFAULT_TIMELINE_JSON = {
     ]
 }
 
-# timeline_evidence 더미: timeline_evidence_id는 위 EVIDENCE_ID와 동일, evidence_id는 evidence_* 테이블 id
+# timeline_evidence 더미: MESSAGE만 그룹(여러 evidence), 나머지는 단일 evidence
+# 3개 MESSAGE 그룹(EVIDENCE_ID_1:4, 4:3, 6:2) + 10개 단일(VICTIM, VOICE, REPORT_RECORD, INCIDENT_LOG)
 DEFAULT_TIMELINE_EVIDENCES = [
-    # EVIDENCE_ID_1: 카톡 및 메세지 (4)
+    # EVIDENCE_ID_1: 카톡 및 메세지 (MESSAGE 그룹 4)
     {
         "timeline_evidence_id": EVIDENCE_ID_1,
         "index": 1,
@@ -278,238 +279,166 @@ DEFAULT_TIMELINE_EVIDENCES = [
     {
         "timeline_evidence_id": EVIDENCE_ID_1,
         "index": 2,
-        "evidence_id": UUID("584f7b54-992c-4888-b1fc-f265f9b7b817"),
+        "evidence_id": UUID("db9d9261-b523-4be9-9e9e-52ad6e75150e"),
         "is_original_evidence": True,
-        "evidence_type": EvidenceType.VOICE,
-        "file_type": FileType.AUDIO,
+        "evidence_type": EvidenceType.MESSAGE,
+        "file_type": FileType.IMAGE,
     },
     {
         "timeline_evidence_id": EVIDENCE_ID_1,
         "index": 3,
+        "evidence_id": UUID("78be5c14-bfae-40a0-8bae-9159105c1748"),
         "is_original_evidence": True,
-        "evidence_id": UUID("3d3b4007-89bd-4926-9227-7a8f46f9093a"),
-        "evidence_type": EvidenceType.REPORT_RECORD,
-        "file_type": FileType.DOCUMENT,
+        "evidence_type": EvidenceType.MESSAGE,
+        "file_type": FileType.IMAGE,
     },
     {
         "timeline_evidence_id": EVIDENCE_ID_1,
         "index": 4,
+        "evidence_id": UUID("702eddc4-1eaf-4380-86dc-16b9bed5cf62"),
         "is_original_evidence": True,
-        "evidence_id": UUID("38178693-ee87-4003-ba7d-3da9d47ed790"),
-        "evidence_type": EvidenceType.INCIDENT_LOG,
-        "file_type": FileType.DOCUMENT,
+        "evidence_type": EvidenceType.MESSAGE,
+        "file_type": FileType.IMAGE,
     },
-    # EVIDENCE_ID_2: 주거 인근 협박 경고장 (1)
+    # EVIDENCE_ID_2: 주거 인근 협박 경고장 (VICTIM 1)
     {
         "timeline_evidence_id": EVIDENCE_ID_2,
         "index": 1,
-        "is_original_evidence": True,
         "evidence_id": UUID("6de0bca2-6b96-4489-ab10-8e13033d40b0"),
+        "is_original_evidence": True,
         "evidence_type": EvidenceType.VICTIM,
         "file_type": FileType.IMAGE,
     },
-    # EVIDENCE_ID_3: 거절 의사 전달 (2)
+    # EVIDENCE_ID_3: 거절 의사 전달 (VOICE 1)
     {
         "timeline_evidence_id": EVIDENCE_ID_3,
         "index": 1,
-        "is_original_evidence": True,
         "evidence_id": UUID("457329d6-d9e9-418a-9464-65f4fc7da8f8"),
+        "is_original_evidence": True,
         "evidence_type": EvidenceType.VOICE,
         "file_type": FileType.IMAGE,
     },
-    {
-        "timeline_evidence_id": EVIDENCE_ID_3,
-        "index": 2,
-        "is_original_evidence": True,
-        "evidence_id": UUID("0abdd28e-7e14-4500-bb0a-4df16539e98b"),
-        "evidence_type": EvidenceType.REPORT_RECORD,
-        "file_type": FileType.DOCUMENT,
-    },
-    # EVIDENCE_ID_4: 야간 협박 문자 (4)
+    # EVIDENCE_ID_4: 야간 협박 문자 (MESSAGE 그룹 3)
     {
         "timeline_evidence_id": EVIDENCE_ID_4,
         "index": 1,
+        "evidence_id": UUID("83f41aee-f3a7-40d0-8740-080b7b0de4d5"),
         "is_original_evidence": True,
-        "evidence_id": UUID("db9d9261-b523-4be9-9e9e-52ad6e75150e"),
         "evidence_type": EvidenceType.MESSAGE,
         "file_type": FileType.IMAGE,
     },
     {
         "timeline_evidence_id": EVIDENCE_ID_4,
         "index": 2,
+        "evidence_id": UUID("7c8d9e0f-1a2b-4c3d-9e5f-6a7b8c9d0e1f"),
         "is_original_evidence": True,
-        "evidence_id": UUID("3ae78a06-8fb1-43ab-af55-032230585c94"),
-        "evidence_type": EvidenceType.VOICE,
+        "evidence_type": EvidenceType.MESSAGE,
         "file_type": FileType.IMAGE,
     },
     {
         "timeline_evidence_id": EVIDENCE_ID_4,
         "index": 3,
+        "evidence_id": UUID("8d9e0f1a-2b3c-4d4e-0f6a-7b8c9d0e1f2a"),
         "is_original_evidence": True,
-        "evidence_id": UUID("78be5c14-bfae-40a0-8bae-9159105c1748"),
         "evidence_type": EvidenceType.MESSAGE,
         "file_type": FileType.IMAGE,
     },
-    {
-        "timeline_evidence_id": EVIDENCE_ID_4,
-        "index": 4,
-        "is_original_evidence": True,
-        "evidence_id": UUID("453628a0-f572-4db6-933e-07c04f1a3595"),
-        "evidence_type": EvidenceType.INCIDENT_LOG,
-        "file_type": FileType.DOCUMENT,
-    },
-    # EVIDENCE_ID_5: 블랙박스 영상 (1)
+    # EVIDENCE_ID_5: 블랙박스 영상 (VICTIM 1)
     {
         "timeline_evidence_id": EVIDENCE_ID_5,
         "index": 1,
-        "is_original_evidence": True,
         "evidence_id": UUID("6a259984-0ba4-4d5e-b27b-55fb694eecbf"),
+        "is_original_evidence": True,
         "evidence_type": EvidenceType.VICTIM,
         "file_type": FileType.VIDEO,
     },
-    # EVIDENCE_ID_6: 카카오톡 대화 기록 (3)
+    # EVIDENCE_ID_6: 카카오톡 대화 기록 (MESSAGE 그룹 2)
     {
         "timeline_evidence_id": EVIDENCE_ID_6,
         "index": 1,
+        "evidence_id": UUID("9e0f1a2b-3c4d-4e5f-1a7b-8c9d0e1f2a3b"),
         "is_original_evidence": True,
-        "evidence_id": UUID("702eddc4-1eaf-4380-86dc-16b9bed5cf62"),
         "evidence_type": EvidenceType.MESSAGE,
         "file_type": FileType.IMAGE,
     },
     {
         "timeline_evidence_id": EVIDENCE_ID_6,
         "index": 2,
+        "evidence_id": UUID("0f1a2b3c-4d5e-4f6a-2b8c-9d0e1f2a3b4c"),
         "is_original_evidence": True,
-        "evidence_id": UUID("b0904cd6-edee-4908-8054-1f55245fb89d"),
-        "evidence_type": EvidenceType.VOICE,
+        "evidence_type": EvidenceType.MESSAGE,
         "file_type": FileType.IMAGE,
     },
-    {
-        "timeline_evidence_id": EVIDENCE_ID_6,
-        "index": 3,
-        "is_original_evidence": True,
-        "evidence_id": UUID("bdc2123f-668f-4ae1-b49b-1b53710eb6b8"),
-        "evidence_type": EvidenceType.VOICE,
-        "file_type": FileType.IMAGE,
-    },
-    # EVIDENCE_ID_7: 음성 메시지 녹음 (1)
+    # EVIDENCE_ID_7: 음성 메시지 녹음 (VOICE 1)
     {
         "timeline_evidence_id": EVIDENCE_ID_7,
         "index": 1,
-        "is_original_evidence": True,
         "evidence_id": UUID("a1b29641-c680-43a5-a713-fa4842469960"),
+        "is_original_evidence": True,
         "evidence_type": EvidenceType.VOICE,
         "file_type": FileType.AUDIO,
     },
-    # EVIDENCE_ID_8: 출근길 추적 사진 (2)
+    # EVIDENCE_ID_8: 출근길 추적 사진 (VICTIM 1)
     {
         "timeline_evidence_id": EVIDENCE_ID_8,
         "index": 1,
-        "is_original_evidence": True,
         "evidence_id": UUID("f15547c2-8278-4aa1-8422-add6ae43d368"),
-        "evidence_type": EvidenceType.VICTIM,
-        "file_type": FileType.IMAGE,
-    },
-    {
-        "timeline_evidence_id": EVIDENCE_ID_8,
-        "index": 2,
         "is_original_evidence": True,
-        "evidence_id": UUID("38d5cd29-fc4a-46b0-8eeb-31f781aad1e5"),
         "evidence_type": EvidenceType.VICTIM,
         "file_type": FileType.IMAGE,
     },
-    # EVIDENCE_ID_9: 퇴근길 접근 시도 (1)
+    # EVIDENCE_ID_9: 퇴근길 접근 시도 (INCIDENT_LOG 1)
     {
         "timeline_evidence_id": EVIDENCE_ID_9,
         "index": 1,
-        "is_original_evidence": True,
         "evidence_id": UUID("2c504997-7042-4ac6-a8fe-cf42c31fbea4"),
+        "is_original_evidence": True,
         "evidence_type": EvidenceType.INCIDENT_LOG,
         "file_type": FileType.DOCUMENT,
     },
-    # EVIDENCE_ID_10: 협박 이메일 (1)
+    # EVIDENCE_ID_10: 협박 이메일 (REPORT_RECORD 1)
     {
         "timeline_evidence_id": EVIDENCE_ID_10,
         "index": 1,
-        "is_original_evidence": True,
         "evidence_id": UUID("f8166b42-1ffb-4c1f-a48d-8d2234476652"),
+        "is_original_evidence": True,
         "evidence_type": EvidenceType.REPORT_RECORD,
         "file_type": FileType.DOCUMENT,
     },
-    # EVIDENCE_ID_11: SNS 스토킹 사례 (5)
+    # EVIDENCE_ID_11: SNS 스토킹 사례 (REPORT_RECORD 1)
     {
         "timeline_evidence_id": EVIDENCE_ID_11,
         "index": 1,
+        "evidence_id": UUID("3a4b5c6d-7e8f-4a9b-0c1d-2e3f4a5b6c7d"),
         "is_original_evidence": True,
-        "evidence_id": UUID("83f41aee-f3a7-40d0-8740-080b7b0de4d5"),
-        "evidence_type": EvidenceType.MESSAGE,
-        "file_type": FileType.IMAGE,
-    },
-    {
-        "timeline_evidence_id": EVIDENCE_ID_11,
-        "index": 2,
-        "is_original_evidence": True,
-        "evidence_id": UUID("95d9b3ae-947a-458e-a7c4-767a6418ca8e"),
-        "evidence_type": EvidenceType.VOICE,
-        "file_type": FileType.IMAGE,
-    },
-    {
-        "timeline_evidence_id": EVIDENCE_ID_11,
-        "index": 3,
-        "is_original_evidence": True,
-        "evidence_id": UUID("74cccae8-5b38-4485-bf7c-eff37faa657e"),
-        "evidence_type": EvidenceType.VOICE,
-        "file_type": FileType.AUDIO,
-    },
-    {
-        "timeline_evidence_id": EVIDENCE_ID_11,
-        "index": 4,
-        "is_original_evidence": True,
-        "evidence_id": UUID("6964e84a-dec4-46d2-a4d3-7ac7a16d4d54"),
-        "evidence_type": EvidenceType.INCIDENT_LOG,
+        "evidence_type": EvidenceType.REPORT_RECORD,
         "file_type": FileType.DOCUMENT,
     },
-    {
-        "timeline_evidence_id": EVIDENCE_ID_11,
-        "index": 5,
-        "is_original_evidence": True,
-        "evidence_id": UUID("3567e0ea-1593-4bf9-8fcb-24924b04fd81"),
-        "evidence_type": EvidenceType.VOICE,
-        "file_type": FileType.AUDIO,
-    },
-    # EVIDENCE_ID_12: 경찰 신고 접수 (1)
+    # EVIDENCE_ID_12: 경찰 신고 접수 (INCIDENT_LOG 1)
     {
         "timeline_evidence_id": EVIDENCE_ID_12,
         "index": 1,
-        "is_original_evidence": True,
         "evidence_id": UUID("27556c3d-ad16-44f0-9a64-5bc28b0d1521"),
+        "is_original_evidence": True,
         "evidence_type": EvidenceType.INCIDENT_LOG,
         "file_type": FileType.DOCUMENT,
     },
-    # EVIDENCE_ID_13: 추가 협박 문자 (2)
+    # EVIDENCE_ID_13: 추가 협박 문자 (VOICE 1)
     {
         "timeline_evidence_id": EVIDENCE_ID_13,
         "index": 1,
-        "is_original_evidence": True,
         "evidence_id": UUID("672626d0-21ac-4f95-8711-6b67105a06f2"),
-        "evidence_type": EvidenceType.VOICE,
-        "file_type": FileType.AUDIO,
-    },
-    {
-        "timeline_evidence_id": EVIDENCE_ID_13,
-        "index": 2,
         "is_original_evidence": True,
-        "evidence_id": UUID("ffc7fa7b-8022-45cc-bbc0-5cbc2a38d8c0"),
         "evidence_type": EvidenceType.VOICE,
         "file_type": FileType.AUDIO,
     },
-    # EVIDENCE_ID_14: 음성 메시지 - 위협 내용 (1)
+    # EVIDENCE_ID_14: 상담 기록 파일 (INCIDENT_LOG FILE 1)
     {
         "timeline_evidence_id": EVIDENCE_ID_14,
         "index": 1,
+        "evidence_id": UUID("4b5c6d7e-8f9a-4b0c-1d2e-3f4a5b6c7d8e"),
         "is_original_evidence": True,
-        "evidence_id": UUID("91eaff7b-b5ed-4358-91b3-5bf2d6a0f66b"),
-        "evidence_type": EvidenceType.VOICE,
-        "file_type": FileType.AUDIO,
+        "evidence_type": EvidenceType.INCIDENT_LOG,
+        "file_type": FileType.DOCUMENT,
     },
 ]
