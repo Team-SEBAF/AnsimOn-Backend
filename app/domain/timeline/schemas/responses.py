@@ -61,3 +61,56 @@ class TimelineResponse(BaseResponse):
         default_factory=list,
         description="날짜별 타임라인 그룹 목록",
     )
+
+
+class TimelineEvidenceItemResponse(BaseResponse):
+    """타임라인 증거 상세 항목 (original/manual 구분 없이 단일 파일)."""
+
+    id: UUID = Field(..., description="증거 ID (evidence_id 또는 manual_evidence_id)")
+    filename: str = Field(..., description="파일명")
+    size_bytes: int | None = Field(
+        None, description="파일 크기(바이트). INCIDENT_LOG FORM_DATA는 null"
+    )
+    thumbnail_url: str = Field(
+        default="",
+        description="썸네일(detail) URL. image/video 타입일 때만",
+    )
+    duration_seconds: int | None = Field(
+        None,
+        description="영상/음성 길이(초). video/audio 타입일 때만",
+    )
+    evidence_type: str | None = Field(
+        None,
+        description="증거 타입 (original만). MESSAGE, VICTIM, VOICE, REPORT_RECORD, INCIDENT_LOG",
+    )
+    file_type: str = Field(
+        ...,
+        description="파일 타입. IMAGE, AUDIO, VIDEO, DOCUMENT, ETC (FileType 기반)",
+    )
+
+
+class TimelineEvidenceDetailResponse(BaseResponse):
+    """timeline_evidence_id에 해당하는 타임라인 증거 메타데이터 + 증거 목록 조회 응답."""
+
+    timeline_evidence_id: UUID = Field(..., description="증거 그룹 ID")
+    index: int = Field(..., description="동일 시각 내 정렬 순서")
+    date: str = Field(..., description="날짜 (YYYY-MM-DD)")
+    time: str = Field(..., description="시각 HH:MM")
+    title: str = Field(..., description="제목")
+    description: str = Field(..., description="설명")
+    tags: list[TimelineTag] = Field(
+        default_factory=list,
+        description="태그",
+    )
+    referenced_evidence_count: int = Field(
+        ...,
+        description="해당 타임라인 증거 그룹 내 증거 수 (original + manual)",
+    )
+    original_evidences: list[TimelineEvidenceItemResponse] = Field(
+        default_factory=list,
+        description="AI 분석 증거",
+    )
+    manual_evidences: list[TimelineEvidenceItemResponse] = Field(
+        default_factory=list,
+        description="수동 추가 증거",
+    )

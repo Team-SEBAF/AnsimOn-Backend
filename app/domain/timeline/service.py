@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.base.base_error import CodeException
 from app.domain.evidence.constant import (
     EVIDENCE_VICTIM_VIDEO_RESTRICT,
     EVIDENCE_VOICE_AUDIO_RESTRICT,
@@ -14,8 +15,18 @@ from app.domain.evidence.constant import (
     get_file_type_from_content_type,
 )
 from app.domain.evidence.service import evidence_type_service
+from app.domain.evidence_incident_log.models.evidence_incident_log_model import (
+    EvidenceIncidentLogType,
+)
+from app.domain.evidence_incident_log.repos.evidence_incident_log_repository import (
+    EvidenceIncidentLogFileRepository,
+    EvidenceIncidentLogRepository,
+)
 from app.domain.evidence_message.repos.evidence_message_repository import (
     EvidenceMessageRepository,
+)
+from app.domain.evidence_report_record.repos.evidence_report_record_repository import (
+    EvidenceReportRecordRepository,
 )
 from app.domain.evidence_victim.repos.evidence_victim_repository import (
     EvidenceVictimRepository,
@@ -29,6 +40,7 @@ from app.domain.timeline.default_data import (
     DEFAULT_TIMELINE_EVIDENCES,
     DEFAULT_TIMELINE_JSON,
 )
+from app.domain.timeline.errors import GetTimelineErrorCode
 from app.domain.timeline.models import Timeline, TimelineEvidence
 from app.domain.timeline.repos import (
     TimelineEvidenceRepository,
@@ -46,6 +58,15 @@ class _EvidenceMetadata:
 
 class TimelineService:
     """타임라인 조회 및 default 데이터 insert."""
+
+    @staticmethod
+    def _detail_presigned_url(s3_key: str) -> str:
+        """s3_key의 detail variant presigned URL 반환."""
+        base = s3_key.rsplit("/", 1)[0]
+        return evidence_type_service._get_presigned_url(
+            s3_key=f"{base}/{EvidenceVariant.DETAIL.value}",
+            expires_in=60 * 60,
+        )
 
     def _insert_dummy_default_data(self, complaint_id: UUID, db: Session) -> Timeline:
         """complaint_id에 해당하는 timeline row 없을 때 default JSON + evidences insert."""
@@ -114,13 +135,6 @@ class TimelineService:
                 return None
             return manual_repo.get(row.manual_evidence_id) if row.manual_evidence_id else None
 
-        def _detail_presigned_url(s3_key: str) -> str:
-            base = s3_key.rsplit("/", 1)[0]
-            return evidence_type_service._get_presigned_url(
-                s3_key=f"{base}/{EvidenceVariant.DETAIL.value}",
-                expires_in=60 * 60,
-            )
-
         # original 먼저 (evidence_type 우선순위), manual 나중에
         evidence_type_priority = {
             EvidenceType.MESSAGE.value: 0,
@@ -146,7 +160,7 @@ class TimelineService:
             if row.evidence_type == EvidenceType.MESSAGE.value:
                 return _EvidenceMetadata(
                     has_thumbnail=True,
-                    thumbnail_url=_detail_presigned_url(entity.s3_key),
+                    thumbnail_url=self._detail_presigned_url(entity.s3_key),
                     duration_seconds=None,
                 )
             if row.evidence_type == EvidenceType.VICTIM.value:
@@ -157,14 +171,14 @@ class TimelineService:
                 )
                 return _EvidenceMetadata(
                     has_thumbnail=True,
-                    thumbnail_url=_detail_presigned_url(entity.s3_key),
+                    thumbnail_url=self._detail_presigned_url(entity.s3_key),
                     duration_seconds=dur,
                 )
             if row.evidence_type == EvidenceType.VOICE.value:
                 if entity.content_type in EVIDENCE_VOICE_IMAGE_RESTRICT.allowed_types:
                     return _EvidenceMetadata(
                         has_thumbnail=True,
-                        thumbnail_url=_detail_presigned_url(entity.s3_key),
+                        thumbnail_url=self._detail_presigned_url(entity.s3_key),
                         duration_seconds=None,
                     )
                 if (
@@ -185,13 +199,13 @@ class TimelineService:
             if ft == FileType.IMAGE:
                 return _EvidenceMetadata(
                     has_thumbnail=True,
-                    thumbnail_url=_detail_presigned_url(entity.s3_key),
+                    thumbnail_url=self._detail_presigned_url(entity.s3_key),
                     duration_seconds=None,
                 )
             if ft == FileType.VIDEO:
                 return _EvidenceMetadata(
                     has_thumbnail=True,
-                    thumbnail_url=_detail_presigned_url(entity.s3_key),
+                    thumbnail_url=self._detail_presigned_url(entity.s3_key),
                     duration_seconds=entity.duration_seconds,
                 )
             if ft == FileType.AUDIO and entity.duration_seconds:
@@ -238,6 +252,209 @@ class TimelineService:
                             ev["thumbnail_url"] = ""
 
         return schemas.TimelineResponse.model_validate(data)
+
+    def get_timeline_evidences(
+        self,
+        complaint_id: UUID,
+        timeline_evidence_id: UUID,
+        db: Session,
+    ) -> schemas.TimelineEvidenceDetailResponse:
+        """timeline_evidence_id에 해당하는 타임라인 증거 메타데이터 + original/manual 증거 목록 조회."""
+        # TODO: AI 연결 전까지 시드 데이터로 조회
+        complaint_id = SEED_COMPLAINT_ID
+
+        timeline_repo = TimelineRepository(db)
+        timeline = timeline_repo.get_by_complaint_id(complaint_id)
+        if timeline is None:
+            raise CodeException(
+                code=GetTimelineErrorCode.TIMELINE_NOT_FOUND,
+                message="타임라인을 찾을 수 없습니다.",
+                debug_message="complaint_id에 해당하는 타임라인이 없습니다.",
+                status_code=404,
+            )
+
+        ev_meta = timeline_repo.get_evidence_metadata_from_json(complaint_id, timeline_evidence_id)
+
+        evidence_repo = TimelineEvidenceRepository(db)
+        message_repo = EvidenceMessageRepository(db)
+        victim_repo = EvidenceVictimRepository(db)
+        voice_repo = EvidenceVoiceRepository(db)
+        report_record_repo = EvidenceReportRecordRepository(db)
+        incident_log_repo = EvidenceIncidentLogRepository(db)
+        incident_log_file_repo = EvidenceIncidentLogFileRepository(db)
+        manual_repo = TimelineManualEvidenceRepository(db)
+
+        rows = evidence_repo.list_by_timeline_evidence_id(timeline.id, timeline_evidence_id)
+        manual_entities = {
+            e.id: e
+            for e in manual_repo.list_by_timeline_evidence_id(timeline.id, timeline_evidence_id)
+        }
+
+        base_response = {
+            "timeline_evidence_id": timeline_evidence_id,
+            "index": ev_meta.get("index", 1) if ev_meta else 1,
+            "date": ev_meta.get("date", "") if ev_meta else "",
+            "time": ev_meta.get("time", "") if ev_meta else "",
+            "title": ev_meta.get("title", "") if ev_meta else "",
+            "description": ev_meta.get("description", "") if ev_meta else "",
+            "tags": ev_meta.get("tags", []) if ev_meta else [],
+            "referenced_evidence_count": len(rows),
+        }
+
+        if not rows:
+            return schemas.TimelineEvidenceDetailResponse(**base_response)
+
+        def _to_item(
+            id: UUID,
+            filename: str,
+            size_bytes: int | None,
+            s3_key: str | None,
+            content_type: str | None,
+            duration_seconds: int | None,
+            evidence_type: str | None,
+            file_type: str,
+        ) -> schemas.TimelineEvidenceItemResponse:
+            ft = (
+                FileType(file_type)
+                if file_type
+                else (
+                    get_file_type_from_content_type(content_type) if content_type else FileType.ETC
+                )
+            )
+            thumb = (
+                self._detail_presigned_url(s3_key)
+                if s3_key and ft in (FileType.IMAGE, FileType.VIDEO)
+                else ""
+            )
+            dur = duration_seconds if ft in (FileType.VIDEO, FileType.AUDIO) else None
+            return schemas.TimelineEvidenceItemResponse(
+                id=id,
+                filename=filename,
+                size_bytes=size_bytes,
+                thumbnail_url=thumb,
+                duration_seconds=dur,
+                evidence_type=evidence_type,
+                file_type=ft.value,
+            )
+
+        original_items: list[schemas.TimelineEvidenceItemResponse] = []
+        manual_items: list[schemas.TimelineEvidenceItemResponse] = []
+
+        for row in rows:
+            if row.is_original_evidence:
+                if row.evidence_type == EvidenceType.MESSAGE.value:
+                    entity = message_repo.get(row.evidence_id)
+                    if entity:
+                        original_items.append(
+                            _to_item(
+                                entity.message_id,
+                                entity.filename,
+                                entity.size_bytes,
+                                entity.s3_key,
+                                entity.content_type,
+                                None,
+                                row.evidence_type,
+                                row.file_type,
+                            )
+                        )
+                elif row.evidence_type == EvidenceType.VICTIM.value:
+                    entity = victim_repo.get(row.evidence_id)
+                    if entity:
+                        original_items.append(
+                            _to_item(
+                                entity.victim_id,
+                                entity.filename,
+                                entity.size_bytes,
+                                entity.s3_key,
+                                entity.content_type,
+                                entity.duration_seconds,
+                                row.evidence_type,
+                                row.file_type,
+                            )
+                        )
+                elif row.evidence_type == EvidenceType.VOICE.value:
+                    entity = voice_repo.get(row.evidence_id)
+                    if entity:
+                        original_items.append(
+                            _to_item(
+                                entity.voice_id,
+                                entity.filename,
+                                entity.size_bytes,
+                                entity.s3_key,
+                                entity.content_type,
+                                entity.duration_seconds,
+                                row.evidence_type,
+                                row.file_type,
+                            )
+                        )
+                elif row.evidence_type == EvidenceType.REPORT_RECORD.value:
+                    entity = report_record_repo.get(row.evidence_id)
+                    if entity:
+                        original_items.append(
+                            _to_item(
+                                entity.report_record_id,
+                                entity.filename,
+                                entity.size_bytes,
+                                entity.s3_key,
+                                entity.content_type,
+                                None,
+                                row.evidence_type,
+                                row.file_type,
+                            )
+                        )
+                elif row.evidence_type == EvidenceType.INCIDENT_LOG.value:
+                    log = incident_log_repo.get(row.evidence_id)
+                    if not log:
+                        continue
+                    if log.type == EvidenceIncidentLogType.FILE:
+                        f = incident_log_file_repo.get(log.incident_log_id)
+                        if f:
+                            original_items.append(
+                                _to_item(
+                                    log.incident_log_id,
+                                    log.name,
+                                    f.size_bytes,
+                                    f.s3_key,
+                                    f.content_type,
+                                    None,
+                                    row.evidence_type,
+                                    FileType.DOCUMENT.value,
+                                )
+                            )
+                    elif log.type == EvidenceIncidentLogType.FORM_DATA:
+                        original_items.append(
+                            _to_item(
+                                log.incident_log_id,
+                                log.name,
+                                None,
+                                None,
+                                None,
+                                None,
+                                row.evidence_type,
+                                FileType.DOCUMENT.value,
+                            )
+                        )
+            else:
+                entity = manual_entities.get(row.manual_evidence_id)
+                if entity:
+                    manual_items.append(
+                        _to_item(
+                            entity.id,
+                            entity.filename,
+                            entity.size_bytes,
+                            entity.s3_key,
+                            entity.content_type,
+                            entity.duration_seconds,
+                            None,
+                            row.file_type,
+                        )
+                    )
+
+        return schemas.TimelineEvidenceDetailResponse(
+            **base_response,
+            original_evidences=original_items,
+            manual_evidences=manual_items,
+        )
 
 
 timeline_service = TimelineService()

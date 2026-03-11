@@ -13,6 +13,7 @@ from app.domain.evidence.constant import (
     EVIDENCE_VOICE_AUDIO_RESTRICT,
     EVIDENCE_VOICE_IMAGE_RESTRICT,
     EVIDENCE_VOICE_RESTRICT,
+    get_file_type_from_content_type,
 )
 from app.domain.evidence.errors.register_validation_error import (
     raise_evidence_register_validation_failed,
@@ -275,7 +276,7 @@ class EvidenceVoiceService(EvidenceTypeService):
         details = [
             schemas.EvidenceVoiceDetailResponse(
                 voice_id=voice.voice_id,
-                type="audio" if (voice.duration_seconds or 0) > 0 else "image",
+                type=get_file_type_from_content_type(voice.content_type).value,
                 filename=voice.filename,
                 duration_seconds=voice.duration_seconds or 0,
                 size_bytes=voice.size_bytes,
