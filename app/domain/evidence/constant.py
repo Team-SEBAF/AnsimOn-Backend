@@ -122,3 +122,26 @@ class EvidenceVariant(str, Enum):
     THUMBNAIL = "thumbnail"
     DETAIL = "detail"
     ORIGINAL = "original"
+
+
+class FileType(str, Enum):
+    """파일 미디어 타입. content_type에서 파생."""
+
+    IMAGE = "IMAGE"
+    AUDIO = "AUDIO"
+    VIDEO = "VIDEO"
+    DOCUMENT = "DOCUMENT"
+    ETC = "ETC"
+
+
+def get_file_type_from_content_type(content_type: str) -> FileType:
+    """content_type → FileType 매핑."""
+    if content_type in EVIDENCE_IMAGE_RESTRICT.allowed_types:
+        return FileType.IMAGE
+    if content_type in EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types:
+        return FileType.AUDIO
+    if content_type in EVIDENCE_VIDEO_RESTRICT.allowed_types:
+        return FileType.VIDEO
+    if content_type in EVIDENCE_DOCUMENT_RESTRICT.allowed_types:
+        return FileType.DOCUMENT
+    return FileType.ETC

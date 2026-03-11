@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from app.base.base_repository import BaseRepository
-from app.domain.timeline.models import Timeline, TimelineEvidence
+from app.domain.timeline.models import Timeline, TimelineEvidence, TimelineManualEvidence
 
 
 class TimelineRepository(BaseRepository):
@@ -20,18 +20,25 @@ class TimelineEvidenceRepository(BaseRepository):
         return (
             self.db.query(TimelineEvidence)
             .filter(TimelineEvidence.timeline_id == timeline_id)
-            .order_by(TimelineEvidence.evidence_id, TimelineEvidence.index)
+            .order_by(TimelineEvidence.timeline_evidence_id, TimelineEvidence.index)
             .all()
         )
 
-    def list_by_evidence_id(self, timeline_id: UUID, evidence_id: UUID) -> list[TimelineEvidence]:
-        """evidence_id(timeline JSON id)에 해당하는 timeline_evidences 목록, index 순."""
+    def list_by_timeline_evidence_id(
+        self, timeline_id: UUID, timeline_evidence_id: UUID
+    ) -> list[TimelineEvidence]:
+        """timeline_evidence_id(timeline JSON 그룹 id)에 해당하는 timeline_evidences 목록, index 순."""
         return (
             self.db.query(TimelineEvidence)
             .filter(
                 TimelineEvidence.timeline_id == timeline_id,
-                TimelineEvidence.evidence_id == evidence_id,
+                TimelineEvidence.timeline_evidence_id == timeline_evidence_id,
             )
             .order_by(TimelineEvidence.index)
             .all()
         )
+
+
+class TimelineManualEvidenceRepository(BaseRepository):
+    model_class = TimelineManualEvidence
+    pk_attr = "id"

@@ -1,5 +1,5 @@
 -- 타임라인 default_data용 시드 SQL
--- user 1개 + complaint 1개 + DEFAULT_TIMELINE_EVIDENCES의 original_id에 맞는 각 증거 테이블 row
+-- user 1개 + complaint 1개 + DEFAULT_TIMELINE_EVIDENCES의 evidence_id에 맞는 각 증거 테이블 row
 -- s3_key: {user_sub}/complaints/{complaint_id}/evidences/{path_segment}/{evidence_id}/original
 
 -- 1) user 1개

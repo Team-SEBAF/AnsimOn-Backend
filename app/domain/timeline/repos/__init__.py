@@ -1,3 +1,11 @@
-from .timeline_repository import TimelineEvidenceRepository, TimelineRepository
+from .timeline_repository import (
+    TimelineEvidenceRepository,
+    TimelineManualEvidenceRepository,
+    TimelineRepository,
+)
 
-__all__ = ["TimelineEvidenceRepository", "TimelineRepository"]
+__all__ = [
+    "TimelineEvidenceRepository",
+    "TimelineManualEvidenceRepository",
+    "TimelineRepository",
+]

@@ -9,7 +9,7 @@ from app.domain.timeline.constant import TimelineTag
 class TimelineEvidenceResponse(BaseResponse):
     """타임라인 증거 항목. 시각이 겹칠 때 index로 정렬."""
 
-    id: UUID = Field(..., description="증거 ID")
+    timeline_evidence_id: UUID = Field(..., description="증거 그룹 ID (timeline JSON 내)")
     index: int = Field(..., description="동일 시각 내 정렬 순서 (1, 2, 3, ...)")
     title: str = Field(..., description="제목")
     description: str = Field(..., description="설명")
@@ -40,7 +40,7 @@ class TimelineEventResponse(BaseResponse):
     time: str = Field(..., description="시각 HH:MM (예: 11:30, 17:00)")
     evidences: list[TimelineEvidenceResponse] = Field(
         default_factory=list,
-        description="해당 시각의 증거 목록. 시각 기준 정렬 후 id 기준 2차 정렬",
+        description="해당 시각의 증거 목록. 시각 기준 정렬 후 index 기준 2차 정렬",
     )
 
 

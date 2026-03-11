@@ -1,4 +1,5 @@
 from copy import deepcopy
+from dataclasses import dataclass
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -9,11 +10,13 @@ from app.domain.evidence.constant import (
     EVIDENCE_VOICE_IMAGE_RESTRICT,
     EvidenceType,
     EvidenceVariant,
+    FileType,
+    get_file_type_from_content_type,
 )
+from app.domain.evidence.service import evidence_type_service
 from app.domain.evidence_message.repos.evidence_message_repository import (
     EvidenceMessageRepository,
 )
-from app.domain.evidence_message.service import evidence_message_service
 from app.domain.evidence_victim.repos.evidence_victim_repository import (
     EvidenceVictimRepository,
 )
@@ -27,7 +30,18 @@ from app.domain.timeline.default_data import (
     DEFAULT_TIMELINE_JSON,
 )
 from app.domain.timeline.models import Timeline, TimelineEvidence
-from app.domain.timeline.repos import TimelineEvidenceRepository, TimelineRepository
+from app.domain.timeline.repos import (
+    TimelineEvidenceRepository,
+    TimelineManualEvidenceRepository,
+    TimelineRepository,
+)
+
+
+@dataclass
+class _EvidenceMetadata:
+    has_thumbnail: bool
+    thumbnail_url: str
+    duration_seconds: int | None
 
 
 class TimelineService:
@@ -46,158 +60,150 @@ class TimelineService:
         db.flush()
 
         for ev in DEFAULT_TIMELINE_EVIDENCES:
+            ev_type = ev.get("evidence_type")
+            file_type_val = ev["file_type"]
             evidence_repo.create(
                 TimelineEvidence(
                     timeline_id=timeline.id,
-                    evidence_id=ev["evidence_id"],
+                    timeline_evidence_id=ev["timeline_evidence_id"],
                     index=ev["index"],
-                    original_id=ev["original_id"],
-                    type=ev["type"] if isinstance(ev["type"], str) else ev["type"].value,
+                    evidence_id=ev.get("evidence_id"),
+                    manual_evidence_id=ev.get("manual_evidence_id"),
+                    is_original_evidence=ev.get("is_original_evidence", True),
+                    evidence_type=ev_type.value
+                    if ev_type and hasattr(ev_type, "value")
+                    else ev_type,
+                    file_type=file_type_val.value
+                    if hasattr(file_type_val, "value")
+                    else file_type_val,
                 )
             )
         db.commit()
         db.refresh(timeline)
         return timeline
 
-    def _resolve_has_thumbnail(
+    def _resolve_evidence_metadata(
         self,
-        evidence_id: UUID,
+        timeline_evidence_id: UUID,
         timeline_id: UUID,
         db: Session,
-    ) -> bool:
-        """MESSAGE, VICTIM, VOICE(image) 중 하나라도 있으면 True."""
-        evidence_repo = TimelineEvidenceRepository(db)
-        message_repo = EvidenceMessageRepository(db)
-        victim_repo = EvidenceVictimRepository(db)
-        voice_repo = EvidenceVoiceRepository(db)
-
-        rows = evidence_repo.list_by_evidence_id(timeline_id, evidence_id)
-        for row in rows:
-            if row.type == EvidenceType.MESSAGE.value:
-                if message_repo.get(row.original_id):
-                    return True
-        for row in rows:
-            if row.type == EvidenceType.VICTIM.value:
-                if victim_repo.get(row.original_id):
-                    return True
-        for row in rows:
-            if row.type == EvidenceType.VOICE.value:
-                voice = voice_repo.get(row.original_id)
-                if voice and voice.content_type in EVIDENCE_VOICE_IMAGE_RESTRICT.allowed_types:
-                    return True
-        return False
-
-    def _resolve_thumbnail_url(
-        self,
-        evidence_id: UUID,
-        timeline_id: UUID,
-        db: Session,
-    ) -> str:
+    ) -> _EvidenceMetadata:
         """
-        has_thumbnail=True인 evidence의 썸네일 URL 생성.
-        우선순위: MESSAGE > VICTIM > VOICE
-        - MESSAGE, VICTIM: thumbnail s3 key 사용
-        - VOICE: thumbnail 미생성 → original 사용 (content_type 이미지인 것, index 최소)
+        has_thumbnail, thumbnail_url, duration_seconds를 한 번에 조회.
+        - is_original_evidence: evidence_type(MESSAGE, VICTIM, VOICE)으로 분기
+        - !is_original_evidence: file_type(IMAGE, AUDIO, VIDEO, DOCUMENT)으로 분기 (manual은 evidence_type 없음)
         """
         evidence_repo = TimelineEvidenceRepository(db)
         message_repo = EvidenceMessageRepository(db)
         victim_repo = EvidenceVictimRepository(db)
         voice_repo = EvidenceVoiceRepository(db)
+        manual_repo = TimelineManualEvidenceRepository(db)
 
-        rows = evidence_repo.list_by_evidence_id(timeline_id, evidence_id)
+        rows = evidence_repo.list_by_timeline_evidence_id(timeline_id, timeline_evidence_id)
         if not rows:
-            return ""
+            return _EvidenceMetadata(has_thumbnail=False, thumbnail_url="", duration_seconds=None)
 
-        # MESSAGE 우선 (s3 detail 사용, JSON 키는 thumbnail_url)
-        for row in rows:
-            if row.type == EvidenceType.MESSAGE.value:
-                msg = message_repo.get(row.original_id)
-                if msg:
-                    base = msg.s3_key.rsplit("/", 1)[0]
-                    s3_key = f"{base}/{EvidenceVariant.DETAIL.value}"
-                    return evidence_message_service._get_presigned_url(
-                        s3_key=s3_key,
-                        expires_in=60 * 60,
+        def _get_entity(row: TimelineEvidence):
+            if row.is_original_evidence:
+                if row.evidence_type == EvidenceType.MESSAGE.value:
+                    return message_repo.get(row.evidence_id)
+                if row.evidence_type == EvidenceType.VICTIM.value:
+                    return victim_repo.get(row.evidence_id)
+                if row.evidence_type == EvidenceType.VOICE.value:
+                    return voice_repo.get(row.evidence_id)
+                return None
+            return manual_repo.get(row.manual_evidence_id) if row.manual_evidence_id else None
+
+        def _detail_presigned_url(s3_key: str) -> str:
+            base = s3_key.rsplit("/", 1)[0]
+            return evidence_type_service._get_presigned_url(
+                s3_key=f"{base}/{EvidenceVariant.DETAIL.value}",
+                expires_in=60 * 60,
+            )
+
+        # original 먼저 (evidence_type 우선순위), manual 나중에
+        evidence_type_priority = {
+            EvidenceType.MESSAGE.value: 0,
+            EvidenceType.VICTIM.value: 1,
+            EvidenceType.VOICE.value: 2,
+        }
+        original_rows = sorted(
+            [
+                r
+                for r in rows
+                if r.is_original_evidence and r.evidence_type in evidence_type_priority
+            ],
+            key=lambda r: evidence_type_priority[r.evidence_type],
+        )
+        manual_rows = [r for r in rows if not r.is_original_evidence]
+
+        voice_audio_durations: list[int] = []
+
+        for row in original_rows:
+            entity = _get_entity(row)
+            if entity is None:
+                continue
+            if row.evidence_type == EvidenceType.MESSAGE.value:
+                return _EvidenceMetadata(
+                    has_thumbnail=True,
+                    thumbnail_url=_detail_presigned_url(entity.s3_key),
+                    duration_seconds=None,
+                )
+            if row.evidence_type == EvidenceType.VICTIM.value:
+                dur = (
+                    entity.duration_seconds
+                    if entity.content_type in EVIDENCE_VICTIM_VIDEO_RESTRICT.allowed_types
+                    else None
+                )
+                return _EvidenceMetadata(
+                    has_thumbnail=True,
+                    thumbnail_url=_detail_presigned_url(entity.s3_key),
+                    duration_seconds=dur,
+                )
+            if row.evidence_type == EvidenceType.VOICE.value:
+                if entity.content_type in EVIDENCE_VOICE_IMAGE_RESTRICT.allowed_types:
+                    return _EvidenceMetadata(
+                        has_thumbnail=True,
+                        thumbnail_url=_detail_presigned_url(entity.s3_key),
+                        duration_seconds=None,
                     )
+                if (
+                    entity.content_type in EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types
+                    and entity.duration_seconds
+                ):
+                    voice_audio_durations.append(entity.duration_seconds)
 
-        # VICTIM (s3 detail 사용, JSON 키는 thumbnail_url)
-        for row in rows:
-            if row.type == EvidenceType.VICTIM.value:
-                victim = victim_repo.get(row.original_id)
-                if victim:
-                    base = victim.s3_key.rsplit("/", 1)[0]
-                    s3_key = f"{base}/{EvidenceVariant.DETAIL.value}"
-                    return evidence_message_service._get_presigned_url(
-                        s3_key=s3_key,
-                        expires_in=60 * 60,
-                    )
+        for row in manual_rows:
+            entity = _get_entity(row)
+            if entity is None:
+                continue
+            ft = (
+                FileType(row.file_type)
+                if row.file_type
+                else get_file_type_from_content_type(entity.content_type)
+            )
+            if ft == FileType.IMAGE:
+                return _EvidenceMetadata(
+                    has_thumbnail=True,
+                    thumbnail_url=_detail_presigned_url(entity.s3_key),
+                    duration_seconds=None,
+                )
+            if ft == FileType.VIDEO:
+                return _EvidenceMetadata(
+                    has_thumbnail=True,
+                    thumbnail_url=_detail_presigned_url(entity.s3_key),
+                    duration_seconds=entity.duration_seconds,
+                )
+            if ft == FileType.AUDIO and entity.duration_seconds:
+                voice_audio_durations.append(entity.duration_seconds)
 
-        # VOICE: content_type 이미지인 것 → detail 사용 (message/victim과 동일)
-        for row in rows:
-            if row.type == EvidenceType.VOICE.value:
-                voice = voice_repo.get(row.original_id)
-                if voice and voice.content_type in EVIDENCE_VOICE_IMAGE_RESTRICT.allowed_types:
-                    base = voice.s3_key.rsplit("/", 1)[0]
-                    s3_key = f"{base}/{EvidenceVariant.DETAIL.value}"
-                    return evidence_message_service._get_presigned_url(
-                        s3_key=s3_key,
-                        expires_in=60 * 60,
-                    )
-
-        return ""
-
-    def _resolve_duration_seconds(
-        self,
-        evidence_id: UUID,
-        timeline_id: UUID,
-        has_thumbnail: bool,
-        db: Session,
-    ) -> int | None:
-        """
-        duration_seconds는 썸네일 소스가 video/audio일 때만.
-        - has_thumbnail True + 썸네일이 VICTIM(video) → victim duration
-        - has_thumbnail False + VOICE(audio) 있음 → voice duration
-        - 썸네일이 MESSAGE/VICTIM(image)/VOICE(image)면 → None
-        """
-        evidence_repo = TimelineEvidenceRepository(db)
-        message_repo = EvidenceMessageRepository(db)
-        victim_repo = EvidenceVictimRepository(db)
-        voice_repo = EvidenceVoiceRepository(db)
-
-        rows = evidence_repo.list_by_evidence_id(timeline_id, evidence_id)
-        if not rows:
-            return None
-
-        # 썸네일 소스와 동일한 우선순위로 확인
-        for row in rows:
-            if row.type == EvidenceType.MESSAGE.value:
-                if message_repo.get(row.original_id):
-                    return None  # 썸네일=이미지 → duration 없음
-        for row in rows:
-            if row.type == EvidenceType.VICTIM.value:
-                victim = victim_repo.get(row.original_id)
-                if victim:
-                    if victim.content_type in EVIDENCE_VICTIM_VIDEO_RESTRICT.allowed_types:
-                        return victim.duration_seconds
-                    return None  # 썸네일=이미지 → duration 없음
-        for row in rows:
-            if row.type == EvidenceType.VOICE.value:
-                voice = voice_repo.get(row.original_id)
-                if voice and voice.content_type in EVIDENCE_VOICE_IMAGE_RESTRICT.allowed_types:
-                    return None  # 썸네일=이미지 → duration 없음
-
-        # has_thumbnail False인 경우: VOICE(audio)만 있으면 duration
-        if not has_thumbnail:
-            durations: list[int] = []
-            for row in rows:
-                if row.type == EvidenceType.VOICE.value:
-                    voice = voice_repo.get(row.original_id)
-                    if voice and voice.content_type in EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types:
-                        if voice.duration_seconds is not None:
-                            durations.append(voice.duration_seconds)
-            return max(durations) if durations else None
-
-        return None
+        if voice_audio_durations:
+            return _EvidenceMetadata(
+                has_thumbnail=False,
+                thumbnail_url="",
+                duration_seconds=max(voice_audio_durations),
+            )
+        return _EvidenceMetadata(has_thumbnail=False, thumbnail_url="", duration_seconds=None)
 
     def get_timeline(self, complaint_id: UUID, db: Session) -> schemas.TimelineResponse:
         """타임라인 조회. row 없으면 default insert 후 반환. thumbnail_url 채움."""
@@ -214,30 +220,19 @@ class TimelineService:
         for date_group in data.get("items", []):
             for event in date_group.get("events", []):
                 for ev in event.get("evidences", []):
-                    ev_id = ev.get("id")
+                    ev_id = ev.get("timeline_evidence_id") or ev.get("id")
                     if ev_id:
                         try:
                             eid = UUID(ev_id) if isinstance(ev_id, str) else ev_id
-                            has_thumbnail = self._resolve_has_thumbnail(
-                                evidence_id=eid,
+                            meta = self._resolve_evidence_metadata(
+                                timeline_evidence_id=eid,
                                 timeline_id=timeline.id,
                                 db=db,
                             )
-                            ev["has_thumbnail"] = has_thumbnail
-                            if has_thumbnail:
-                                ev["thumbnail_url"] = self._resolve_thumbnail_url(
-                                    evidence_id=eid,
-                                    timeline_id=timeline.id,
-                                    db=db,
-                                )
-                            duration = self._resolve_duration_seconds(
-                                evidence_id=eid,
-                                timeline_id=timeline.id,
-                                has_thumbnail=has_thumbnail,
-                                db=db,
-                            )
-                            if duration is not None:
-                                ev["duration_seconds"] = duration
+                            ev["has_thumbnail"] = meta.has_thumbnail
+                            ev["thumbnail_url"] = meta.thumbnail_url
+                            if meta.duration_seconds is not None:
+                                ev["duration_seconds"] = meta.duration_seconds
                         except (ValueError, TypeError):
                             ev["has_thumbnail"] = False
                             ev["thumbnail_url"] = ""
