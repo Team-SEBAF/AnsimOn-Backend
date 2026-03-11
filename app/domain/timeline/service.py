@@ -437,12 +437,12 @@ class TimelineService:
 
         ev_meta = timeline_repo.get_evidence_metadata_from_json(complaint_id, timeline_evidence_id)
         ev_meta = ev_meta or {}
-        tags = [TimelineTag(t) if isinstance(t, str) else t for t in ev_meta.get("tags", [])]
-        return schemas.TimelineEvidenceMetadataResponse(
-            timeline_evidence_id=timeline_evidence_id,
+        response_data = {
+            "timeline_evidence_id": timeline_evidence_id,
             **ev_meta,
-            tags=tags,
-        )
+            "tags": [TimelineTag(t) if isinstance(t, str) else t for t in ev_meta.get("tags", [])],
+        }
+        return schemas.TimelineEvidenceMetadataResponse(**response_data)
 
     def get_manual_evidence_presigned_url(
         self,
