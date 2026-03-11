@@ -16,10 +16,10 @@ router = APIRouter(prefix="/api/v1", tags=["Timeline"])
 @router.get(
     "/{complaint_id}/timeline",
     summary="타임라인 조회",
-    description="날짜 > 시각 > 증거 계층 구조의 타임라인을 조회합니다. row 없으면 default insert.",
+    description="날짜 > 시각 > 증거 계층 구조의 타임라인을 조회합니다. (row 없으면 default insert)",
     response_model=schemas.TimelineResponse,
 )
-def get_timeline_api(
+def get_timeline(
     complaint: Complaint = Depends(get_owned_complaint),
     db: Session = Depends(get_db),
 ):
@@ -33,7 +33,7 @@ def get_timeline_api(
     response_model=schemas.TimelineEvidenceDetailResponse,
     responses=GET_TIMELINE_ERRORS_RESPONSES,
 )
-def get_timeline_evidences_api(
+def get_timeline_evidences(
     complaint: Complaint = Depends(get_owned_complaint),
     timeline_evidence_id: UUID = ...,
     db: Session = Depends(get_db),
@@ -52,7 +52,7 @@ def get_timeline_evidences_api(
     response_model=schemas.TimelineEvidenceMetadataResponse,
     responses=GET_TIMELINE_ERRORS_RESPONSES,
 )
-def update_timeline_evidence_api(
+def update_timeline_evidence(
     complaint: Complaint = Depends(get_owned_complaint),
     timeline_evidence_id: UUID = ...,
     request: schemas.UpdateTimelineEvidenceRequest = Body(...),
@@ -73,7 +73,7 @@ def update_timeline_evidence_api(
     response_model=schemas.ManualEvidencePresignedResponse,
     responses=GET_TIMELINE_ERRORS_RESPONSES,
 )
-def get_manual_evidence_presigned_url_api(
+def get_manual_evidence_presigned_url(
     complaint: Complaint = Depends(get_owned_complaint),
     request: schemas.ManualEvidencePresignedRequest = Body(...),
 ):
@@ -90,7 +90,7 @@ def get_manual_evidence_presigned_url_api(
     response_model=schemas.ManualEvidenceRegisterResponse,
     responses=GET_TIMELINE_ERRORS_RESPONSES | evidence_errors.REGISTER_EVIDENCE_ERRORS_RESPONSES,
 )
-def register_manual_evidences_api(
+def register_manual_evidences(
     complaint: Complaint = Depends(get_owned_complaint),
     timeline_evidence_id: UUID = ...,
     request: schemas.ManualEvidenceRegisterRequest = Body(...),

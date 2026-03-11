@@ -11,10 +11,8 @@ from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence.constant import (
     EVIDENCE_IMAGE_RESTRICT,
-    EVIDENCE_VICTIM_VIDEO_RESTRICT,
     EVIDENCE_VIDEO_RESTRICT,
     EVIDENCE_VOICE_AUDIO_RESTRICT,
-    EVIDENCE_VOICE_IMAGE_RESTRICT,
     EvidenceType,
     EvidenceVariant,
     FileType,
@@ -124,11 +122,13 @@ class TimelineService:
         timeline_evidence_id: UUID,
         timeline_id: UUID,
         db: Session,
+        is_ai_original: bool = True,
     ) -> _EvidenceMetadata:
         """
         has_thumbnail, thumbnail_url, duration_seconds를 한 번에 조회.
-        - is_original_evidence: evidence_type(MESSAGE, VICTIM, VOICE)으로 분기
-        - !is_original_evidence: file_type(IMAGE, AUDIO, VIDEO, DOCUMENT)으로 분기 (manual은 evidence_type 없음)
+        - is_ai_original=True: original(evidence_*) rows만 처리
+        - is_ai_original=False: manual rows만 처리
+        - 그룹은 항상 이미지 타입, index 순 첫 번째 이미지/비디오를 썸네일로 사용.
         """
         evidence_repo = TimelineEvidenceRepository(db)
         message_repo = EvidenceMessageRepository(db)
@@ -151,59 +151,15 @@ class TimelineService:
                 return None
             return manual_repo.get(row.manual_evidence_id) if row.manual_evidence_id else None
 
-        # original 먼저 (evidence_type 우선순위), manual 나중에
-        evidence_type_priority = {
-            EvidenceType.MESSAGE.value: 0,
-            EvidenceType.VICTIM.value: 1,
-            EvidenceType.VOICE.value: 2,
-        }
-        original_rows = sorted(
-            [
-                r
-                for r in rows
-                if r.is_original_evidence and r.evidence_type in evidence_type_priority
-            ],
-            key=lambda r: evidence_type_priority[r.evidence_type],
-        )
-        manual_rows = [r for r in rows if not r.is_original_evidence]
+        # is_ai_original에 따라 처리할 rows 선택 (index 순)
+        if is_ai_original:
+            target_rows = [r for r in rows if r.is_original_evidence]
+        else:
+            target_rows = [r for r in rows if not r.is_original_evidence]
 
         voice_audio_durations: list[int] = []
 
-        for row in original_rows:
-            entity = _get_entity(row)
-            if entity is None:
-                continue
-            if row.evidence_type == EvidenceType.MESSAGE.value:
-                return _EvidenceMetadata(
-                    has_thumbnail=True,
-                    thumbnail_url=self._detail_presigned_url(entity.s3_key),
-                    duration_seconds=None,
-                )
-            if row.evidence_type == EvidenceType.VICTIM.value:
-                dur = (
-                    entity.duration_seconds
-                    if entity.content_type in EVIDENCE_VICTIM_VIDEO_RESTRICT.allowed_types
-                    else None
-                )
-                return _EvidenceMetadata(
-                    has_thumbnail=True,
-                    thumbnail_url=self._detail_presigned_url(entity.s3_key),
-                    duration_seconds=dur,
-                )
-            if row.evidence_type == EvidenceType.VOICE.value:
-                if entity.content_type in EVIDENCE_VOICE_IMAGE_RESTRICT.allowed_types:
-                    return _EvidenceMetadata(
-                        has_thumbnail=True,
-                        thumbnail_url=self._detail_presigned_url(entity.s3_key),
-                        duration_seconds=None,
-                    )
-                if (
-                    entity.content_type in EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types
-                    and entity.duration_seconds
-                ):
-                    voice_audio_durations.append(entity.duration_seconds)
-
-        for row in manual_rows:
+        for row in target_rows:
             entity = _get_entity(row)
             if entity is None:
                 continue
@@ -219,19 +175,22 @@ class TimelineService:
                     duration_seconds=None,
                 )
             if ft == FileType.VIDEO:
+                dur = entity.duration_seconds
                 return _EvidenceMetadata(
                     has_thumbnail=True,
                     thumbnail_url=self._detail_presigned_url(entity.s3_key),
-                    duration_seconds=entity.duration_seconds,
+                    duration_seconds=dur,
                 )
-            if ft == FileType.AUDIO and entity.duration_seconds:
-                voice_audio_durations.append(entity.duration_seconds)
+            if ft == FileType.AUDIO:
+                dur = entity.duration_seconds
+                if dur:
+                    voice_audio_durations.append(dur)
 
         if voice_audio_durations:
             return _EvidenceMetadata(
                 has_thumbnail=False,
                 thumbnail_url="",
-                duration_seconds=max(voice_audio_durations),
+                duration_seconds=sum(voice_audio_durations),
             )
         return _EvidenceMetadata(has_thumbnail=False, thumbnail_url="", duration_seconds=None)
 
@@ -256,6 +215,7 @@ class TimelineService:
                                 timeline_evidence_id=eid,
                                 timeline_id=timeline.id,
                                 db=db,
+                                is_ai_original=ev.get("is_ai_original", True),
                             )
                             ev["has_thumbnail"] = meta.has_thumbnail
                             ev["thumbnail_url"] = meta.thumbnail_url

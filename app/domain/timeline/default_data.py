@@ -38,6 +38,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         }
                     ],
                 },
@@ -54,6 +55,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         }
                     ],
                 },
@@ -70,6 +72,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         }
                     ],
                 },
@@ -91,6 +94,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         }
                     ],
                 },
@@ -107,6 +111,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         }
                     ],
                 },
@@ -123,6 +128,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         },
                         {
                             "timeline_evidence_id": str(EVIDENCE_ID_7),
@@ -134,6 +140,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         },
                     ],
                 },
@@ -155,6 +162,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         }
                     ],
                 },
@@ -171,6 +179,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         }
                     ],
                 },
@@ -192,6 +201,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         }
                     ],
                 },
@@ -208,6 +218,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         }
                     ],
                 },
@@ -229,6 +240,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         }
                     ],
                 },
@@ -245,6 +257,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         },
                         {
                             "timeline_evidence_id": str(EVIDENCE_ID_14),
@@ -256,6 +269,7 @@ DEFAULT_TIMELINE_JSON = {
                             "has_thumbnail": False,
                             "thumbnail_url": "",
                             "duration_seconds": None,
+                            "is_ai_original": True,
                         },
                     ],
                 },
