@@ -6,7 +6,7 @@ from app.base.base_response import BaseResponse
 from app.domain.timeline.constant import TimelineTag
 
 
-class TimelineEvidenceResponse(BaseResponse):
+class TimelineEvidence(BaseResponse):
     """타임라인 증거 항목. 시각이 겹칠 때 index로 정렬."""
 
     timeline_evidence_id: UUID = Field(..., description="증거 그룹 ID (timeline JSON 내)")
@@ -32,23 +32,27 @@ class TimelineEvidenceResponse(BaseResponse):
         None,
         description="영상/음성 길이(초)",
     )
+    is_ai_original: bool = Field(
+        True,
+        description="AI 분석 증거 여부. True: AI 생성, False: 수동 추가",
+    )
 
 
-class TimelineEventResponse(BaseResponse):
+class TimelineEvent(BaseResponse):
     """타임라인 이벤트. 시각 + 해당 시각의 증거 목록."""
 
     time: str = Field(..., description="시각 HH:MM (예: 11:30, 17:00)")
-    evidences: list[TimelineEvidenceResponse] = Field(
+    evidences: list[TimelineEvidence] = Field(
         default_factory=list,
         description="해당 시각의 증거 목록. 시각 기준 정렬 후 index 기준 2차 정렬",
     )
 
 
-class TimelineDateGroupResponse(BaseResponse):
+class TimelineDateGroup(BaseResponse):
     """날짜별 타임라인 그룹."""
 
     date: str = Field(..., description="날짜 (YYYY-MM-DD)")
-    events: list[TimelineEventResponse] = Field(
+    events: list[TimelineEvent] = Field(
         default_factory=list,
         description="해당 날짜의 이벤트 목록. 시각 기준 정렬",
     )
@@ -57,14 +61,14 @@ class TimelineDateGroupResponse(BaseResponse):
 class TimelineResponse(BaseResponse):
     """타임라인 전체 응답. 날짜 > 시각 > 증거 계층 구조."""
 
-    items: list[TimelineDateGroupResponse] = Field(
+    items: list[TimelineDateGroup] = Field(
         default_factory=list,
         description="날짜별 타임라인 그룹 목록",
     )
 
 
-class TimelineEvidenceItemResponse(BaseResponse):
-    """타임라인 증거 상세 항목 (original/manual 구분 없이 단일 파일)."""
+class TimelineEvidenceItem(BaseResponse):
+    """타임라인 증거 상세 항목 (단일 파일)."""
 
     id: UUID = Field(..., description="증거 ID (evidence_id 또는 manual_evidence_id)")
     filename: str = Field(..., description="파일명")
@@ -89,22 +93,6 @@ class TimelineEvidenceItemResponse(BaseResponse):
     )
 
 
-class TimelineEvidenceMetadataResponse(BaseResponse):
-    """타임라인 증거 메타데이터만 (PATCH 수정 응답용)."""
-
-    timeline_evidence_id: UUID = Field(..., description="증거 그룹 ID")
-    index: int = Field(..., description="동일 시각 내 정렬 순서")
-    date: str = Field(..., description="날짜 (YYYY-MM-DD)")
-    time: str = Field(..., description="시각 HH:MM")
-    title: str = Field(..., description="제목")
-    description: str = Field(..., description="설명")
-    tags: list[TimelineTag] = Field(
-        default_factory=list,
-        description="태그 (REPEAT, PHYSICAL_HARM, THREAT_COERCION, SEXUAL_INSULT, REFUSAL_INTENT)",
-        examples=[["REPEAT", "THREAT_COERCION"]],
-    )
-
-
 class TimelineEvidenceDetailResponse(BaseResponse):
     """timeline_evidence_id에 해당하는 타임라인 증거 메타데이터 + 증거 목록 조회 응답."""
 
@@ -120,19 +108,35 @@ class TimelineEvidenceDetailResponse(BaseResponse):
     )
     referenced_evidence_count: int = Field(
         ...,
-        description="해당 타임라인 증거 그룹 내 증거 수 (original + manual)",
+        description="해당 타임라인 증거 그룹 내 증거 수",
     )
-    original_evidences: list[TimelineEvidenceItemResponse] = Field(
-        default_factory=list,
-        description="AI 분석 증거",
+    is_ai_original: bool = Field(
+        ...,
+        description="AI 분석 증거 여부. True: AI 생성, False: 수동 추가",
     )
-    manual_evidences: list[TimelineEvidenceItemResponse] = Field(
+    evidences: list[TimelineEvidenceItem] = Field(
         default_factory=list,
-        description="수동 추가 증거",
+        description="증거 목록 (index 순)",
     )
 
 
-class ManualEvidencePresignedItemResponse(BaseResponse):
+class TimelineEvidenceMetadataResponse(BaseResponse):
+    """타임라인 증거 메타데이터 수정(PATCH) 응답."""
+
+    timeline_evidence_id: UUID = Field(..., description="증거 그룹 ID")
+    index: int = Field(..., description="동일 시각 내 정렬 순서")
+    date: str = Field(..., description="날짜 (YYYY-MM-DD)")
+    time: str = Field(..., description="시각 HH:MM")
+    title: str = Field(..., description="제목")
+    description: str = Field(..., description="설명")
+    tags: list[TimelineTag] = Field(
+        default_factory=list,
+        description="태그 (REPEAT, PHYSICAL_HARM, THREAT_COERCION, SEXUAL_INSULT, REFUSAL_INTENT)",
+        examples=[["REPEAT", "THREAT_COERCION"]],
+    )
+
+
+class ManualEvidencePresignedItem(BaseResponse):
     index: int = Field(..., description="요청 item의 index")
     filename: str = Field(..., description="파일명")
     url: str = Field(..., description="S3 PUT 업로드용 presigned URL")
@@ -140,12 +144,10 @@ class ManualEvidencePresignedItemResponse(BaseResponse):
 
 
 class ManualEvidencePresignedResponse(BaseResponse):
-    items: list[ManualEvidencePresignedItemResponse] = Field(
-        ..., description="발급된 Presigned URL 목록"
-    )
+    items: list[ManualEvidencePresignedItem] = Field(..., description="발급된 Presigned URL 목록")
 
 
-class ManualEvidenceRegisterItemResponse(BaseResponse):
+class ManualEvidenceRegisterItem(BaseResponse):
     manual_evidence_id: UUID = Field(..., description="수동 증거 ID")
     file_type: str = Field(..., description="파일 타입. IMAGE, AUDIO, VIDEO, DOCUMENT, ETC")
     filename: str = Field(..., description="파일명")
@@ -155,6 +157,4 @@ class ManualEvidenceRegisterItemResponse(BaseResponse):
 
 
 class ManualEvidenceRegisterResponse(BaseResponse):
-    items: list[ManualEvidenceRegisterItemResponse] = Field(
-        ..., description="등록된 수동 증거 목록"
-    )
+    items: list[ManualEvidenceRegisterItem] = Field(..., description="등록된 수동 증거 목록")

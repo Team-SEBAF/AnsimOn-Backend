@@ -233,29 +233,17 @@ class TimelineService:
         timeline_evidence_id: UUID,
         db: Session,
     ) -> schemas.TimelineEvidenceDetailResponse:
-        """timeline_evidence_id에 해당하는 타임라인 증거 메타데이터 + original/manual 증거 목록 조회."""
-        # TODO: AI 연결 전까지 시드 데이터로 조회
-        complaint_id = SEED_COMPLAINT_ID
-
+        """timeline_evidence_id에 해당하는 타임라인 증거 메타데이터 + 증거 목록 조회."""
         timeline_repo = TimelineRepository(db)
-        timeline = timeline_repo.get_by_complaint_id(complaint_id)
+        timeline_evidence_repo = TimelineEvidenceRepository(db)
 
+        timeline_id = timeline_repo.get_id_by_complaint_id(complaint_id)
         ev_meta = timeline_repo.get_evidence_metadata_from_json(complaint_id, timeline_evidence_id)
+        is_ai_original = ev_meta.get("is_ai_original", True) if ev_meta else True
 
-        evidence_repo = TimelineEvidenceRepository(db)
-        message_repo = EvidenceMessageRepository(db)
-        victim_repo = EvidenceVictimRepository(db)
-        voice_repo = EvidenceVoiceRepository(db)
-        report_record_repo = EvidenceReportRecordRepository(db)
-        incident_log_repo = EvidenceIncidentLogRepository(db)
-        incident_log_file_repo = EvidenceIncidentLogFileRepository(db)
-        manual_repo = TimelineManualEvidenceRepository(db)
-
-        rows = evidence_repo.list_by_timeline_evidence_id(timeline.id, timeline_evidence_id)
-        manual_entities = {
-            e.id: e
-            for e in manual_repo.list_by_timeline_evidence_id(timeline.id, timeline_evidence_id)
-        }
+        rows = timeline_evidence_repo.list_by_timeline_evidence_id(
+            timeline_id, timeline_evidence_id
+        )
 
         base_response = {
             "timeline_evidence_id": timeline_evidence_id,
@@ -266,10 +254,11 @@ class TimelineService:
             "description": ev_meta.get("description", "") if ev_meta else "",
             "tags": ev_meta.get("tags", []) if ev_meta else [],
             "referenced_evidence_count": len(rows),
+            "is_ai_original": is_ai_original,
         }
 
         if not rows:
-            return schemas.TimelineEvidenceDetailResponse(**base_response)
+            return schemas.TimelineEvidenceDetailResponse(**base_response, evidences=[])
 
         def _to_item(
             id: UUID,
@@ -280,7 +269,7 @@ class TimelineService:
             duration_seconds: int | None,
             evidence_type: str | None,
             file_type: str,
-        ) -> schemas.TimelineEvidenceItemResponse:
+        ) -> schemas.TimelineEvidenceItem:
             ft = (
                 FileType(file_type)
                 if file_type
@@ -294,7 +283,7 @@ class TimelineService:
                 else ""
             )
             dur = duration_seconds if ft in (FileType.VIDEO, FileType.AUDIO) else None
-            return schemas.TimelineEvidenceItemResponse(
+            return schemas.TimelineEvidenceItem(
                 id=id,
                 filename=filename,
                 size_bytes=size_bytes,
@@ -304,15 +293,20 @@ class TimelineService:
                 file_type=ft.value,
             )
 
-        original_items: list[schemas.TimelineEvidenceItemResponse] = []
-        manual_items: list[schemas.TimelineEvidenceItemResponse] = []
+        evidence_items: list[schemas.TimelineEvidenceItem] = []
 
-        for row in rows:
-            if row.is_original_evidence:
+        if is_ai_original:
+            message_repo = EvidenceMessageRepository(db)
+            victim_repo = EvidenceVictimRepository(db)
+            voice_repo = EvidenceVoiceRepository(db)
+            report_record_repo = EvidenceReportRecordRepository(db)
+            incident_log_repo = EvidenceIncidentLogRepository(db)
+            incident_log_file_repo = EvidenceIncidentLogFileRepository(db)
+            for row in rows:
                 if row.evidence_type == EvidenceType.MESSAGE.value:
                     entity = message_repo.get(row.evidence_id)
                     if entity:
-                        original_items.append(
+                        evidence_items.append(
                             _to_item(
                                 entity.message_id,
                                 entity.filename,
@@ -327,7 +321,7 @@ class TimelineService:
                 elif row.evidence_type == EvidenceType.VICTIM.value:
                     entity = victim_repo.get(row.evidence_id)
                     if entity:
-                        original_items.append(
+                        evidence_items.append(
                             _to_item(
                                 entity.victim_id,
                                 entity.filename,
@@ -342,7 +336,7 @@ class TimelineService:
                 elif row.evidence_type == EvidenceType.VOICE.value:
                     entity = voice_repo.get(row.evidence_id)
                     if entity:
-                        original_items.append(
+                        evidence_items.append(
                             _to_item(
                                 entity.voice_id,
                                 entity.filename,
@@ -357,7 +351,7 @@ class TimelineService:
                 elif row.evidence_type == EvidenceType.REPORT_RECORD.value:
                     entity = report_record_repo.get(row.evidence_id)
                     if entity:
-                        original_items.append(
+                        evidence_items.append(
                             _to_item(
                                 entity.report_record_id,
                                 entity.filename,
@@ -376,7 +370,7 @@ class TimelineService:
                     if log.type == EvidenceIncidentLogType.FILE:
                         f = incident_log_file_repo.get(log.incident_log_id)
                         if f:
-                            original_items.append(
+                            evidence_items.append(
                                 _to_item(
                                     log.incident_log_id,
                                     log.name,
@@ -389,7 +383,7 @@ class TimelineService:
                                 )
                             )
                     elif log.type == EvidenceIncidentLogType.FORM_DATA:
-                        original_items.append(
+                        evidence_items.append(
                             _to_item(
                                 log.incident_log_id,
                                 log.name,
@@ -401,10 +395,16 @@ class TimelineService:
                                 FileType.DOCUMENT.value,
                             )
                         )
-            else:
+        else:
+            manual_repo = TimelineManualEvidenceRepository(db)
+            manual_entities = {
+                e.id: e
+                for e in manual_repo.list_by_timeline_evidence_id(timeline_id, timeline_evidence_id)
+            }
+            for row in rows:
                 entity = manual_entities.get(row.manual_evidence_id)
                 if entity:
-                    manual_items.append(
+                    evidence_items.append(
                         _to_item(
                             entity.id,
                             entity.filename,
@@ -419,11 +419,10 @@ class TimelineService:
 
         return schemas.TimelineEvidenceDetailResponse(
             **base_response,
-            original_evidences=original_items,
-            manual_evidences=manual_items,
+            evidences=evidence_items,
         )
 
-    def update_timeline_evidence(
+    def update_timeline_evidence_form_data(
         self,
         complaint_id: UUID,
         timeline_evidence_id: UUID,
@@ -431,27 +430,17 @@ class TimelineService:
         db: Session,
     ) -> schemas.TimelineEvidenceMetadataResponse:
         """타임라인 증거 메타데이터 수정. req body 키에 대해서만 JSON 값 수정. (증거 수정, 삭제 X)"""
-        # TODO: AI 연결 전까지 시드 데이터로 조회
-        cid = SEED_COMPLAINT_ID
         timeline_repo = TimelineRepository(db)
         updates = request.model_dump(exclude_unset=True, mode="json")
-        timeline_repo.update_evidence_json(cid, timeline_evidence_id, updates)
+        timeline_repo.update_evidence_json(complaint_id, timeline_evidence_id, updates)
         db.commit()
-        ev_meta = timeline_repo.get_evidence_metadata_from_json(cid, timeline_evidence_id)
-        raw_tags = ev_meta.get("tags", []) if ev_meta else []
-        tags = [
-            TimelineTag(t) if isinstance(t, str) else t
-            for t in raw_tags
-            if (isinstance(t, str) and t in [e.value for e in TimelineTag])
-            or isinstance(t, TimelineTag)
-        ]
+
+        ev_meta = timeline_repo.get_evidence_metadata_from_json(complaint_id, timeline_evidence_id)
+        ev_meta = ev_meta or {}
+        tags = [TimelineTag(t) if isinstance(t, str) else t for t in ev_meta.get("tags", [])]
         return schemas.TimelineEvidenceMetadataResponse(
             timeline_evidence_id=timeline_evidence_id,
-            index=ev_meta.get("index", 1) if ev_meta else 1,
-            date=ev_meta.get("date", "") if ev_meta else "",
-            time=ev_meta.get("time", "") if ev_meta else "",
-            title=ev_meta.get("title", "") if ev_meta else "",
-            description=ev_meta.get("description", "") if ev_meta else "",
+            **ev_meta,
             tags=tags,
         )
 
@@ -473,7 +462,7 @@ class TimelineService:
         )
         return schemas.ManualEvidencePresignedResponse(
             items=[
-                schemas.ManualEvidencePresignedItemResponse(
+                schemas.ManualEvidencePresignedItem(
                     index=r["index"],
                     filename=r["filename"],
                     url=r["url"],
@@ -633,7 +622,7 @@ class TimelineService:
             _upload_detail_and_build_row(r)
         db.commit()
         results_resp = [
-            schemas.ManualEvidenceRegisterItemResponse(
+            schemas.ManualEvidenceRegisterItem(
                 manual_evidence_id=r["manual_evidence_id"],
                 file_type=get_file_type_from_content_type(r["content_type"]).value,
                 filename=r["filename"],

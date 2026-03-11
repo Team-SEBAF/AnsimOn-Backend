@@ -14,6 +14,10 @@ class TimelineRepository(BaseRepository):
     def get_by_complaint_id(self, complaint_id: UUID) -> Timeline | None:
         return self.db.query(Timeline).filter(Timeline.complaint_id == complaint_id).first()
 
+    def get_id_by_complaint_id(self, complaint_id: UUID) -> UUID | None:
+        row = self.db.query(Timeline.id).filter(Timeline.complaint_id == complaint_id).first()
+        return row[0] if row else None
+
     def get_evidence_metadata_from_json(
         self, complaint_id: UUID, timeline_evidence_id: UUID
     ) -> dict | None:
@@ -41,6 +45,7 @@ class TimelineRepository(BaseRepository):
                 ev.c.value.op("->>")("title").label("title"),
                 ev.c.value.op("->>")("description").label("description"),
                 ev.c.value.op("->")("tags").label("tags"),
+                ev.c.value.op("->>")("is_ai_original").label("is_ai_original"),
             )
             .select_from(Timeline.__table__)
             .join(dg, true())
@@ -59,6 +64,9 @@ class TimelineRepository(BaseRepository):
         if not row:
             return None
         tags = row.tags if isinstance(row.tags, list) else []
+        is_ai_original = (
+            str(row.is_ai_original).lower() == "true" if row.is_ai_original is not None else True
+        )
         return {
             "date": row.date or "",
             "time": row.time or "",
@@ -66,6 +74,7 @@ class TimelineRepository(BaseRepository):
             "title": row.title or "",
             "description": row.description or "",
             "tags": tags,
+            "is_ai_original": is_ai_original,
         }
 
     def update_evidence_json(
