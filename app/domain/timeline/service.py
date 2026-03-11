@@ -35,7 +35,7 @@ from app.domain.evidence_voice.repos.evidence_voice_repository import (
     EvidenceVoiceRepository,
 )
 from app.domain.timeline import schemas
-from app.domain.timeline.constant import SEED_COMPLAINT_ID
+from app.domain.timeline.constant import SEED_COMPLAINT_ID, TimelineTag
 from app.domain.timeline.default_data import (
     DEFAULT_TIMELINE_EVIDENCES,
     DEFAULT_TIMELINE_JSON,
@@ -454,6 +454,38 @@ class TimelineService:
             **base_response,
             original_evidences=original_items,
             manual_evidences=manual_items,
+        )
+
+    def update_timeline_evidence(
+        self,
+        complaint_id: UUID,
+        timeline_evidence_id: UUID,
+        request: schemas.UpdateTimelineEvidenceRequest,
+        db: Session,
+    ) -> schemas.TimelineEvidenceMetadataResponse:
+        """타임라인 증거 메타데이터 수정. req body 키에 대해서만 JSON 값 수정. (증거 수정, 삭제 X)"""
+        # TODO: AI 연결 전까지 시드 데이터로 조회
+        cid = SEED_COMPLAINT_ID
+        timeline_repo = TimelineRepository(db)
+        updates = request.model_dump(exclude_unset=True, mode="json")
+        timeline_repo.update_evidence_json(cid, timeline_evidence_id, updates)
+        db.commit()
+        ev_meta = timeline_repo.get_evidence_metadata_from_json(cid, timeline_evidence_id)
+        raw_tags = ev_meta.get("tags", []) if ev_meta else []
+        tags = [
+            TimelineTag(t) if isinstance(t, str) else t
+            for t in raw_tags
+            if (isinstance(t, str) and t in [e.value for e in TimelineTag])
+            or isinstance(t, TimelineTag)
+        ]
+        return schemas.TimelineEvidenceMetadataResponse(
+            timeline_evidence_id=timeline_evidence_id,
+            index=ev_meta.get("index", 1) if ev_meta else 1,
+            date=ev_meta.get("date", "") if ev_meta else "",
+            time=ev_meta.get("time", "") if ev_meta else "",
+            title=ev_meta.get("title", "") if ev_meta else "",
+            description=ev_meta.get("description", "") if ev_meta else "",
+            tags=tags,
         )
 
 

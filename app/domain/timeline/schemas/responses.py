@@ -89,6 +89,22 @@ class TimelineEvidenceItemResponse(BaseResponse):
     )
 
 
+class TimelineEvidenceMetadataResponse(BaseResponse):
+    """타임라인 증거 메타데이터만 (PATCH 수정 응답용)."""
+
+    timeline_evidence_id: UUID = Field(..., description="증거 그룹 ID")
+    index: int = Field(..., description="동일 시각 내 정렬 순서")
+    date: str = Field(..., description="날짜 (YYYY-MM-DD)")
+    time: str = Field(..., description="시각 HH:MM")
+    title: str = Field(..., description="제목")
+    description: str = Field(..., description="설명")
+    tags: list[TimelineTag] = Field(
+        default_factory=list,
+        description="태그 (REPEAT, PHYSICAL_HARM, THREAT_COERCION, SEXUAL_INSULT, REFUSAL_INTENT)",
+        examples=[["REPEAT", "THREAT_COERCION"]],
+    )
+
+
 class TimelineEvidenceDetailResponse(BaseResponse):
     """timeline_evidence_id에 해당하는 타임라인 증거 메타데이터 + 증거 목록 조회 응답."""
 

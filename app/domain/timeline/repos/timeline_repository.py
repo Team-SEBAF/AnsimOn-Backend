@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from sqlalchemy import Integer, cast, func, or_, select, true
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.base.base_repository import BaseRepository
 from app.domain.timeline.models import Timeline, TimelineEvidence, TimelineManualEvidence
@@ -66,6 +67,81 @@ class TimelineRepository(BaseRepository):
             "description": row.description or "",
             "tags": tags,
         }
+
+    def update_evidence_json(
+        self, complaint_id: UUID, timeline_evidence_id: UUID, updates: dict
+    ) -> None:
+        """timeline_json에서 timeline_evidence_id에 해당하는 객체 수정. date/time 변경 시 슬롯 이동, 동일 시각 있으면 index=max+1."""
+        if not updates:
+            return
+        timeline = self.get_by_complaint_id(complaint_id)
+        if not timeline:
+            return
+        items = timeline.timeline_json.setdefault("items", [])
+        ev_id_str = str(timeline_evidence_id)
+
+        found_ev = None
+        old_date = old_time = ""
+        old_dg = old_evt = None
+        old_ev_idx = -1
+
+        for dg in items:
+            for evt in dg.get("events", []):
+                evidences = evt.get("evidences", [])
+                for i, ev in enumerate(evidences):
+                    eid = ev.get("timeline_evidence_id") or ev.get("id")
+                    if eid and str(eid) == ev_id_str:
+                        found_ev = ev
+                        old_date = dg.get("date", "")
+                        old_time = evt.get("time", "")
+                        old_dg, old_evt, old_ev_idx = dg, evt, i
+                        break
+                if found_ev:
+                    break
+            if found_ev:
+                break
+
+        if not found_ev:
+            return
+
+        new_date = updates.get("date", old_date) or old_date
+        new_time = updates.get("time", old_time) or old_time
+
+        for k, v in updates.items():
+            if v is not None:
+                found_ev[k] = v
+
+        if (new_date, new_time) != (old_date, old_time):
+            evidences = old_evt["evidences"]
+            evidences.pop(old_ev_idx)
+            if not evidences:
+                old_dg["events"].remove(old_evt)
+            if not old_dg["events"]:
+                items.remove(old_dg)
+
+            target_evidences = None
+            for dg in items:
+                if dg.get("date") != new_date:
+                    continue
+                for evt in dg.get("events", []):
+                    if evt.get("time") == new_time:
+                        target_evidences = evt.setdefault("evidences", [])
+                        break
+                if target_evidences is not None:
+                    break
+                dg.setdefault("events", []).append({"time": new_time, "evidences": []})
+                target_evidences = dg["events"][-1]["evidences"]
+                break
+
+            if target_evidences is None:
+                items.append({"date": new_date, "events": [{"time": new_time, "evidences": []}]})
+                target_evidences = items[-1]["events"][0]["evidences"]
+
+            found_ev["index"] = max((e.get("index", 1) for e in target_evidences), default=0) + 1
+            target_evidences.append(found_ev)
+
+        timeline.timeline_json["items"] = [dg for dg in items if dg.get("events")]
+        flag_modified(timeline, "timeline_json")
 
 
 class TimelineEvidenceRepository(BaseRepository):

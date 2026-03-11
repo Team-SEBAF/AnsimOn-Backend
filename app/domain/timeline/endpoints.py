@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Body, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -40,5 +40,26 @@ def get_timeline_evidences_api(
     return timeline_service.get_timeline_evidences(
         complaint.complaint_id,
         timeline_evidence_id,
+        db,
+    )
+
+
+@router.patch(
+    "/{complaint_id}/timeline/evidences/{timeline_evidence_id}",
+    summary="타임라인 증거 메타데이터 수정",
+    description="타임라인 증거의 날짜, 시각, 제목, 설명, 태그를 수정합니다. (증거 수정, 삭제 X)",
+    response_model=schemas.TimelineEvidenceMetadataResponse,
+    responses=GET_TIMELINE_ERRORS_RESPONSES,
+)
+def update_timeline_evidence_api(
+    complaint: Complaint = Depends(get_owned_complaint),
+    timeline_evidence_id: UUID = ...,
+    request: schemas.UpdateTimelineEvidenceRequest = Body(...),
+    db: Session = Depends(get_db),
+):
+    return timeline_service.update_timeline_evidence(
+        complaint.complaint_id,
+        timeline_evidence_id,
+        request,
         db,
     )
