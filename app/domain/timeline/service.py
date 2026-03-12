@@ -1,19 +1,32 @@
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from dataclasses import dataclass
+from io import BytesIO
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.aws import download_s3_object, upload_fileobj
+from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence.constant import (
+    EVIDENCE_IMAGE_RESTRICT,
+    EVIDENCE_VIDEO_RESTRICT,
+    EVIDENCE_VOICE_AUDIO_RESTRICT,
     EvidenceType,
     EvidenceVariant,
     FileType,
     get_file_type_from_content_type,
 )
+from app.domain.evidence.errors.register_validation_error import (
+    raise_evidence_register_validation_failed,
+)
 from app.domain.evidence.service import evidence_type_service
 from app.domain.evidence.utils import (
+    collect_register_failures_from_metadata,
+    fetch_s3_metadata_for_register,
     generate_presigned_urls_for_unrestricted_content,
+    get_restrict_by_content_type,
 )
 from app.domain.evidence_incident_log.models.evidence_incident_log_model import (
     EvidenceIncidentLogType,
@@ -25,22 +38,25 @@ from app.domain.evidence_incident_log.repos.evidence_incident_log_repository imp
 from app.domain.evidence_message.repos.evidence_message_repository import (
     EvidenceMessageRepository,
 )
+from app.domain.evidence_message.utils import make_image_top_crop
 from app.domain.evidence_report_record.repos.evidence_report_record_repository import (
     EvidenceReportRecordRepository,
 )
 from app.domain.evidence_victim.repos.evidence_victim_repository import (
     EvidenceVictimRepository,
 )
+from app.domain.evidence_victim.utils import get_video_duration, get_video_image_at_0
 from app.domain.evidence_voice.repos.evidence_voice_repository import (
     EvidenceVoiceRepository,
 )
+from app.domain.evidence_voice.utils import get_audio_duration
 from app.domain.timeline import schemas
 from app.domain.timeline.constant import TimelineTag
 from app.domain.timeline.default_data import (
     DEFAULT_TIMELINE_EVIDENCES,
     DEFAULT_TIMELINE_JSON,
 )
-from app.domain.timeline.models import Timeline, TimelineEvidence
+from app.domain.timeline.models import Timeline, TimelineEvidence, TimelineManualEvidence
 from app.domain.timeline.repos import (
     TimelineEvidenceRepository,
     TimelineManualEvidenceRepository,
@@ -508,13 +524,13 @@ class TimelineService:
             tags=request.tags,
         )
 
-    def get_manual_timeline_evidence_presigned_url(
+    def get_referenced_manual_evidence_presigned_url(
         self,
         complaint: Complaint,
         timeline_evidence_id: UUID,
         request: schemas.ManualTimelineEvidencePresignedRequest,
         db: Session,
-    ) -> schemas.ManualTimelineEvidencePresignedResponse:
+    ) -> schemas.ReferencedManualEvidencePresignedResponse:
         self._ensure_timeline_evidence_is_manual(
             complaint_id=complaint.complaint_id,
             timeline_evidence_id=timeline_evidence_id,
@@ -530,9 +546,9 @@ class TimelineService:
             s3_key_builder=s3_key_builder,
             id_field_name="referenced_manual_evidence_id",
         )
-        return schemas.ManualTimelineEvidencePresignedResponse(
+        return schemas.ReferencedManualEvidencePresignedResponse(
             items=[
-                schemas.ManualTimelineEvidencePresignedItem(
+                schemas.ReferencedManualEvidencePresignedItem(
                     index=r["index"],
                     filename=r["filename"],
                     url=r["url"],
@@ -542,173 +558,163 @@ class TimelineService:
             ]
         )
 
+    def register_referenced_manual_evidences(
+        self,
+        complaint: Complaint,
+        timeline_evidence_id: UUID,
+        request: schemas.ManualTimelineEvidenceRegisterRequest,
+        db: Session,
+    ) -> schemas.ReferencedManualEvidenceRegisterResponse:
+        self._ensure_timeline_evidence_is_manual(
+            complaint_id=complaint.complaint_id,
+            timeline_evidence_id=timeline_evidence_id,
+            db=db,
+        )
 
-#     def register_manual_evidences(
-#         self,
-#         complaint: Complaint,
-#         timeline_evidence_id: UUID,
-#         request: schemas.ManualTimelineEvidenceRegisterRequest,
-#         db: Session,
-#     ) -> schemas.ManualTimelineEvidenceRegisterResponse:
-#         """직접 추가 증거 등록. image/video는 detail 추출 후 S3 업로드."""
-#         self._ensure_timeline_evidence_is_manual(
-#             complaint_id=complaint.complaint_id,
-#             timeline_evidence_id=timeline_evidence_id,
-#             db=db,
-#         )
-#         cid = SEED_COMPLAINT_ID
-#         timeline_repo = TimelineRepository(db)
-#         timeline = timeline_repo.get_by_complaint_id(cid)
+        path_segment = f"{timeline_evidence_id}"
+        metadata_list = fetch_s3_metadata_for_register(
+            complaint=complaint,
+            items=request.items,
+            path_segment=path_segment,
+            get_evidence_id=lambda item: item.referenced_manual_evidence_id,
+            build_extra=lambda item, s3_key, ct, size: {
+                "referenced_manual_evidence_id": item.referenced_manual_evidence_id,
+                "timeline_evidence_id": timeline_evidence_id,
+                "filename": item.filename,
+            },
+            path_prefix="timeline-manual-evidences",
+        )
 
-#         metadata_list = fetch_s3_metadata_for_register(
-#             complaint=complaint,
-#             items=request.items,
-#             path_segment="manual-evidences",
-#             get_evidence_id=lambda item: item.referenced_manual_evidence_id,
-#             build_extra=lambda item, s3_key, ct, size: {
-#                 "referenced_manual_evidence_id": item.referenced_manual_evidence_id,
-#                 "complaint_id": cid,
-#                 "filename": item.filename,
-#             },
-#             path_prefix="timeline",
-#         )
-#         size_bytes_failed_ids: list[str] = []
-#         valid_metadata: list[dict] = []
-#         for m in metadata_list:
-#             aid_str = str(m["referenced_manual_evidence_id"])
-#             r = get_restrict_by_content_type(m.get("content_type", ""))
-#             if m.get("size_bytes", 0) > r.max_size_bytes:
-#                 size_bytes_failed_ids.append(aid_str)
-#                 continue
-#             valid_metadata.append(m)
+        (
+            size_bytes_failed_ids,
+            valid_metadata,
+        ) = collect_register_failures_from_metadata(metadata_list, "referenced_manual_evidence_id")
 
-#         def _process_manual_item(m: dict) -> tuple[dict | None, str | None]:
-#             ct = m["content_type"]
-#             r = get_restrict_by_content_type(ct)
-#             duration_seconds = None
-#             file_bytes = None
-#             if ct in EVIDENCE_VIDEO_RESTRICT.allowed_types:
-#                 try:
-#                     file_bytes = download_s3_object(settings.S3_BUCKET_NAME, m["s3_key"])
-#                     duration_seconds = get_video_duration(file_bytes)
-#                     if r.max_duration_seconds and duration_seconds > r.max_duration_seconds:
-#                         return None, str(m["referenced_manual_evidence_id"])
-#                 except Exception:
-#                     return None, str(m["referenced_manual_evidence_id"])
-#             elif ct in EVIDENCE_IMAGE_RESTRICT.allowed_types:
-#                 duration_seconds = 0
-#                 try:
-#                     file_bytes = download_s3_object(settings.S3_BUCKET_NAME, m["s3_key"])
-#                 except Exception:
-#                     return None, str(m["referenced_manual_evidence_id"])
-#             elif ct in EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types:
-#                 try:
-#                     file_bytes = download_s3_object(settings.S3_BUCKET_NAME, m["s3_key"])
-#                     duration_seconds = get_audio_duration(file_bytes)
-#                     if r.max_duration_seconds and duration_seconds > r.max_duration_seconds:
-#                         return None, str(m["referenced_manual_evidence_id"])
-#                 except (ValueError, TypeError):
-#                     return None, str(m["referenced_manual_evidence_id"])
-#             row = {
-#                 "referenced_manual_evidence_id": m["referenced_manual_evidence_id"],
-#                 "complaint_id": m["complaint_id"],
-#                 "filename": m["filename"],
-#                 "s3_key": m["s3_key"],
-#                 "content_type": ct,
-#                 "size_bytes": m["size_bytes"],
-#                 "duration_seconds": duration_seconds,
-#                 "_file_bytes": file_bytes,
-#             }
-#             return row, None
+        def _process_manual_item(m: dict) -> tuple[dict | None, str | None]:
+            ct = m["content_type"]
+            r = get_restrict_by_content_type(ct)
+            duration_seconds = None
+            file_bytes = None
+            if ct in EVIDENCE_VIDEO_RESTRICT.allowed_types:
+                try:
+                    file_bytes = download_s3_object(settings.S3_BUCKET_NAME, m["s3_key"])
+                    duration_seconds = get_video_duration(file_bytes)
+                    if r.max_duration_seconds and duration_seconds > r.max_duration_seconds:
+                        return None, str(m["referenced_manual_evidence_id"])
+                except Exception:
+                    return None, str(m["referenced_manual_evidence_id"])
+            elif ct in EVIDENCE_IMAGE_RESTRICT.allowed_types:
+                duration_seconds = 0
+                try:
+                    file_bytes = download_s3_object(settings.S3_BUCKET_NAME, m["s3_key"])
+                except Exception:
+                    return None, str(m["referenced_manual_evidence_id"])
+            elif ct in EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types:
+                try:
+                    file_bytes = download_s3_object(settings.S3_BUCKET_NAME, m["s3_key"])
+                    duration_seconds = get_audio_duration(file_bytes)
+                    if r.max_duration_seconds and duration_seconds > r.max_duration_seconds:
+                        return None, str(m["referenced_manual_evidence_id"])
+                except (ValueError, TypeError):
+                    return None, str(m["referenced_manual_evidence_id"])
+            if file_bytes and ct in (
+                EVIDENCE_VIDEO_RESTRICT.allowed_types | EVIDENCE_IMAGE_RESTRICT.allowed_types
+            ):
+                base_key = m["s3_key"].rsplit("/", 1)[0]
+                detail_key = f"{base_key}/detail"
+                if ct in EVIDENCE_VIDEO_RESTRICT.allowed_types:
+                    detail_bytes, _, _ = get_video_image_at_0(file_bytes, size=400, quality=75)
+                else:
+                    detail_bytes, _, _ = make_image_top_crop(
+                        file_bytes=file_bytes, size=400, quality=75
+                    )
+                upload_fileobj(
+                    fileobj=BytesIO(detail_bytes),
+                    bucket=settings.S3_BUCKET_NAME,
+                    key=detail_key,
+                    content_type="image/jpeg",
+                )
+            row = {
+                "referenced_manual_evidence_id": m["referenced_manual_evidence_id"],
+                "timeline_evidence_id": m["timeline_evidence_id"],
+                "filename": m["filename"],
+                "s3_key": m["s3_key"],
+                "content_type": ct,
+                "size_bytes": m["size_bytes"],
+                "duration_seconds": duration_seconds,
+            }
+            return row, None
 
-#         with ThreadPoolExecutor(max_workers=max(1, min(len(valid_metadata), 5))) as executor:
-#             results = list(executor.map(_process_manual_item, valid_metadata))
-#         rows = [r for r, _ in results if r is not None]
-#         extraction_failed_ids = [eid for _, eid in results if eid is not None]
-#         duration_seconds_failed_ids: list[str] = []
-#         for r in rows:
-#             ct = r.get("content_type", "")
-#             restrict = get_restrict_by_content_type(ct)
-#             if restrict.max_duration_seconds is not None:
-#                 dur = r.get("duration_seconds", 0)
-#                 if dur > restrict.max_duration_seconds:
-#                     duration_seconds_failed_ids.append(str(r["referenced_manual_evidence_id"]))
-#         duration_total = duration_seconds_failed_ids + extraction_failed_ids
-#         if size_bytes_failed_ids or duration_total:
-#             raise_evidence_register_validation_failed(
-#                 content_type_failed_evidence_ids=[],
-#                 size_bytes_failed_evidence_ids=size_bytes_failed_ids,
-#                 duration_seconds_failed_evidence_ids=duration_total if duration_total else [],
-#             )
-#         manual_repo = TimelineManualEvidenceRepository(db)
-#         evidence_repo = TimelineEvidenceRepository(db)
-#         existing_rows = evidence_repo.list_by_timeline_evidence_id(
-#             timeline.id, timeline_evidence_id
-#         )
-#         next_index = max((r.index for r in existing_rows), default=0) + 1
+        with ThreadPoolExecutor(max_workers=max(1, min(len(valid_metadata), 5))) as executor:
+            results = list(executor.map(_process_manual_item, valid_metadata))
+        rows = [r for r, _ in results if r is not None]
+        extraction_failed_ids = [eid for _, eid in results if eid is not None]
+        duration_seconds_failed_ids: list[str] = []
+        for r in rows:
+            ct = r.get("content_type", "")
+            restrict = get_restrict_by_content_type(ct)
+            if restrict.max_duration_seconds is not None:
+                dur = r.get("duration_seconds", 0)
+                if dur > restrict.max_duration_seconds:
+                    duration_seconds_failed_ids.append(str(r["referenced_manual_evidence_id"]))
+        duration_total = duration_seconds_failed_ids + extraction_failed_ids
+        if size_bytes_failed_ids or duration_total:
+            raise_evidence_register_validation_failed(
+                content_type_failed_evidence_ids=[],
+                size_bytes_failed_evidence_ids=size_bytes_failed_ids,
+                duration_seconds_failed_evidence_ids=duration_total if duration_total else [],
+            )
 
-#         def _upload_detail_and_build_row(r: dict) -> dict:
-#             nonlocal next_index
-#             file_bytes = r.pop("_file_bytes", None)
-#             ct = r["content_type"]
-#             if file_bytes and ct in (
-#                 EVIDENCE_VIDEO_RESTRICT.allowed_types | EVIDENCE_IMAGE_RESTRICT.allowed_types
-#             ):
-#                 base_key = r["s3_key"].rsplit("/", 1)[0]
-#                 detail_key = f"{base_key}/detail"
-#                 if ct in EVIDENCE_VIDEO_RESTRICT.allowed_types:
-#                     detail_bytes, _, _ = get_video_image_at_0(file_bytes, size=400, quality=75)
-#                 else:
-#                     detail_bytes, _, _ = make_image_top_crop(
-#                         file_bytes=file_bytes, size=400, quality=75
-#                     )
-#                 upload_fileobj(
-#                     fileobj=BytesIO(detail_bytes),
-#                     bucket=settings.S3_BUCKET_NAME,
-#                     key=detail_key,
-#                     content_type="image/jpeg",
-#                 )
-#             file_type = get_file_type_from_content_type(ct).value
-#             manual = TimelineManualEvidence(
-#                 id=r["referenced_manual_evidence_id"],
-#                 complaint_id=r["complaint_id"],
-#                 type=file_type,
-#                 duration_seconds=r.get("duration_seconds"),
-#                 filename=r["filename"],
-#                 s3_key=r["s3_key"],
-#                 content_type=r["content_type"],
-#                 size_bytes=r["size_bytes"],
-#             )
-#             manual_repo.create(manual)
-#             evidence_repo.create(
-#                 TimelineEvidence(
-#                     timeline_id=timeline.id,
-#                     timeline_evidence_id=timeline_evidence_id,
-#                     index=next_index,
-#                     referenced_manual_evidence_id=r["referenced_manual_evidence_id"],
-#                     is_original_evidence=False,
-#                     evidence_type=None,
-#                     file_type=file_type,
-#                 )
-#             )
-#             next_index += 1
-#             return r
+        evidence_repo = TimelineEvidenceRepository(db)
+        timeline_repo = TimelineRepository(db)
+        timeline = timeline_repo.get_by_complaint_id(complaint.complaint_id)
 
-#         for r in rows:
-#             _upload_detail_and_build_row(r)
-#         db.commit()
-#         results_resp = [
-#             schemas.ManualTimelineEvidenceRegisterItem(
-#                 referenced_manual_evidence_id=r["referenced_manual_evidence_id"],
-#                 file_type=get_file_type_from_content_type(r["content_type"]).value,
-#                 filename=r["filename"],
-#                 content_type=r["content_type"],
-#                 size_bytes=r["size_bytes"],
-#                 duration_seconds=r.get("duration_seconds"),
-#             )
-#             for r in rows
-#         ]
-#         return schemas.ManualTimelineEvidenceRegisterResponse(items=results_resp)
+        existing_rows = evidence_repo.list_by_timeline_evidence_id(
+            timeline.id, timeline_evidence_id
+        )
+        next_index = max((r.index for r in existing_rows), default=0) + 1
+
+        manual_mappings = [
+            {
+                "id": r["referenced_manual_evidence_id"],
+                "complaint_id": complaint.complaint_id,
+                "type": get_file_type_from_content_type(r["content_type"]).value,
+                "duration_seconds": r.get("duration_seconds"),
+                "filename": r["filename"],
+                "s3_key": r["s3_key"],
+                "content_type": r["content_type"],
+                "size_bytes": r["size_bytes"],
+            }
+            for r in rows
+        ]
+        evidence_mappings = [
+            {
+                "timeline_id": timeline.id,
+                "timeline_evidence_id": timeline_evidence_id,
+                "index": next_index + i,
+                "referenced_manual_evidence_id": r["referenced_manual_evidence_id"],
+                "is_original_evidence": False,
+                "evidence_type": None,
+                "file_type": get_file_type_from_content_type(r["content_type"]).value,
+            }
+            for i, r in enumerate(rows)
+        ]
+        db.bulk_insert_mappings(TimelineManualEvidence, manual_mappings)
+        db.bulk_insert_mappings(TimelineEvidence, evidence_mappings)
+
+        db.commit()
+        results_resp = [
+            schemas.ReferencedManualEvidenceRegisterItem(
+                referenced_manual_evidence_id=r["referenced_manual_evidence_id"],
+                file_type=get_file_type_from_content_type(r["content_type"]).value,
+                filename=r["filename"],
+                content_type=r["content_type"],
+                size_bytes=r["size_bytes"],
+                duration_seconds=r.get("duration_seconds"),
+            )
+            for r in rows
+        ]
+        return schemas.ReferencedManualEvidenceRegisterResponse(items=results_resp)
 
 
 timeline_service = TimelineService()

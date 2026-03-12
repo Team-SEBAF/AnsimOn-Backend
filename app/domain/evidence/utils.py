@@ -76,6 +76,25 @@ def validate_s3_uploads_before_register(
         )
 
 
+def collect_register_failures_from_metadata(
+    metadata_list: list[dict],
+    id_key: str,
+) -> tuple[list[str], list[dict]]:
+    """1차: metadata만으로 size 검사. raise 안 함. content_type 제한 없음.
+    Returns: (size_bytes_failed_ids, valid_metadata)
+    """
+    size_bytes_failed_ids: list[str] = []
+    valid_metadata: list[dict] = []
+    for m in metadata_list:
+        aid_str = str(m[id_key])
+        r = get_restrict_by_content_type(m.get("content_type", ""))
+        if m.get("size_bytes", 0) > r.max_size_bytes:
+            size_bytes_failed_ids.append(aid_str)
+            continue
+        valid_metadata.append(m)
+    return size_bytes_failed_ids, valid_metadata
+
+
 def get_restrict_by_content_type(
     content_type: str,
 ) -> EvidenceTypeRestrict | MediaTypeRestrict:

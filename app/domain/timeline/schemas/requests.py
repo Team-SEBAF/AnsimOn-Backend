@@ -57,12 +57,4 @@ class ManualTimelineEvidenceRegisterRequest(BaseRequest):
         ...,
         min_length=1,
         description="등록할 직접 추가 증거 목록",
-        examples=[
-            [
-                {
-                    "referenced_manual_evidence_id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-                    "filename": "evidence.jpg",
-                },
-            ]
-        ],
     )

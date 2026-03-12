@@ -23,6 +23,7 @@ from app.domain.evidence.errors.register_validation_error import (
 )
 from app.domain.evidence.utils import (
     check_register_max_count,
+    collect_register_failures_from_metadata,
     fetch_s3_metadata_for_register,
     generate_presigned_urls_for_unrestricted_content,
     get_restrict_by_content_type,
@@ -72,26 +73,6 @@ def _validate_incident_log_register_restrict(metadata_list: list[dict]) -> None:
         size_bytes_failed_evidence_ids=size_bytes_failed_evidence_ids,
         duration_seconds_failed_evidence_ids=None,
     )
-
-
-def _collect_form_data_attachment_register_failures_from_metadata(
-    metadata_list: list[dict],
-) -> tuple[list[str], list[dict]]:
-    """1차: metadata만으로 size 검사. raise 안 함. content_type 제한 없음.
-    Returns: (size_bytes_failed_attachment_ids, valid_metadata)
-    """
-    size_bytes_failed_attachment_ids: list[str] = []
-    valid_metadata: list[dict] = []
-
-    for m in metadata_list:
-        aid_str = str(m["attachment_id"])
-        r = get_restrict_by_content_type(m.get("content_type", ""))
-        if m.get("size_bytes", 0) > r.max_size_bytes:
-            size_bytes_failed_attachment_ids.append(aid_str)
-            continue
-        valid_metadata.append(m)
-
-    return size_bytes_failed_attachment_ids, valid_metadata
 
 
 def _raise_form_data_attachment_register_validation_if_failed(
@@ -498,8 +479,7 @@ class EvidenceIncidentLogService(EvidenceTypeService):
 
         def s3_key_builder(c: Complaint, eid: UUID) -> str:
             return (
-                f"{c.user_sub}/complaints/{c.complaint_id}/evidences/"
-                f"{path_segment}/{eid}/original"
+                f"{c.user_sub}/complaints/{c.complaint_id}/evidences/{path_segment}/{eid}/original"
             )
 
         rows = generate_presigned_urls_for_unrestricted_content(
@@ -544,9 +524,9 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             },
         )
         (
-            size_bytes_failed_attachment_ids,
+            size_bytes_failed_ids,
             valid_metadata,
-        ) = _collect_form_data_attachment_register_failures_from_metadata(metadata_list)
+        ) = collect_register_failures_from_metadata(metadata_list, "attachment_id")
 
         def _process_attachment(m: dict) -> tuple[dict | None, str | None]:
             ct = m["content_type"]
@@ -594,7 +574,7 @@ class EvidenceIncidentLogService(EvidenceTypeService):
                 if dur > restrict.max_duration_seconds:
                     duration_seconds_failed_attachment_ids.append(str(r["attachment_id"]))
         _raise_form_data_attachment_register_validation_if_failed(
-            size_bytes_failed_attachment_ids=size_bytes_failed_attachment_ids,
+            size_bytes_failed_attachment_ids=size_bytes_failed_ids,
             duration_seconds_failed_attachment_ids=duration_seconds_failed_attachment_ids,
             extraction_failed_attachment_ids=extraction_failed_attachment_ids,
         )

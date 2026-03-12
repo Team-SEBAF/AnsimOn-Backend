@@ -154,21 +154,21 @@ class ManualTimelineEvidenceFormDataResponse(BaseResponse):
     )
 
 
-class ManualTimelineEvidencePresignedItem(BaseResponse):
+class ReferencedManualEvidencePresignedItem(BaseResponse):
     index: int = Field(..., description="요청 item의 index")
     filename: str = Field(..., description="파일명")
     url: str = Field(..., description="S3 PUT 업로드용 presigned URL")
-    referenced_manual_evidence_id: UUID = Field(..., description="DB 저장 시 전달할 ID")
+    referenced_manual_evidence_id: UUID = Field(..., description="DB 저장 시 전달할 참조 증거 ID")
 
 
-class ManualTimelineEvidencePresignedResponse(BaseResponse):
-    items: list[ManualTimelineEvidencePresignedItem] = Field(
+class ReferencedManualEvidencePresignedResponse(BaseResponse):
+    items: list[ReferencedManualEvidencePresignedItem] = Field(
         ..., description="발급된 Presigned URL 목록"
     )
 
 
-class ManualTimelineEvidenceRegisterItem(BaseResponse):
-    referenced_manual_evidence_id: UUID = Field(..., description="직접 추가 증거 ID")
+class ReferencedManualEvidenceRegisterItem(BaseResponse):
+    referenced_manual_evidence_id: UUID = Field(..., description="참조 증거 ID")
     file_type: str = Field(..., description="파일 타입. IMAGE, AUDIO, VIDEO, DOCUMENT, ETC")
     filename: str = Field(..., description="파일명")
     content_type: str = Field(..., description="Content-Type")
@@ -176,7 +176,7 @@ class ManualTimelineEvidenceRegisterItem(BaseResponse):
     duration_seconds: int | None = Field(None, description="영상/음성 길이(초)")
 
 
-class ManualTimelineEvidenceRegisterResponse(BaseResponse):
-    items: list[ManualTimelineEvidenceRegisterItem] = Field(
-        ..., description="등록된 직접 추가 증거 목록"
+class ReferencedManualEvidenceRegisterResponse(BaseResponse):
+    items: list[ReferencedManualEvidenceRegisterItem] = Field(
+        ..., description="등록된 참조 증거 목록"
     )

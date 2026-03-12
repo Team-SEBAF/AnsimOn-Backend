@@ -86,19 +86,19 @@ def upload_manual_timeline_evidence_form_data(
 
 
 @router.post(
-    "/{complaint_id}/timeline/evidences/{timeline_evidence_id}/manual/presigned-url",
-    summary="타임라인 직접 추가 증거 '폼 데이터' 첨부 자료 Presigned URL 발급 (복수 업로드 지원)",
+    "/{complaint_id}/timeline/evidences/{timeline_evidence_id}/manual/referenced-evidences/presigned-url",
+    summary="타임라인 직접 추가 증거 '폼 데이터' 참조 증거 Presigned URL 발급 (복수 업로드 지원)",
     description="API Gateway 용량 제한이 10MB이기 때문에, Presigned URL로 S3에 직접 업로드 후 register API를 호출합니다. 타입 제한 없음.",
-    response_model=schemas.ManualTimelineEvidencePresignedResponse,
+    response_model=schemas.ReferencedManualEvidencePresignedResponse,
     responses=MANUAL_TIMELINE_EVIDENCE_RESPONSES,
 )
-def get_manual_timeline_evidence_presigned_url(
+def get_referenced_manual_evidence_presigned_url(
     complaint: Complaint = Depends(get_owned_complaint),
     timeline_evidence_id: UUID = ...,
     request: schemas.ManualTimelineEvidencePresignedRequest = Body(...),
     db: Session = Depends(get_db),
 ):
-    return timeline_service.get_manual_timeline_evidence_presigned_url(
+    return timeline_service.get_referenced_manual_evidence_presigned_url(
         complaint=complaint,
         timeline_evidence_id=timeline_evidence_id,
         request=request,
@@ -106,22 +106,22 @@ def get_manual_timeline_evidence_presigned_url(
     )
 
 
-# @router.post(
-#     "/{complaint_id}/timeline/evidences/{timeline_evidence_id}/manual-evidences/register",
-#     summary="타임라인 직접 추가 증거 등록 (복수 업로드 지원)",
-#     description="Presigned URL로 S3 업로드 완료 후 호출하세요. image/video는 썸네일용 detail을 추출합니다.",
-#     response_model=schemas.ManualTimelineEvidenceRegisterResponse,
-#     responses={**evidence_errors.REGISTER_EVIDENCE_ERRORS_RESPONSES, **MANUAL_TIMELINE_EVIDENCE_RESPONSES},
-# )
-# def register_manual_evidences(
-#     complaint: Complaint = Depends(get_owned_complaint),
-#     timeline_evidence_id: UUID = ...,
-#     request: schemas.ManualTimelineEvidenceRegisterRequest = Body(...),
-#     db: Session = Depends(get_db),
-# ):
-#     return timeline_service.register_manual_evidences(
-#         complaint=complaint,
-#         timeline_evidence_id=timeline_evidence_id,
-#         request=request,
-#         db=db,
-#     )
+@router.post(
+    "/{complaint_id}/timeline/evidences/{timeline_evidence_id}/manual/referenced-evidences/register",
+    summary="타임라인 직접 추가 증거 '폼 데이터' 참조 증거 등록 (복수 업로드 지원)",
+    description="Presigned URL로 S3 업로드 완료 후 호출하세요. image/video는 썸네일 사진을 추출합니다.",
+    response_model=schemas.ReferencedManualEvidenceRegisterResponse,
+    responses=MANUAL_TIMELINE_EVIDENCE_RESPONSES,
+)
+def register_referenced_manual_evidences(
+    complaint: Complaint = Depends(get_owned_complaint),
+    timeline_evidence_id: UUID = ...,
+    request: schemas.ManualTimelineEvidenceRegisterRequest = Body(...),
+    db: Session = Depends(get_db),
+):
+    return timeline_service.register_referenced_manual_evidences(
+        complaint=complaint,
+        timeline_evidence_id=timeline_evidence_id,
+        request=request,
+        db=db,
+    )
