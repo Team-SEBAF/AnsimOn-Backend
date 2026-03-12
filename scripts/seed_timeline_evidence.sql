@@ -1,7 +1,7 @@
 -- 타임라인 default_data용 시드 SQL
--- user 1개 + complaint 1개 + DEFAULT_TIMELINE_EVIDENCES의 evidence_id에 맞는 각 증거 테이블 row
+-- user 1개 + complaint 1개 + DEFAULT_TIMELINE_EVIDENCES의 referenced_evidence_id에 맞는 각 증거 테이블 row
 -- MESSAGE 3그룹(9개) + 단일 10개(VICTIM, VOICE, REPORT_RECORD, INCIDENT_LOG)
--- s3_key: {user_sub}/complaints/{complaint_id}/evidences/{path_segment}/{evidence_id}/original
+-- s3_key: {user_sub}/complaints/{complaint_id}/evidences/{path_segment}/{referenced_evidence_id}/original
 
 -- 1) user 1개
 INSERT INTO users (user_sub, email, created_at)

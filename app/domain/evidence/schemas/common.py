@@ -30,5 +30,6 @@ class EvidencePresignedUrlItemRequest(BaseRequest):
         None,
         description="영상/음성 길이(초). 해당 타입일 때 필수",
         examples=[120],
+        json_schema_extra={"example": 120},
         ge=1,
     )

@@ -80,7 +80,7 @@ class TimelineRepository(BaseRepository):
     def update_evidence_json(
         self, complaint_id: UUID, timeline_evidence_id: UUID, updates: dict
     ) -> None:
-        """timeline_json에서 timeline_evidence_id에 해당하는 객체 수정. date/time 변경 시 슬롯 이동, 동일 시각 있으면 index=max+1."""
+        """timeline_json에서 timeline_evidence_id에 해당하는 객체 수정. date/time 변경 시 객체 이동, 동일 시각 있으면 index=max+1."""
         if not updates:
             return
         timeline = self.get_by_complaint_id(complaint_id)
@@ -155,7 +155,7 @@ class TimelineRepository(BaseRepository):
     def add_manual_evidence_to_json(
         self, complaint_id: UUID, date: str, time: str, title: str, description: str, tags: list
     ) -> tuple[UUID, int]:
-        """수동 증거 슬롯을 timeline_json에 추가. (timeline_evidence_id, index) 반환."""
+        """직접 추가 증거를 timeline_json에 추가. (timeline_evidence_id, index) 반환."""
         from uuid import uuid4
 
         timeline = self.get_by_complaint_id(complaint_id)
@@ -242,12 +242,12 @@ class TimelineManualEvidenceRepository(BaseRepository):
     def list_by_timeline_evidence_id(
         self, timeline_id: UUID, timeline_evidence_id: UUID
     ) -> list[TimelineManualEvidence]:
-        """timeline_evidence_id에 해당하는 수동 증거 목록 조회 (N+1 방지)."""
+        """timeline_evidence_id에 해당하는 직접 추가 증거 목록 조회 (N+1 방지)."""
         return (
             self.db.query(TimelineManualEvidence)
             .join(
                 TimelineEvidence,
-                TimelineManualEvidence.id == TimelineEvidence.manual_evidence_id,
+                TimelineManualEvidence.id == TimelineEvidence.referenced_manual_evidence_id,
             )
             .filter(
                 TimelineEvidence.timeline_id == timeline_id,

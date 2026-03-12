@@ -80,7 +80,7 @@ def get_restrict_by_content_type(
     content_type: str,
 ) -> EvidenceTypeRestrict | MediaTypeRestrict:
     """
-    content_type별 restrict 반환. 타입 제한 없을 때(첨부/수동 증거) size/duration만 기존 constant와 동일 적용.
+    content_type별 restrict 반환. 타입 제한 없을 때(첨부/직접 추가 증거) size/duration만 기존 constant와 동일 적용.
     """
     if content_type in EVIDENCE_VIDEO_RESTRICT.allowed_types:
         return EVIDENCE_VIDEO_RESTRICT
@@ -100,7 +100,7 @@ def generate_presigned_urls_for_unrestricted_content(
     id_field_name: str = "id",
 ) -> list[dict]:
     """
-    content_type 제한 없는 첨부/수동 증거용 Presigned URL 발급.
+    content_type 제한 없는 첨부/직접 추가 증거용 Presigned URL 발급.
     size/duration 검증 후 각 item에 대해 uuid 생성, presigned URL 발급.
     Returns: list of {index, filename, url, <id_field_name>: UUID}
     """

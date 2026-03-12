@@ -1,12 +1,13 @@
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
+from app.base.base_request import BaseRequest
 from app.domain.evidence.schemas.common import EvidencePresignedUrlItemRequest
 from app.domain.timeline.constant import TimelineTag
 
 
-class UpdateTimelineEvidenceRequest(BaseModel):
+class UpdateTimelineEvidenceRequest(BaseRequest):
     """타임라인 증거 메타데이터 수정 요청. date, time, title, description, tags."""
 
     date: str | None = Field(None, description="날짜 (YYYY-MM-DD)", examples=["2026-02-12"])
@@ -20,8 +21,8 @@ class UpdateTimelineEvidenceRequest(BaseModel):
     )
 
 
-class ManualTimelineEvidenceFormDataUploadRequest(BaseModel):
-    """수동 증거 슬롯 생성 요청 (form-data)."""
+class ManualTimelineEvidenceFormDataUploadRequest(BaseRequest):
+    """직접 추가 증거 생성 요청 (form-data)."""
 
     date: str = Field(..., description="날짜 (YYYY-MM-DD)", examples=["2026-02-12"])
     time: str = Field(..., description="시각 HH:MM", examples=["14:00"])
@@ -32,28 +33,18 @@ class ManualTimelineEvidenceFormDataUploadRequest(BaseModel):
     )
 
 
-class ManualTimelineEvidencePresignedRequest(BaseModel):
-    """수동 증거 Presigned URL 발급 요청. content_type 제한 없음."""
+class ManualTimelineEvidencePresignedRequest(BaseRequest):
+    """직접 추가 증거 Presigned URL 발급 요청. content_type 제한 없음."""
 
     items: list[EvidencePresignedUrlItemRequest] = Field(
         ...,
         min_length=1,
         description="업로드할 파일 목록",
-        examples=[
-            [
-                {
-                    "index": 0,
-                    "filename": "evidence.jpg",
-                    "content_type": "image/jpeg",
-                    "size_bytes": 12345,
-                },
-            ]
-        ],
     )
 
 
-class ManualTimelineEvidenceRegisterItemRequest(BaseModel):
-    manual_evidence_id: UUID = Field(
+class ManualTimelineEvidenceRegisterItemRequest(BaseRequest):
+    referenced_manual_evidence_id: UUID = Field(
         ...,
         description="Presigned URL 발급 시 받은 manual_evidence_id",
         examples=["a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"],
@@ -61,15 +52,15 @@ class ManualTimelineEvidenceRegisterItemRequest(BaseModel):
     filename: str = Field(..., description="파일명", examples=["evidence.jpg"])
 
 
-class ManualTimelineEvidenceRegisterRequest(BaseModel):
+class ManualTimelineEvidenceRegisterRequest(BaseRequest):
     items: list[ManualTimelineEvidenceRegisterItemRequest] = Field(
         ...,
         min_length=1,
-        description="등록할 수동 증거 목록",
+        description="등록할 직접 추가 증거 목록",
         examples=[
             [
                 {
-                    "manual_evidence_id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+                    "referenced_manual_evidence_id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
                     "filename": "evidence.jpg",
                 },
             ]

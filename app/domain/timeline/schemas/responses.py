@@ -34,7 +34,7 @@ class TimelineEvidence(BaseResponse):
     )
     is_ai_original: bool = Field(
         True,
-        description="AI 분석 증거 여부. True: AI 생성, False: 수동 추가",
+        description="AI 분석 증거 여부. True: AI 생성, False: 직접 추가",
     )
 
 
@@ -70,7 +70,10 @@ class TimelineResponse(BaseResponse):
 class TimelineEvidenceItem(BaseResponse):
     """타임라인 증거 상세 항목 (단일 파일)."""
 
-    id: UUID = Field(..., description="증거 ID (evidence_id 또는 manual_evidence_id)")
+    referenced_id: UUID = Field(
+        ...,
+        description="참조 증거 ID (referenced_evidence_id 또는 referenced_manual_evidence_id)",
+    )
     filename: str = Field(..., description="파일명")
     size_bytes: int | None = Field(
         None, description="파일 크기(바이트). INCIDENT_LOG FORM_DATA는 null"
@@ -112,7 +115,7 @@ class TimelineEvidenceDetailResponse(BaseResponse):
     )
     is_ai_original: bool = Field(
         ...,
-        description="AI 분석 증거 여부. True: AI 생성, False: 수동 추가",
+        description="AI 분석 증거 여부. True: AI 생성, False: 직접 추가",
     )
     evidences: list[TimelineEvidenceItem] = Field(
         default_factory=list,
@@ -137,7 +140,7 @@ class TimelineEvidenceMetadataResponse(BaseResponse):
 
 
 class ManualTimelineEvidenceFormDataResponse(BaseResponse):
-    """수동 증거 슬롯 생성(form-data) 응답."""
+    """직접 추가 증거 생성(form-data) 응답."""
 
     timeline_evidence_id: UUID = Field(..., description="생성된 증거 그룹 ID")
     index: int = Field(..., description="동일 시각 내 정렬 순서")
@@ -155,7 +158,7 @@ class ManualTimelineEvidencePresignedItem(BaseResponse):
     index: int = Field(..., description="요청 item의 index")
     filename: str = Field(..., description="파일명")
     url: str = Field(..., description="S3 PUT 업로드용 presigned URL")
-    manual_evidence_id: UUID = Field(..., description="DB 저장 시 전달할 ID")
+    referenced_manual_evidence_id: UUID = Field(..., description="DB 저장 시 전달할 ID")
 
 
 class ManualTimelineEvidencePresignedResponse(BaseResponse):
@@ -165,7 +168,7 @@ class ManualTimelineEvidencePresignedResponse(BaseResponse):
 
 
 class ManualTimelineEvidenceRegisterItem(BaseResponse):
-    manual_evidence_id: UUID = Field(..., description="수동 증거 ID")
+    referenced_manual_evidence_id: UUID = Field(..., description="직접 추가 증거 ID")
     file_type: str = Field(..., description="파일 타입. IMAGE, AUDIO, VIDEO, DOCUMENT, ETC")
     filename: str = Field(..., description="파일명")
     content_type: str = Field(..., description="Content-Type")
@@ -175,5 +178,5 @@ class ManualTimelineEvidenceRegisterItem(BaseResponse):
 
 class ManualTimelineEvidenceRegisterResponse(BaseResponse):
     items: list[ManualTimelineEvidenceRegisterItem] = Field(
-        ..., description="등록된 수동 증거 목록"
+        ..., description="등록된 직접 추가 증거 목록"
     )
