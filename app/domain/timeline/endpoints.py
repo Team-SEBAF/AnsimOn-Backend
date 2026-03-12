@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api/v1", tags=["Timeline"])
     summary="타임라인 조회",
     description="날짜 > 시각 > 증거 계층 구조의 타임라인을 조회합니다. (row 없으면 default insert)",
     response_model=schemas.TimelineResponse,
+    responses=GET_TIMELINE_ERRORS_RESPONSES,
 )
 def get_timeline(
     complaint: Complaint = Depends(get_owned_complaint),
@@ -30,7 +31,6 @@ def get_timeline(
     summary="타임라인 증거 상세 조회",
     description="timeline_evidence_id에 해당하는 타임라인 증거 메타데이터(날짜, 시각, 제목, 설명, 태그)와 증거 목록을 조회합니다.",
     response_model=schemas.TimelineEvidenceDetailResponse,
-    responses=GET_TIMELINE_ERRORS_RESPONSES,
 )
 def get_timeline_evidences(
     complaint: Complaint = Depends(get_owned_complaint),
@@ -46,10 +46,9 @@ def get_timeline_evidences(
 
 @router.patch(
     "/{complaint_id}/timeline/evidences/{timeline_evidence_id}/form-data",
-    summary="타임라인 증거의 날짜, 시각, 제목, 설명, 태그를 수정",
-    description="타임라인 증거의 날짜, 시각, 제목, 설명, 태그를 수정합니다. (증거 수정, 삭제 X)",
+    summary="타임라인 증거의 '폼 데이터'를 수정",
+    description="타임라인 증거의 '폼 데이터'를 수정합니다. (증거 수정, 삭제 X)",
     response_model=schemas.TimelineEvidenceMetadataResponse,
-    responses=GET_TIMELINE_ERRORS_RESPONSES,
 )
 def update_timeline_evidence_form_data(
     complaint: Complaint = Depends(get_owned_complaint),
@@ -65,16 +64,33 @@ def update_timeline_evidence_form_data(
     )
 
 
+@router.post(
+    "/{complaint_id}/timeline/evidences/manual/form-data",
+    summary="타임라인 증거 수동 추가 - '폼 데이터' 업로드",
+    description="타임라인 증거의 '폼 데이터'를 업로드합니다. 참조 증거 추가는 별도 API를 사용합니다.",
+    response_model=schemas.ManualTimelineEvidenceFormDataResponse,
+)
+def upload_manual_timeline_evidence_form_data(
+    complaint: Complaint = Depends(get_owned_complaint),
+    request: schemas.ManualTimelineEvidenceFormDataUploadRequest = Body(...),
+    db: Session = Depends(get_db),
+):
+    return timeline_service.upload_manual_timeline_evidence_form_data(
+        complaint.complaint_id,
+        request,
+        db,
+    )
+
+
 # @router.post(
 #     "/{complaint_id}/timeline/evidences/{timeline_evidence_id}/manual-evidences/presigned-url",
 #     summary="타임라인 수동 증거 Presigned URL 발급 (복수 업로드 지원)",
 #     description="API Gateway 용량 제한이 10MB이기 때문에, Presigned URL로 S3에 직접 업로드 후 register API를 호출합니다. content_type 제한 없음.",
-#     response_model=schemas.ManualEvidencePresignedResponse,
-#     responses=GET_TIMELINE_ERRORS_RESPONSES,
+#     response_model=schemas.ManualTimelineEvidencePresignedResponse,
 # )
 # def get_manual_evidence_presigned_url(
 #     complaint: Complaint = Depends(get_owned_complaint),
-#     request: schemas.ManualEvidencePresignedRequest = Body(...),
+#     request: schemas.ManualTimelineEvidencePresignedRequest = Body(...),
 # ):
 #     return timeline_service.get_manual_evidence_presigned_url(
 #         complaint=complaint,
@@ -86,13 +102,13 @@ def update_timeline_evidence_form_data(
 #     "/{complaint_id}/timeline/evidences/{timeline_evidence_id}/manual-evidences/register",
 #     summary="타임라인 수동 증거 등록 (복수 업로드 지원)",
 #     description="Presigned URL로 S3 업로드 완료 후 호출하세요. image/video는 썸네일용 detail을 추출합니다.",
-#     response_model=schemas.ManualEvidenceRegisterResponse,
-#     responses=GET_TIMELINE_ERRORS_RESPONSES | evidence_errors.REGISTER_EVIDENCE_ERRORS_RESPONSES,
+#     response_model=schemas.ManualTimelineEvidenceRegisterResponse,
+#     responses=evidence_errors.REGISTER_EVIDENCE_ERRORS_RESPONSES,
 # )
 # def register_manual_evidences(
 #     complaint: Complaint = Depends(get_owned_complaint),
 #     timeline_evidence_id: UUID = ...,
-#     request: schemas.ManualEvidenceRegisterRequest = Body(...),
+#     request: schemas.ManualTimelineEvidenceRegisterRequest = Body(...),
 #     db: Session = Depends(get_db),
 # ):
 #     return timeline_service.register_manual_evidences(

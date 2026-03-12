@@ -201,6 +201,12 @@ class TimelineService:
         if timeline is None:
             # TODO: AI 연결 전까지 시드 데이터로 조회
             timeline = self._insert_dummy_default_data(complaint_id, db)
+            # raise CodeException(
+            #     code=GetTimelineErrorCode.TIMELINE_NOT_FOUND,
+            #     message="타임라인을 찾을 수 없습니다.",
+            #     debug_message=f"complaint_id: {complaint_id}에 해당하는 타임라인이 없습니다.",
+            #     status_code=404,
+            # )
 
         data = deepcopy(timeline.timeline_json)
 
@@ -238,6 +244,14 @@ class TimelineService:
         timeline_evidence_repo = TimelineEvidenceRepository(db)
 
         timeline_id = timeline_repo.get_id_by_complaint_id(complaint_id)
+        # if timeline_id is None:
+        #     raise CodeException(
+        #         code=GetTimelineErrorCode.TIMELINE_EVIDENCE_NOT_FOUND,
+        #         message="타임라인 증거를 찾을 수 없습니다.",
+        #         debug_message=f"timeline_evidence_id: {timeline_evidence_id}에 해당하는 증거가 timeline_json에 없습니다.",
+        #         status_code=404,
+        #     )
+
         ev_meta = timeline_repo.get_evidence_metadata_from_json(complaint_id, timeline_evidence_id)
         is_ai_original = ev_meta.get("is_ai_original", True) if ev_meta else True
 
@@ -444,11 +458,38 @@ class TimelineService:
         }
         return schemas.TimelineEvidenceMetadataResponse(**response_data)
 
+    def upload_manual_timeline_evidence_form_data(
+        self,
+        complaint_id: UUID,
+        request: schemas.ManualTimelineEvidenceFormDataUploadRequest,
+        db: Session,
+    ) -> schemas.ManualTimelineEvidenceFormDataResponse:
+        timeline_repo = TimelineRepository(db)
+        timeline_evidence_id, index = timeline_repo.add_manual_evidence_to_json(
+            complaint_id=complaint_id,
+            date=request.date,
+            time=request.time,
+            title=request.title,
+            description=request.description,
+            tags=request.tags,
+        )
+        db.commit()
+
+        return schemas.ManualTimelineEvidenceFormDataResponse(
+            timeline_evidence_id=timeline_evidence_id,
+            index=index,
+            date=request.date,
+            time=request.time,
+            title=request.title,
+            description=request.description,
+            tags=request.tags,
+        )
+
     def get_manual_evidence_presigned_url(
         self,
         complaint: Complaint,
-        request: schemas.ManualEvidencePresignedRequest,
-    ) -> schemas.ManualEvidencePresignedResponse:
+        request: schemas.ManualTimelineEvidencePresignedRequest,
+    ) -> schemas.ManualTimelineEvidencePresignedResponse:
         def s3_key_builder(c: Complaint, eid: UUID) -> str:
             return (
                 f"{c.user_sub}/complaints/{c.complaint_id}/timeline/manual-evidences/{eid}/original"
@@ -460,9 +501,9 @@ class TimelineService:
             s3_key_builder=s3_key_builder,
             id_field_name="manual_evidence_id",
         )
-        return schemas.ManualEvidencePresignedResponse(
+        return schemas.ManualTimelineEvidencePresignedResponse(
             items=[
-                schemas.ManualEvidencePresignedItem(
+                schemas.ManualTimelineEvidencePresignedItem(
                     index=r["index"],
                     filename=r["filename"],
                     url=r["url"],
@@ -476,9 +517,9 @@ class TimelineService:
         self,
         complaint: Complaint,
         timeline_evidence_id: UUID,
-        request: schemas.ManualEvidenceRegisterRequest,
+        request: schemas.ManualTimelineEvidenceRegisterRequest,
         db: Session,
-    ) -> schemas.ManualEvidenceRegisterResponse:
+    ) -> schemas.ManualTimelineEvidenceRegisterResponse:
         """수동 증거 등록. image/video는 detail 추출 후 S3 업로드."""
         cid = SEED_COMPLAINT_ID
         timeline_repo = TimelineRepository(db)
@@ -622,7 +663,7 @@ class TimelineService:
             _upload_detail_and_build_row(r)
         db.commit()
         results_resp = [
-            schemas.ManualEvidenceRegisterItem(
+            schemas.ManualTimelineEvidenceRegisterItem(
                 manual_evidence_id=r["manual_evidence_id"],
                 file_type=get_file_type_from_content_type(r["content_type"]).value,
                 filename=r["filename"],
@@ -632,7 +673,7 @@ class TimelineService:
             )
             for r in rows
         ]
-        return schemas.ManualEvidenceRegisterResponse(items=results_resp)
+        return schemas.ManualTimelineEvidenceRegisterResponse(items=results_resp)
 
 
 timeline_service = TimelineService()

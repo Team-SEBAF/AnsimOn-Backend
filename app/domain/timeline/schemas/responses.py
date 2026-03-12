@@ -136,18 +136,35 @@ class TimelineEvidenceMetadataResponse(BaseResponse):
     )
 
 
-class ManualEvidencePresignedItem(BaseResponse):
+class ManualTimelineEvidenceFormDataResponse(BaseResponse):
+    """수동 증거 슬롯 생성(form-data) 응답."""
+
+    timeline_evidence_id: UUID = Field(..., description="생성된 증거 그룹 ID")
+    index: int = Field(..., description="동일 시각 내 정렬 순서")
+    date: str = Field(..., description="날짜 (YYYY-MM-DD)")
+    time: str = Field(..., description="시각 HH:MM")
+    title: str = Field(..., description="제목")
+    description: str = Field(..., description="설명")
+    tags: list[TimelineTag] = Field(
+        default_factory=list,
+        description="태그",
+    )
+
+
+class ManualTimelineEvidencePresignedItem(BaseResponse):
     index: int = Field(..., description="요청 item의 index")
     filename: str = Field(..., description="파일명")
     url: str = Field(..., description="S3 PUT 업로드용 presigned URL")
     manual_evidence_id: UUID = Field(..., description="DB 저장 시 전달할 ID")
 
 
-class ManualEvidencePresignedResponse(BaseResponse):
-    items: list[ManualEvidencePresignedItem] = Field(..., description="발급된 Presigned URL 목록")
+class ManualTimelineEvidencePresignedResponse(BaseResponse):
+    items: list[ManualTimelineEvidencePresignedItem] = Field(
+        ..., description="발급된 Presigned URL 목록"
+    )
 
 
-class ManualEvidenceRegisterItem(BaseResponse):
+class ManualTimelineEvidenceRegisterItem(BaseResponse):
     manual_evidence_id: UUID = Field(..., description="수동 증거 ID")
     file_type: str = Field(..., description="파일 타입. IMAGE, AUDIO, VIDEO, DOCUMENT, ETC")
     filename: str = Field(..., description="파일명")
@@ -156,5 +173,7 @@ class ManualEvidenceRegisterItem(BaseResponse):
     duration_seconds: int | None = Field(None, description="영상/음성 길이(초)")
 
 
-class ManualEvidenceRegisterResponse(BaseResponse):
-    items: list[ManualEvidenceRegisterItem] = Field(..., description="등록된 수동 증거 목록")
+class ManualTimelineEvidenceRegisterResponse(BaseResponse):
+    items: list[ManualTimelineEvidenceRegisterItem] = Field(
+        ..., description="등록된 수동 증거 목록"
+    )

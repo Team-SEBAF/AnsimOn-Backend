@@ -152,6 +152,61 @@ class TimelineRepository(BaseRepository):
         timeline.timeline_json["items"] = [dg for dg in items if dg.get("events")]
         flag_modified(timeline, "timeline_json")
 
+    def add_manual_evidence_to_json(
+        self, complaint_id: UUID, date: str, time: str, title: str, description: str, tags: list
+    ) -> tuple[UUID, int]:
+        """수동 증거 슬롯을 timeline_json에 추가. (timeline_evidence_id, index) 반환."""
+        from uuid import uuid4
+
+        timeline = self.get_by_complaint_id(complaint_id)
+        if not timeline:
+            raise ValueError("Timeline not found")
+        timeline_evidence_id = uuid4()
+        items = timeline.timeline_json.setdefault("items", [])
+
+        # date 그룹 찾기 또는 생성
+        dg = None
+        for item in items:
+            if item.get("date") == date:
+                dg = item
+                break
+        if dg is None:
+            items.append({"date": date, "events": []})
+            dg = items[-1]
+            items.sort(key=lambda x: x.get("date", ""))
+
+        # time 이벤트 찾기 또는 생성
+        events = dg.setdefault("events", [])
+        evt = None
+        for e in events:
+            if e.get("time") == time:
+                evt = e
+                break
+        if evt is None:
+            events.append({"time": time, "evidences": []})
+            evt = events[-1]
+            events.sort(key=lambda x: x.get("time", ""))
+
+        evidences = evt.setdefault("evidences", [])
+        next_index = max((e.get("index", 1) for e in evidences), default=0) + 1
+        evidences.append(
+            {
+                "timeline_evidence_id": str(timeline_evidence_id),
+                "index": next_index,
+                "title": title,
+                "description": description,
+                "tags": [t.value if hasattr(t, "value") else t for t in tags],
+                "referenced_evidence_count": 0,
+                "has_thumbnail": False,
+                "thumbnail_url": "",
+                "duration_seconds": None,
+                "is_ai_original": False,
+            }
+        )
+        timeline.timeline_json["items"] = [i for i in items if i.get("events")]
+        flag_modified(timeline, "timeline_json")
+        return timeline_evidence_id, next_index
+
 
 class TimelineEvidenceRepository(BaseRepository):
     model_class = TimelineEvidence
