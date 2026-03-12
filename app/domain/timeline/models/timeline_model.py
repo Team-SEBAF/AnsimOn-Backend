@@ -28,7 +28,7 @@ class Timeline(Base):
 class TimelineEvidence(Base):
     """타임라인 증거. timeline JSON의 timeline_evidence_id와 연결.
     is_original_evidence=True: referenced_evidence_id → evidence_* 테이블
-    is_original_evidence=False: referenced_manual_evidence_id → timeline_manual_evidences.id (FK)
+    is_original_evidence=False: referenced_manual_evidence_id → timeline_referenced_manual_evidences.id (FK)
     """
 
     __tablename__ = "timeline_evidences"
@@ -56,14 +56,14 @@ class TimelineEvidence(Base):
     )
     referenced_manual_evidence_id: Mapped[UUID | None] = mapped_column(
         PostgresUUID[UUID](as_uuid=True),
-        ForeignKey("timeline_manual_evidences.id", ondelete="CASCADE"),
+        ForeignKey("timeline_referenced_manual_evidences.id", ondelete="CASCADE"),
         nullable=True,
-        comment="timeline_manual_evidences.id (is_original_evidence=False일 때)",
+        comment="timeline_referenced_manual_evidences.id (is_original_evidence=False일 때)",
     )
     is_original_evidence: Mapped[bool] = mapped_column(
         nullable=False,
         default=True,
-        comment="True: AI 분석 증거(evidence_*), False: 직접 추가(timeline_manual_evidences)",
+        comment="True: AI 분석 증거(evidence_*), False: 직접 추가(timeline_referenced_manual_evidences)",
     )
     evidence_type: Mapped[str | None] = mapped_column(
         String(20),

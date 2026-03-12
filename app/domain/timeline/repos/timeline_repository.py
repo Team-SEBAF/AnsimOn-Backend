@@ -46,6 +46,9 @@ class TimelineRepository(BaseRepository):
                 ev.c.value.op("->>")("description").label("description"),
                 ev.c.value.op("->")("tags").label("tags"),
                 ev.c.value.op("->>")("is_ai_original").label("is_ai_original"),
+                cast(ev.c.value.op("->>")("referenced_evidence_count"), Integer).label(
+                    "referenced_evidence_count"
+                ),
             )
             .select_from(Timeline.__table__)
             .join(dg, true())
@@ -67,6 +70,9 @@ class TimelineRepository(BaseRepository):
         is_ai_original = (
             str(row.is_ai_original).lower() == "true" if row.is_ai_original is not None else True
         )
+        ref_count = (
+            row.referenced_evidence_count if row.referenced_evidence_count is not None else 0
+        )
         return {
             "date": row.date or "",
             "time": row.time or "",
@@ -75,7 +81,25 @@ class TimelineRepository(BaseRepository):
             "description": row.description or "",
             "tags": tags,
             "is_ai_original": is_ai_original,
+            "referenced_evidence_count": ref_count,
         }
+
+    def update_referenced_evidence_count(
+        self, complaint_id: UUID, timeline_evidence_id: UUID, count: int
+    ) -> None:
+        """timeline_json에서 해당 evidence의 referenced_evidence_count만 갱신."""
+        timeline = self.get_by_complaint_id(complaint_id)
+        if not timeline:
+            return
+        ev_id_str = str(timeline_evidence_id)
+        for dg in timeline.timeline_json.get("items", []):
+            for evt in dg.get("events", []):
+                for ev in evt.get("evidences", []):
+                    eid = ev.get("timeline_evidence_id") or ev.get("id")
+                    if eid and str(eid) == ev_id_str:
+                        ev["referenced_evidence_count"] = count
+                        flag_modified(timeline, "timeline_json")
+                        return
 
     def update_evidence_json(
         self, complaint_id: UUID, timeline_evidence_id: UUID, updates: dict

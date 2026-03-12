@@ -2,6 +2,7 @@ from .requests import (
     ManualTimelineEvidenceFormDataUploadRequest,
     ManualTimelineEvidencePresignedRequest,
     ManualTimelineEvidenceRegisterRequest,
+    ReferencedManualEvidenceDeleteRequest,
     UpdateTimelineEvidenceRequest,
 )
 from .responses import (
@@ -24,6 +25,7 @@ __all__ = [
     "ManualTimelineEvidenceFormDataUploadRequest",
     "ManualTimelineEvidencePresignedRequest",
     "ManualTimelineEvidenceRegisterRequest",
+    "ReferencedManualEvidenceDeleteRequest",
     "ReferencedManualEvidencePresignedItem",
     "ReferencedManualEvidencePresignedResponse",
     "ReferencedManualEvidenceRegisterItem",

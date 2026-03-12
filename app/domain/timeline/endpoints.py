@@ -125,3 +125,24 @@ def register_referenced_manual_evidences(
         request=request,
         db=db,
     )
+
+
+@router.delete(
+    "/{complaint_id}/timeline/evidences/{timeline_evidence_id}/manual/referenced-evidences",
+    summary="타임라인 '직접 추가 증거'의 '참조 증거' 삭제 (복수 삭제 지원)",
+    description="타임라인 직접 추가 증거의 참조 증거를 여러 건 삭제할 수 있습니다.",
+    status_code=204,
+    responses=MANUAL_TIMELINE_EVIDENCE_RESPONSES,
+)
+def delete_referenced_manual_evidences(
+    complaint: Complaint = Depends(get_owned_complaint),
+    timeline_evidence_id: UUID = ...,
+    request: schemas.ReferencedManualEvidenceDeleteRequest = Body(...),
+    db: Session = Depends(get_db),
+):
+    timeline_service.delete_referenced_manual_evidences(
+        complaint=complaint,
+        timeline_evidence_id=timeline_evidence_id,
+        referenced_manual_evidence_ids=request.referenced_manual_evidence_ids,
+        db=db,
+    )

@@ -58,3 +58,11 @@ class ManualTimelineEvidenceRegisterRequest(BaseRequest):
         min_length=1,
         description="등록할 직접 추가 증거 목록",
     )
+
+
+class ReferencedManualEvidenceDeleteRequest(BaseRequest):
+    referenced_manual_evidence_ids: list[UUID] = Field(
+        ...,
+        min_length=1,
+        description="삭제할 참조 증거 ID 목록",
+    )

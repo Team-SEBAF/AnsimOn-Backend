@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.core.aws import download_s3_object, upload_fileobj
+from app.core.aws import delete_s3_by_prefixes, download_s3_object, upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence.constant import (
@@ -86,7 +86,7 @@ class TimelineService:
     def _insert_dummy_default_data(self, complaint_id: UUID, db: Session) -> Timeline:
         """complaint_id에 해당하는 timeline row 없을 때 default JSON + evidences insert."""
         timeline_repo = TimelineRepository(db)
-        evidence_repo = TimelineEvidenceRepository(db)
+        timeline_evidence_repo = TimelineEvidenceRepository(db)
 
         timeline = Timeline(
             complaint_id=complaint_id,
@@ -98,7 +98,7 @@ class TimelineService:
         for ev in DEFAULT_TIMELINE_EVIDENCES:
             ev_type = ev.get("evidence_type")
             file_type_val = ev["file_type"]
-            evidence_repo.create(
+            timeline_evidence_repo.create(
                 TimelineEvidence(
                     timeline_id=timeline.id,
                     timeline_evidence_id=ev["timeline_evidence_id"],
@@ -131,13 +131,15 @@ class TimelineService:
         - is_ai_original=False: manual rows만 처리
         - 그룹은 항상 이미지 타입, index 순 첫 번째 이미지/비디오를 썸네일로 사용.
         """
-        evidence_repo = TimelineEvidenceRepository(db)
+        timeline_evidence_repo = TimelineEvidenceRepository(db)
         message_repo = EvidenceMessageRepository(db)
         victim_repo = EvidenceVictimRepository(db)
         voice_repo = EvidenceVoiceRepository(db)
         manual_repo = TimelineManualEvidenceRepository(db)
 
-        rows = evidence_repo.list_by_timeline_evidence_id(timeline_id, timeline_evidence_id)
+        rows = timeline_evidence_repo.list_by_timeline_evidence_id(
+            timeline_id, timeline_evidence_id
+        )
         if not rows:
             return _EvidenceMetadata(has_thumbnail=False, thumbnail_url="", duration_seconds=None)
 
@@ -306,7 +308,9 @@ class TimelineService:
             "title": ev_meta.get("title", "") if ev_meta else "",
             "description": ev_meta.get("description", "") if ev_meta else "",
             "tags": ev_meta.get("tags", []) if ev_meta else [],
-            "referenced_evidence_count": len(rows),
+            "referenced_evidence_count": ev_meta.get("referenced_evidence_count", 0)
+            if ev_meta
+            else 0,
             "is_ai_original": is_ai_original,
         }
 
@@ -538,7 +542,7 @@ class TimelineService:
         )
 
         def s3_key_builder(c: Complaint, eid: UUID) -> str:
-            return f"{c.user_sub}/complaints/{c.complaint_id}/timeline-manual-evidences/{timeline_evidence_id}/{eid}/original"
+            return f"{c.user_sub}/complaints/{c.complaint_id}/timeline-referenced-manual-evidences/{timeline_evidence_id}/{eid}/original"
 
         rows = generate_presigned_urls_for_unrestricted_content(
             complaint=complaint,
@@ -582,7 +586,7 @@ class TimelineService:
                 "timeline_evidence_id": timeline_evidence_id,
                 "filename": item.filename,
             },
-            path_prefix="timeline-manual-evidences",
+            path_prefix="timeline-referenced-manual-evidences",
         )
 
         (
@@ -665,11 +669,11 @@ class TimelineService:
                 duration_seconds_failed_evidence_ids=duration_total if duration_total else [],
             )
 
-        evidence_repo = TimelineEvidenceRepository(db)
+        timeline_evidence_repo = TimelineEvidenceRepository(db)
         timeline_repo = TimelineRepository(db)
         timeline = timeline_repo.get_by_complaint_id(complaint.complaint_id)
 
-        existing_rows = evidence_repo.list_by_timeline_evidence_id(
+        existing_rows = timeline_evidence_repo.list_by_timeline_evidence_id(
             timeline.id, timeline_evidence_id
         )
         next_index = max((r.index for r in existing_rows), default=0) + 1
@@ -702,6 +706,13 @@ class TimelineService:
         db.bulk_insert_mappings(TimelineManualEvidence, manual_mappings)
         db.bulk_insert_mappings(TimelineEvidence, evidence_mappings)
 
+        actual_count = len(
+            timeline_evidence_repo.list_by_timeline_evidence_id(timeline.id, timeline_evidence_id)
+        )
+        timeline_repo.update_referenced_evidence_count(
+            complaint.complaint_id, timeline_evidence_id, actual_count
+        )
+
         db.commit()
         results_resp = [
             schemas.ReferencedManualEvidenceRegisterItem(
@@ -715,6 +726,58 @@ class TimelineService:
             for r in rows
         ]
         return schemas.ReferencedManualEvidenceRegisterResponse(items=results_resp)
+
+    def delete_referenced_manual_evidences(
+        self,
+        complaint: Complaint,
+        timeline_evidence_id: UUID,
+        referenced_manual_evidence_ids: list[UUID],
+        db: Session,
+    ) -> None:
+        self._ensure_timeline_evidence_is_manual(
+            complaint_id=complaint.complaint_id,
+            timeline_evidence_id=timeline_evidence_id,
+            db=db,
+        )
+        timeline_repo = TimelineRepository(db)
+        timeline_id = timeline_repo.get_id_by_complaint_id(complaint.complaint_id)
+
+        timeline_evidence_repo = TimelineEvidenceRepository(db)
+        manual_repo = TimelineManualEvidenceRepository(db)
+
+        rows = timeline_evidence_repo.list_by_timeline_evidence_id(
+            timeline_id, timeline_evidence_id
+        )
+        to_delete = [
+            r
+            for r in rows
+            if r.referenced_manual_evidence_id in referenced_manual_evidence_ids
+            and not r.is_original_evidence
+        ]
+
+        if not to_delete:
+            return
+        manuals = [
+            manual_repo.get(r.referenced_manual_evidence_id)
+            for r in to_delete
+            if r.referenced_manual_evidence_id
+        ]
+        manuals = [m for m in manuals if m is not None]
+
+        if manuals:
+            prefixes = [m.s3_key.rsplit("/", 1)[0] + "/" for m in manuals]
+            delete_s3_by_prefixes(settings.S3_BUCKET_NAME, prefixes)
+        for manual in manuals:
+            manual_repo.delete(manual)
+        db.commit()
+
+        actual_count = len(
+            timeline_evidence_repo.list_by_timeline_evidence_id(timeline_id, timeline_evidence_id)
+        )
+        timeline_repo.update_referenced_evidence_count(
+            complaint.complaint_id, timeline_evidence_id, actual_count
+        )
+        db.commit()
 
 
 timeline_service = TimelineService()

@@ -12,7 +12,7 @@ from app.base.base_db import Base
 class TimelineManualEvidence(Base):
     """직접 추가 증거. AI 분석용 evidence_* 테이블이 아닌 타임라인 전용 저장."""
 
-    __tablename__ = "timeline_manual_evidences"
+    __tablename__ = "timeline_referenced_manual_evidences"
 
     id: Mapped[UUID] = mapped_column(
         PostgresUUID[UUID](as_uuid=True),
