@@ -6,6 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.base.base_error import CodeException
 from app.core.aws import delete_s3_by_prefixes, download_s3_object, upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
@@ -55,6 +56,10 @@ from app.domain.timeline.constant import TimelineTag
 from app.domain.timeline.default_data import (
     DEFAULT_TIMELINE_EVIDENCES,
     DEFAULT_TIMELINE_JSON,
+)
+from app.domain.timeline.errors import (
+    GetTimelineErrorCode,
+    TimelineManualEvidenceNotAllowedErrorCode,
 )
 from app.domain.timeline.models import Timeline, TimelineEvidence, TimelineManualEvidence
 from app.domain.timeline.repos import (
@@ -211,12 +216,6 @@ class TimelineService:
         timeline_evidence_id가 직접 추가 증거(is_ai_original=False)인지 검사.
         AI 분석 증거(is_ai_original=True)에는 Presigned URL/Register 사용 불가 → CodeException raise.
         """
-        from app.base.base_error import CodeException
-        from app.domain.timeline.errors import (
-            GetTimelineErrorCode,
-            TimelineManualEvidenceNotAllowedErrorCode,
-        )
-
         timeline_repo = TimelineRepository(db)
         ev_meta = timeline_repo.get_evidence_metadata_from_json(complaint_id, timeline_evidence_id)
         if ev_meta is None:
@@ -285,16 +284,17 @@ class TimelineService:
         timeline_evidence_repo = TimelineEvidenceRepository(db)
 
         timeline_id = timeline_repo.get_id_by_complaint_id(complaint_id)
-        # if timeline_id is None:
-        #     raise CodeException(
-        #         code=GetTimelineErrorCode.TIMELINE_EVIDENCE_NOT_FOUND,
-        #         message="타임라인 증거를 찾을 수 없습니다.",
-        #         debug_message=f"timeline_evidence_id: {timeline_evidence_id}에 해당하는 증거가 timeline_json에 없습니다.",
-        #         status_code=404,
-        #     )
 
         ev_meta = timeline_repo.get_evidence_metadata_from_json(complaint_id, timeline_evidence_id)
-        is_ai_original = ev_meta.get("is_ai_original", True) if ev_meta else True
+        if ev_meta is None:
+            raise CodeException(
+                code=GetTimelineErrorCode.TIMELINE_EVIDENCE_NOT_FOUND,
+                message="타임라인 증거를 찾을 수 없습니다.",
+                debug_message=f"timeline_evidence_id: {timeline_evidence_id}에 해당하는 증거가 timeline_json에 없습니다.",
+                status_code=404,
+            )
+
+        is_ai_original = ev_meta.get("is_ai_original", True)
 
         rows = timeline_evidence_repo.list_by_timeline_evidence_id(
             timeline_id, timeline_evidence_id
@@ -302,15 +302,13 @@ class TimelineService:
 
         base_response = {
             "timeline_evidence_id": timeline_evidence_id,
-            "index": ev_meta.get("index", 1) if ev_meta else 1,
-            "date": ev_meta.get("date", "") if ev_meta else "",
-            "time": ev_meta.get("time", "") if ev_meta else "",
-            "title": ev_meta.get("title", "") if ev_meta else "",
-            "description": ev_meta.get("description", "") if ev_meta else "",
-            "tags": ev_meta.get("tags", []) if ev_meta else [],
-            "referenced_evidence_count": ev_meta.get("referenced_evidence_count", 0)
-            if ev_meta
-            else 0,
+            "index": ev_meta.get("index", 1),
+            "date": ev_meta.get("date", ""),
+            "time": ev_meta.get("time", ""),
+            "title": ev_meta.get("title", ""),
+            "description": ev_meta.get("description", ""),
+            "tags": ev_meta.get("tags", []),
+            "referenced_evidence_count": ev_meta.get("referenced_evidence_count", 0),
             "is_ai_original": is_ai_original,
         }
 
@@ -500,6 +498,49 @@ class TimelineService:
             "tags": [TimelineTag(t) if isinstance(t, str) else t for t in ev_meta.get("tags", [])],
         }
         return schemas.TimelineEvidenceMetadataResponse(**response_data)
+
+    def delete_timeline_evidences(
+        self,
+        complaint: Complaint,
+        timeline_evidence_ids: list[UUID],
+        db: Session,
+    ) -> None:
+        for timeline_evidence_id in timeline_evidence_ids:
+            self._delete_timeline_evidence_one(
+                complaint=complaint,
+                timeline_evidence_id=timeline_evidence_id,
+                db=db,
+            )
+        db.commit()
+
+    def _delete_timeline_evidence_one(
+        self,
+        complaint: Complaint,
+        timeline_evidence_id: UUID,
+        db: Session,
+    ) -> None:
+        timeline_repo = TimelineRepository(db)
+        timeline_id = timeline_repo.get_id_by_complaint_id(complaint.complaint_id)
+        timeline_evidence_repo = TimelineEvidenceRepository(db)
+
+        rows = timeline_evidence_repo.list_by_timeline_evidence_id(
+            timeline_id, timeline_evidence_id
+        )
+        manual_ids = [
+            r.referenced_manual_evidence_id
+            for r in rows
+            if not r.is_original_evidence and r.referenced_manual_evidence_id
+        ]
+        if manual_ids:
+            self.delete_referenced_manual_evidences(
+                complaint=complaint,
+                timeline_evidence_id=timeline_evidence_id,
+                referenced_manual_evidence_ids=manual_ids,
+                db=db,
+            )
+
+        timeline_evidence_repo.delete_by_timeline_evidence_id(timeline_id, timeline_evidence_id)
+        timeline_repo.remove_evidence_from_json(complaint.complaint_id, timeline_evidence_id)
 
     def upload_manual_timeline_evidence_form_data(
         self,

@@ -66,3 +66,11 @@ class ReferencedManualEvidenceDeleteRequest(BaseRequest):
         min_length=1,
         description="삭제할 참조 증거 ID 목록",
     )
+
+
+class TimelineEvidenceDeleteRequest(BaseRequest):
+    timeline_evidence_ids: list[UUID] = Field(
+        ...,
+        min_length=1,
+        description="삭제할 타임라인 증거 ID 목록",
+    )

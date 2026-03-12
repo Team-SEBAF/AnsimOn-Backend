@@ -34,6 +34,7 @@ def get_timeline(
     summary="타임라인 증거 상세 조회",
     description="timeline_evidence_id에 해당하는 타임라인 증거 메타데이터(날짜, 시각, 제목, 설명, 태그)와 증거 목록을 조회합니다.",
     response_model=schemas.TimelineEvidenceDetailResponse,
+    responses=GET_TIMELINE_ERRORS_RESPONSES,
 )
 def get_timeline_evidences(
     complaint: Complaint = Depends(get_owned_complaint),
@@ -64,6 +65,25 @@ def update_timeline_evidence_form_data(
         timeline_evidence_id,
         request,
         db,
+    )
+
+
+@router.delete(
+    "/{complaint_id}/timeline/evidences",
+    summary="타임라인 증거 삭제 (복수 삭제 지원)",
+    description="타임라인 증거를 여러 건 삭제할 수 있습니다.",
+    status_code=204,
+    responses=GET_TIMELINE_ERRORS_RESPONSES,
+)
+def delete_timeline_evidences(
+    complaint: Complaint = Depends(get_owned_complaint),
+    request: schemas.TimelineEvidenceDeleteRequest = Body(...),
+    db: Session = Depends(get_db),
+):
+    timeline_service.delete_timeline_evidences(
+        complaint=complaint,
+        timeline_evidence_ids=request.timeline_evidence_ids,
+        db=db,
     )
 
 

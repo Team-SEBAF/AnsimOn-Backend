@@ -84,6 +84,32 @@ class TimelineRepository(BaseRepository):
             "referenced_evidence_count": ref_count,
         }
 
+    def remove_evidence_from_json(self, complaint_id: UUID, timeline_evidence_id: UUID) -> None:
+        """timeline_json에서 timeline_evidence_id에 해당하는 evidence 제거. 같은 날짜/시각의 나머지 evidences는 index -1."""
+        timeline = self.get_by_complaint_id(complaint_id)
+        if not timeline:
+            return
+        items = timeline.timeline_json.get("items", [])
+        ev_id_str = str(timeline_evidence_id)
+        for dg in items:
+            for evt in dg.get("events", []):
+                evidences = evt.get("evidences", [])
+                for i, ev in enumerate(evidences):
+                    eid = ev.get("timeline_evidence_id") or ev.get("id")
+                    if eid and str(eid) == ev_id_str:
+                        removed_index = ev.get("index", 1)
+                        evidences.pop(i)
+                        for other in evidences:
+                            if other.get("index", 1) > removed_index:
+                                other["index"] = other.get("index", 1) - 1
+                        if not evidences:
+                            dg["events"].remove(evt)
+                        if not dg.get("events"):
+                            items.remove(dg)
+                        timeline.timeline_json["items"] = [x for x in items if x.get("events")]
+                        flag_modified(timeline, "timeline_json")
+                        return
+
     def update_referenced_evidence_count(
         self, complaint_id: UUID, timeline_evidence_id: UUID, count: int
     ) -> None:
@@ -257,6 +283,18 @@ class TimelineEvidenceRepository(BaseRepository):
             .order_by(TimelineEvidence.index)
             .all()
         )
+
+    def delete_by_timeline_evidence_id(self, timeline_id: UUID, timeline_evidence_id: UUID) -> int:
+        """timeline_evidence_id에 해당하는 timeline_evidences 전부 삭제. 삭제된 row 수 반환."""
+        from sqlalchemy import delete as sql_delete
+
+        result = self.db.execute(
+            sql_delete(TimelineEvidence).where(
+                TimelineEvidence.timeline_id == timeline_id,
+                TimelineEvidence.timeline_evidence_id == timeline_evidence_id,
+            )
+        )
+        return result.rowcount
 
 
 class TimelineManualEvidenceRepository(BaseRepository):
