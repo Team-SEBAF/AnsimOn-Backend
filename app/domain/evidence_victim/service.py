@@ -14,6 +14,7 @@ from app.domain.evidence.constant import (
     EVIDENCE_VICTIM_RESTRICT,
     EVIDENCE_VICTIM_VIDEO_RESTRICT,
     EvidenceVariant,
+    get_file_type_from_content_type,
 )
 from app.domain.evidence.errors.register_validation_error import (
     raise_evidence_register_validation_failed,
@@ -302,7 +303,7 @@ class EvidenceVictimService(EvidenceTypeService):
             details.append(
                 schemas.EvidenceVictimDetailResponse(
                     victim_id=victim.victim_id,
-                    type="video" if dur > 0 else "image",
+                    type=get_file_type_from_content_type(victim.content_type).value,
                     filename=victim.filename,
                     duration_seconds=dur,
                     size_bytes=victim.size_bytes,

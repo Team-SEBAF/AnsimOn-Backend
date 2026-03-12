@@ -1,10 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor
+from io import BytesIO
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.core.auth import AuthUser
-from app.core.aws import download_s3_object
+from app.core.aws import download_s3_object, upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
@@ -12,6 +13,7 @@ from app.domain.evidence.constant import (
     EVIDENCE_VOICE_AUDIO_RESTRICT,
     EVIDENCE_VOICE_IMAGE_RESTRICT,
     EVIDENCE_VOICE_RESTRICT,
+    get_file_type_from_content_type,
 )
 from app.domain.evidence.errors.register_validation_error import (
     raise_evidence_register_validation_failed,
@@ -20,7 +22,7 @@ from app.domain.evidence.utils import (
     check_register_max_count,
     fetch_s3_metadata_for_register,
 )
-from app.domain.evidence_message.utils import extract_image_meta
+from app.domain.evidence_message.utils import extract_image_meta, make_image_top_crop
 from app.domain.evidence_voice import schemas
 from app.domain.evidence_voice.models.evidence_voice_model import EvidenceVoice
 from app.domain.evidence_voice.repos.evidence_voice_repository import EvidenceVoiceRepository
@@ -168,7 +170,7 @@ class EvidenceVoiceService(EvidenceTypeService):
             valid_metadata,
         ) = _collect_voice_register_restrict_failures_from_metadata(metadata_list)
 
-        # 4) 다운로드 → duration 추출 (병렬). 이미지는 duration=0, 검증용 extract_image_meta
+        # 4) 다운로드 → duration 추출 (병렬). 이미지는 duration=0, 검증용 extract_image_meta + detail S3 업로드
         def _process_voice_item(m: dict) -> tuple[dict | None, str | None]:
             file_bytes = download_s3_object(settings.S3_BUCKET_NAME, m["s3_key"])
             ct = m["content_type"]
@@ -183,6 +185,18 @@ class EvidenceVoiceService(EvidenceTypeService):
                 except Exception:
                     return None, str(m["voice_id"])
                 duration_seconds = 0
+                # 이미지: detail 추출 후 S3 업로드 (message/victim과 동일)
+                base_key = m["s3_key"].rsplit("/", 1)[0]
+                detail_key = f"{base_key}/detail"
+                detail_bytes, _, _ = make_image_top_crop(
+                    file_bytes=file_bytes, size=400, quality=75
+                )
+                upload_fileobj(
+                    fileobj=BytesIO(detail_bytes),
+                    bucket=settings.S3_BUCKET_NAME,
+                    key=detail_key,
+                    content_type="image/jpeg",
+                )
             return {
                 "voice_id": m["voice_id"],
                 "complaint_id": m["complaint_id"],
@@ -262,7 +276,7 @@ class EvidenceVoiceService(EvidenceTypeService):
         details = [
             schemas.EvidenceVoiceDetailResponse(
                 voice_id=voice.voice_id,
-                type="audio" if (voice.duration_seconds or 0) > 0 else "image",
+                type=get_file_type_from_content_type(voice.content_type).value,
                 filename=voice.filename,
                 duration_seconds=voice.duration_seconds or 0,
                 size_bytes=voice.size_bytes,
