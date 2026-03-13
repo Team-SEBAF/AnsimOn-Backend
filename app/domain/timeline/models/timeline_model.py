@@ -1,6 +1,6 @@
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, String, delete, event
+from sqlalchemy import Boolean, ForeignKey, String, delete, event
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -23,6 +23,18 @@ class Timeline(Base):
         unique=True,
     )
     timeline_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    need_evidence_collection_regeneration: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        comment="대조 증거 모음 재생성 필요 여부",
+    )
+    need_timeline_pdf_regeneration: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        comment="타임라인 PDF 재생성 필요 여부",
+    )
 
 
 class TimelineEvidence(Base):

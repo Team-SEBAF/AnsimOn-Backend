@@ -29,7 +29,7 @@ def get_timeline_for_download_preview(
 @router.post(
     "/{complaint_id}/timeline/download/zip",
     summary="ZIP 다운로드용 presigned URL 발급",
-    description="대조 증거 모음 ZIP 생성 후 S3 업로드, 다운로드용 presigned URL 반환.",
+    description="다운로드 ZIP(대조 증거 모음 + 타임라인 PDF) 생성 후 S3 업로드, presigned URL 반환.",
 )
 def create_download_zip(
     complaint: Complaint = Depends(get_owned_complaint),

@@ -14,6 +14,22 @@ class TimelineRepository(BaseRepository):
     def get_by_complaint_id(self, complaint_id: UUID) -> Timeline | None:
         return self.db.query(Timeline).filter(Timeline.complaint_id == complaint_id).first()
 
+    def set_regeneration_flags(
+        self,
+        complaint_id: UUID,
+        *,
+        need_evidence_collection: bool | None = None,
+        need_timeline_pdf: bool | None = None,
+    ) -> None:
+        """다운로드 ZIP(대조 증거 모음/타임라인 PDF) 재생성 필요 플래그 설정."""
+        timeline = self.get_by_complaint_id(complaint_id)
+        if not timeline:
+            return
+        if need_evidence_collection is not None:
+            timeline.need_evidence_collection_regeneration = need_evidence_collection
+        if need_timeline_pdf is not None:
+            timeline.need_timeline_pdf_regeneration = need_timeline_pdf
+
     def get_id_by_complaint_id(self, complaint_id: UUID) -> UUID | None:
         row = self.db.query(Timeline.id).filter(Timeline.complaint_id == complaint_id).first()
         return row[0] if row else None
@@ -108,6 +124,7 @@ class TimelineRepository(BaseRepository):
                             items.remove(dg)
                         timeline.timeline_json["items"] = [x for x in items if x.get("events")]
                         flag_modified(timeline, "timeline_json")
+                        timeline.need_timeline_pdf_regeneration = True
                         return
 
     def update_referenced_evidence_count(
@@ -125,6 +142,7 @@ class TimelineRepository(BaseRepository):
                     if eid and str(eid) == ev_id_str:
                         ev["referenced_evidence_count"] = count
                         flag_modified(timeline, "timeline_json")
+                        timeline.need_timeline_pdf_regeneration = True
                         return
 
     def update_evidence_json(
@@ -201,6 +219,7 @@ class TimelineRepository(BaseRepository):
 
         timeline.timeline_json["items"] = [dg for dg in items if dg.get("events")]
         flag_modified(timeline, "timeline_json")
+        timeline.need_timeline_pdf_regeneration = True
 
     def add_manual_evidence_to_json(
         self, complaint_id: UUID, date: str, time: str, title: str, description: str, tags: list
@@ -255,6 +274,7 @@ class TimelineRepository(BaseRepository):
         )
         timeline.timeline_json["items"] = [i for i in items if i.get("events")]
         flag_modified(timeline, "timeline_json")
+        timeline.need_timeline_pdf_regeneration = True
         return timeline_evidence_id, next_index
 
 

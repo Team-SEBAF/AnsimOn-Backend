@@ -511,6 +511,10 @@ class TimelineService:
                 timeline_evidence_id=timeline_evidence_id,
                 db=db,
             )
+        timeline_repo = TimelineRepository(db)
+        timeline_repo.set_regeneration_flags(
+            complaint.complaint_id, need_evidence_collection_regeneration=True
+        )
         db.commit()
 
     def _delete_timeline_evidence_one(
@@ -556,6 +560,9 @@ class TimelineService:
             title=request.title,
             description=request.description,
             tags=request.tags,
+        )
+        timeline_repo.set_regeneration_flags(
+            complaint_id, need_evidence_collection_regeneration=True
         )
         db.commit()
 
@@ -753,7 +760,9 @@ class TimelineService:
         timeline_repo.update_referenced_evidence_count(
             complaint.complaint_id, timeline_evidence_id, actual_count
         )
-
+        timeline_repo.set_regeneration_flags(
+            complaint.complaint_id, need_evidence_collection_regeneration=True
+        )
         db.commit()
         results_resp = [
             schemas.ReferencedManualEvidenceRegisterItem(
@@ -817,6 +826,9 @@ class TimelineService:
         )
         timeline_repo.update_referenced_evidence_count(
             complaint.complaint_id, timeline_evidence_id, actual_count
+        )
+        timeline_repo.set_regeneration_flags(
+            complaint.complaint_id, need_evidence_collection_regeneration=True
         )
         db.commit()
 

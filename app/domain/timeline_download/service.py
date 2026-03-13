@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.aws import (
     download_s3_object_with_metadata,
     generate_presigned_get_url,
+    head_s3_object,
     upload_fileobj,
 )
 from app.core.settings import settings
@@ -214,9 +215,24 @@ class TimelineDownloadService:
 
     def create_download_zip(self, complaint: Complaint, db: Session) -> tuple[bytes, str]:
         """
-        타임라인 증거 ZIP 생성.
+        다운로드 ZIP(대조 증거 모음 + 타임라인 PDF) 생성.
+        need_evidence_collection_regeneration 또는 S3에 없으면 재생성.
         Returns: (zip_bytes, s3_key)
         """
+        timeline_repo = TimelineRepository(db)
+        timeline = timeline_repo.get_by_complaint_id(complaint.complaint_id)
+        s3_key = (
+            f"{complaint.user_sub}/complaints/{complaint.complaint_id}/"
+            "timeline-download/download.zip"
+        )
+        exists_in_s3 = head_s3_object(settings.S3_BUCKET_NAME, s3_key) is not None
+        need_regenerate = (
+            timeline.need_evidence_collection_regeneration if timeline else True
+        ) or not exists_in_s3
+
+        if not need_regenerate:
+            return b"", s3_key
+
         timeline_data = self.get_timeline_for_download(complaint=complaint, db=db)
         date_str = datetime.now(timezone.utc).strftime("%y%m%d")
         zip_root = f"안심온_증거분석타임라인_{date_str}"
@@ -227,7 +243,7 @@ class TimelineDownloadService:
         unique_s3_keys = list({s3_key for _, s3_key in entries})
         s3_key_to_bytes_and_ext: dict[str, tuple[bytes, str]] = {}
         if unique_s3_keys:
-            with ThreadPoolExecutor(max_workers=min(32, len(unique_s3_keys))) as executor:
+            with ThreadPoolExecutor(max_workers=min(10, len(unique_s3_keys))) as executor:
                 futures = {executor.submit(self._download_one, k): k for k in unique_s3_keys}
                 for future in as_completed(futures):
                     try:
@@ -250,23 +266,24 @@ class TimelineDownloadService:
         buffer.seek(0)
         zip_bytes = buffer.getvalue()
 
-        s3_key = (
-            f"{complaint.user_sub}/complaints/{complaint.complaint_id}/"
-            "timeline-download/download.zip"
-        )
         upload_fileobj(
             fileobj=BytesIO(zip_bytes),
             bucket=settings.S3_BUCKET_NAME,
             key=s3_key,
             content_type="application/zip",
         )
+        if timeline:
+            timeline_repo.set_regeneration_flags(
+                complaint.complaint_id, need_evidence_collection=False
+            )
+            db.commit()
         return zip_bytes, s3_key
 
     def get_download_zip_presigned_url(
         self, complaint: Complaint, db: Session, expires_in: int = 3600
     ) -> str:
         """
-        다운로드 ZIP 생성 후 presigned URL 반환.
+        다운로드 ZIP(대조 증거 모음 + 타임라인 PDF) 생성 후 presigned URL 반환.
         """
         _, s3_key = self.create_download_zip(complaint=complaint, db=db)
         return generate_presigned_get_url(
