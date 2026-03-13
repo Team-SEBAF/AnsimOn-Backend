@@ -53,10 +53,12 @@ def _format_evidence_numstring(date: str, time: str, index: int, sub_index: int)
 
 
 def _ext_from_content_type(content_type: str | None, default: str = ".bin") -> str:
-    """Content-Type에서 확장자 추출."""
+    """Content-Type에서 확장자 추출. audio/mp4a-latm은 mimetypes 미지원이라 fallback."""
     if not content_type:
         return default
     ct = content_type.split(";")[0].strip().lower()
+    if ct == "audio/mp4a-latm":
+        return ".m4a"
     return mimetypes.guess_extension(ct) or default
 
 
@@ -191,7 +193,6 @@ class TimelineDownloadService:
     ) -> list[tuple[str, str]]:
         """
         timeline_data에서 (zip 내 경로 suffix, s3_key) 쌍 수집.
-        경로 suffix는 확장자 제외 (예: 20260222-1000-1-1, 20260222-1000-1-1/설명).
         확장자는 다운로드 시 Content-Type에서 추출.
         """
         entries: list[tuple[str, str]] = []
@@ -202,16 +203,15 @@ class TimelineDownloadService:
                     for numstring, s3_info in numstring_map.items():
                         if s3_info is None:
                             continue
-                        if isinstance(s3_info, str):
-                            path_suffix = numstring
-                            entries.append((path_suffix, s3_info))
-                        elif isinstance(s3_info, dict):
+                        if isinstance(s3_info, dict):
                             main_key = s3_info.get("main")
                             attachments = s3_info.get("attachments") or []
                             if main_key:
                                 entries.append((f"{numstring}/설명", main_key))
                             for i, att_key in enumerate(attachments, start=1):
                                 entries.append((f"{numstring}/첨부 자료/첨부자료 {i}", att_key))
+                        else:
+                            entries.append((numstring, s3_info))
         return entries
 
     def _download_one(self, s3_key: str) -> tuple[str, bytes, str | None]:
