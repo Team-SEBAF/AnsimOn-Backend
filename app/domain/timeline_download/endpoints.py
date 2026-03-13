@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.domain.complaint import Complaint, get_owned_complaint
+from app.domain.timeline_download.schemas.responses import TimelineDownloadZipResponse
 from app.domain.timeline_download.service import timeline_download_service
 
 router = APIRouter(prefix="/api/v1", tags=["Timeline Download"])
@@ -23,3 +24,19 @@ def get_timeline_for_download_preview(
         complaint=complaint,
         db=db,
     )
+
+
+@router.post(
+    "/{complaint_id}/timeline/download/zip",
+    summary="ZIP 다운로드용 presigned URL 발급",
+    description="대조 증거 모음 ZIP 생성 후 S3 업로드, 다운로드용 presigned URL 반환.",
+)
+def create_download_zip(
+    complaint: Complaint = Depends(get_owned_complaint),
+    db: Session = Depends(get_db),
+) -> TimelineDownloadZipResponse:
+    url = timeline_download_service.get_download_zip_presigned_url(
+        complaint=complaint,
+        db=db,
+    )
+    return TimelineDownloadZipResponse(download_url=url)

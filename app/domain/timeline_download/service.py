@@ -1,8 +1,19 @@
+import mimetypes
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
+from datetime import datetime, timezone
+from io import BytesIO
 from uuid import UUID
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from sqlalchemy.orm import Session
 
+from app.core.aws import (
+    download_s3_object_with_metadata,
+    generate_presigned_get_url,
+    upload_fileobj,
+)
+from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence.constant import EvidenceType
 from app.domain.evidence_incident_log.models.evidence_incident_log_model import (
@@ -37,6 +48,14 @@ def _format_evidence_numstring(date: str, time: str, index: int, sub_index: int)
     date_compact = date.replace("-", "") if date else ""
     time_compact = time.replace(":", "") if time else ""
     return f"{date_compact}-{time_compact}-{index}-{sub_index}"
+
+
+def _ext_from_content_type(content_type: str | None, default: str = ".bin") -> str:
+    """Content-Type에서 확장자 추출."""
+    if not content_type:
+        return default
+    ct = content_type.split(";")[0].strip().lower()
+    return mimetypes.guess_extension(ct) or default
 
 
 class TimelineDownloadService:
@@ -159,6 +178,102 @@ class TimelineDownloadService:
                     ev["evidences_numstring_s3_key_list"] = numstring_s3_map
 
         return data
+
+    def _collect_zip_entries(
+        self, timeline_data: dict, evidence_root: str
+    ) -> list[tuple[str, str]]:
+        """
+        timeline_data에서 (zip 내 경로 suffix, s3_key) 쌍 수집.
+        경로 suffix는 확장자 제외 (예: 20260222-1000-1-1, 20260222-1000-1-1/설명).
+        확장자는 다운로드 시 Content-Type에서 추출.
+        """
+        entries: list[tuple[str, str]] = []
+        for dg in timeline_data.get("items", []):
+            for evt in dg.get("events", []):
+                for ev in evt.get("evidences", []):
+                    numstring_map = ev.get("evidences_numstring_s3_key_list") or {}
+                    for numstring, s3_info in numstring_map.items():
+                        if s3_info is None:
+                            continue
+                        if isinstance(s3_info, str):
+                            path_suffix = numstring
+                            entries.append((path_suffix, s3_info))
+                        elif isinstance(s3_info, dict):
+                            main_key = s3_info.get("main")
+                            attachments = s3_info.get("attachments") or []
+                            if main_key:
+                                entries.append((f"{numstring}/설명", main_key))
+                            for i, att_key in enumerate(attachments, start=1):
+                                entries.append((f"{numstring}/첨부 자료/첨부자료 {i}", att_key))
+        return entries
+
+    def _download_one(self, s3_key: str) -> tuple[str, bytes, str | None]:
+        """S3에서 단일 객체 다운로드. (s3_key, bytes, content_type) 반환."""
+        data, meta = download_s3_object_with_metadata(settings.S3_BUCKET_NAME, s3_key)
+        return s3_key, data, meta.get("ContentType")
+
+    def create_download_zip(self, complaint: Complaint, db: Session) -> tuple[bytes, str]:
+        """
+        타임라인 증거 ZIP 생성.
+        Returns: (zip_bytes, s3_key)
+        """
+        timeline_data = self.get_timeline_for_download(complaint=complaint, db=db)
+        date_str = datetime.now(timezone.utc).strftime("%y%m%d")
+        zip_root = f"안심온_증거분석타임라인_{date_str}"
+        evidence_root = f"{zip_root}/대조 증거 모음"
+        entries = self._collect_zip_entries(timeline_data, evidence_root)
+
+        # 병렬 다운로드 (동일 s3_key 중복 다운로드 방지)
+        unique_s3_keys = list({s3_key for _, s3_key in entries})
+        s3_key_to_bytes_and_ext: dict[str, tuple[bytes, str]] = {}
+        if unique_s3_keys:
+            with ThreadPoolExecutor(max_workers=min(32, len(unique_s3_keys))) as executor:
+                futures = {executor.submit(self._download_one, k): k for k in unique_s3_keys}
+                for future in as_completed(futures):
+                    try:
+                        k, data, ct = future.result()
+                        ext = _ext_from_content_type(ct)
+                        s3_key_to_bytes_and_ext[k] = (data, ext)
+                    except Exception:
+                        raise
+
+        buffer = BytesIO()
+        with ZipFile(buffer, "w", ZIP_DEFLATED) as zf:
+            # 빈 폴더: 타임라인_PDF
+            zf.writestr(f"{zip_root}/타임라인_PDF/", "")
+            for path_suffix, s3_key in entries:
+                if pair := s3_key_to_bytes_and_ext.get(s3_key):
+                    data, ext = pair
+                    zip_path = f"{evidence_root}/{path_suffix}{ext}"
+                    zf.writestr(zip_path, data)
+
+        buffer.seek(0)
+        zip_bytes = buffer.getvalue()
+
+        s3_key = (
+            f"{complaint.user_sub}/complaints/{complaint.complaint_id}/"
+            "timeline-download/download.zip"
+        )
+        upload_fileobj(
+            fileobj=BytesIO(zip_bytes),
+            bucket=settings.S3_BUCKET_NAME,
+            key=s3_key,
+            content_type="application/zip",
+        )
+        return zip_bytes, s3_key
+
+    def get_download_zip_presigned_url(
+        self, complaint: Complaint, db: Session, expires_in: int = 3600
+    ) -> str:
+        """
+        다운로드 ZIP 생성 후 presigned URL 반환.
+        """
+        _, s3_key = self.create_download_zip(complaint=complaint, db=db)
+        return generate_presigned_get_url(
+            bucket=settings.S3_BUCKET_NAME,
+            key=s3_key,
+            expires_in=expires_in,
+        )
 
 
 timeline_download_service = TimelineDownloadService()
