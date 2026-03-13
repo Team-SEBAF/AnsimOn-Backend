@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from datetime import datetime, timezone
 from io import BytesIO
+from urllib.parse import quote
 from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -57,6 +58,11 @@ def _ext_from_content_type(content_type: str | None, default: str = ".bin") -> s
         return default
     ct = content_type.split(";")[0].strip().lower()
     return mimetypes.guess_extension(ct) or default
+
+
+def _is_zip_content(data: bytes) -> bool:
+    """ZIP 마직 바이트(PK..) 여부. 덮어씌워진 증거 방지."""
+    return len(data) >= 4 and data[:4] == b"PK\x03\x04"
 
 
 class TimelineDownloadService:
@@ -216,22 +222,19 @@ class TimelineDownloadService:
     def create_download_zip(self, complaint: Complaint, db: Session) -> tuple[bytes, str]:
         """
         다운로드 ZIP(대조 증거 모음 + 타임라인 PDF) 생성.
-        need_evidence_collection_regeneration 또는 S3에 없으면 재생성.
+        need_evidence_collection_regeneration=True면 S3 존재 여부 무관하게 무조건 덮어씌움.
+        False이고 S3에 있으면 스킵.
         Returns: (zip_bytes, s3_key)
         """
-        timeline_repo = TimelineRepository(db)
-        timeline = timeline_repo.get_by_complaint_id(complaint.complaint_id)
-        s3_key = (
+        zip_upload_s3_key = (
             f"{complaint.user_sub}/complaints/{complaint.complaint_id}/"
             "timeline-download/download.zip"
         )
-        exists_in_s3 = head_s3_object(settings.S3_BUCKET_NAME, s3_key) is not None
-        need_regenerate = (
-            timeline.need_evidence_collection_regeneration if timeline else True
-        ) or not exists_in_s3
-
-        if not need_regenerate:
-            return b"", s3_key
+        timeline_repo = TimelineRepository(db)
+        timeline = timeline_repo.get_by_complaint_id(complaint.complaint_id)
+        if timeline and not timeline.need_evidence_collection_regeneration:
+            if head_s3_object(settings.S3_BUCKET_NAME, zip_upload_s3_key) is not None:
+                return b"", zip_upload_s3_key
 
         timeline_data = self.get_timeline_for_download(complaint=complaint, db=db)
         date_str = datetime.now(timezone.utc).strftime("%y%m%d")
@@ -239,12 +242,12 @@ class TimelineDownloadService:
         evidence_root = f"{zip_root}/대조 증거 모음"
         entries = self._collect_zip_entries(timeline_data, evidence_root)
 
-        # 병렬 다운로드 (동일 s3_key 중복 다운로드 방지)
-        unique_s3_keys = list({s3_key for _, s3_key in entries})
+        # 병렬 다운로드 (동일 ev_s3_key 중복 방지). zip_upload_s3_key 제외(과거 버그로 덮어씌워진 경우 방지)
+        ev_s3_keys = [k for k in {ev_k for _, ev_k in entries} if k != zip_upload_s3_key]
         s3_key_to_bytes_and_ext: dict[str, tuple[bytes, str]] = {}
-        if unique_s3_keys:
-            with ThreadPoolExecutor(max_workers=min(10, len(unique_s3_keys))) as executor:
-                futures = {executor.submit(self._download_one, k): k for k in unique_s3_keys}
+        if ev_s3_keys:
+            with ThreadPoolExecutor(max_workers=min(10, len(ev_s3_keys))) as executor:
+                futures = {executor.submit(self._download_one, k): k for k in ev_s3_keys}
                 for future in as_completed(futures):
                     try:
                         k, data, ct = future.result()
@@ -257,9 +260,11 @@ class TimelineDownloadService:
         with ZipFile(buffer, "w", ZIP_DEFLATED) as zf:
             # 빈 폴더: 타임라인_PDF
             zf.writestr(f"{zip_root}/타임라인_PDF/", "")
-            for path_suffix, s3_key in entries:
-                if pair := s3_key_to_bytes_and_ext.get(s3_key):
+            for path_suffix, ev_s3_key in entries:
+                if pair := s3_key_to_bytes_and_ext.get(ev_s3_key):
                     data, ext = pair
+                    if _is_zip_content(data):
+                        continue  # 과거 버그로 증거 경로가 ZIP으로 덮어씌워된 경우 스킵
                     zip_path = f"{evidence_root}/{path_suffix}{ext}"
                     zf.writestr(zip_path, data)
 
@@ -269,27 +274,35 @@ class TimelineDownloadService:
         upload_fileobj(
             fileobj=BytesIO(zip_bytes),
             bucket=settings.S3_BUCKET_NAME,
-            key=s3_key,
+            key=zip_upload_s3_key,
             content_type="application/zip",
         )
         if timeline:
             timeline_repo.set_regeneration_flags(
-                complaint.complaint_id, need_evidence_collection=False
+                complaint.complaint_id, need_evidence_collection_regeneration=False
             )
             db.commit()
-        return zip_bytes, s3_key
+        return zip_bytes, zip_upload_s3_key
 
     def get_download_zip_presigned_url(
         self, complaint: Complaint, db: Session, expires_in: int = 3600
     ) -> str:
         """
         다운로드 ZIP(대조 증거 모음 + 타임라인 PDF) 생성 후 presigned URL 반환.
+        다운로드 시 파일명: 안심온_증거분석타임라인_YYMMDD.zip
         """
         _, s3_key = self.create_download_zip(complaint=complaint, db=db)
+        date_str = datetime.now(timezone.utc).strftime("%y%m%d")
+        filename = f"안심온_증거분석타임라인_{date_str}.zip"
+        # S3 presigned URL은 ISO-8859-1만 허용 → RFC 5987 filename* 사용
+        ascii_fallback = f"AnsimOn_timeline_{date_str}.zip"
+        encoded = quote(filename, safe="")
+        content_disp = f"attachment; filename=\"{ascii_fallback}\"; filename*=UTF-8''{encoded}"
         return generate_presigned_get_url(
             bucket=settings.S3_BUCKET_NAME,
             key=s3_key,
             expires_in=expires_in,
+            response_content_disposition=content_disp,
         )
 
 

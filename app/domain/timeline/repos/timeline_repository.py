@@ -18,17 +18,17 @@ class TimelineRepository(BaseRepository):
         self,
         complaint_id: UUID,
         *,
-        need_evidence_collection: bool | None = None,
-        need_timeline_pdf: bool | None = None,
+        need_evidence_collection_regeneration: bool | None = None,
+        need_timeline_pdf_regeneration: bool | None = None,
     ) -> None:
         """다운로드 ZIP(대조 증거 모음/타임라인 PDF) 재생성 필요 플래그 설정."""
         timeline = self.get_by_complaint_id(complaint_id)
         if not timeline:
             return
-        if need_evidence_collection is not None:
-            timeline.need_evidence_collection_regeneration = need_evidence_collection
-        if need_timeline_pdf is not None:
-            timeline.need_timeline_pdf_regeneration = need_timeline_pdf
+        if need_evidence_collection_regeneration is not None:
+            timeline.need_evidence_collection_regeneration = need_evidence_collection_regeneration
+        if need_timeline_pdf_regeneration is not None:
+            timeline.need_timeline_pdf_regeneration = need_timeline_pdf_regeneration
 
     def get_id_by_complaint_id(self, complaint_id: UUID) -> UUID | None:
         row = self.db.query(Timeline.id).filter(Timeline.complaint_id == complaint_id).first()
