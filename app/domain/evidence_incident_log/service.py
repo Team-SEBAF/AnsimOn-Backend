@@ -1,11 +1,13 @@
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+from io import BytesIO
 from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
 from app.base.base_error import CodeException
 from app.core.auth import AuthUser
-from app.core.aws import delete_s3_by_prefixes, download_s3_object
+from app.core.aws import delete_s3_by_prefixes, download_s3_object, head_s3_object, upload_fileobj
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
@@ -664,6 +666,62 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             EvidenceIncidentLogRepository(db),
             filename_attr="name",
         )
+
+    def ensure_form_data_pdf_and_get_s3_key(
+        self,
+        incident_log_id: UUID,
+        complaint: Complaint,
+        db: Session,
+    ) -> tuple[str | None, list[str]]:
+        """
+        FORM_DATA 사건일지 PDF S3 키 반환. 없거나 재생성 필요 시 생성 후 저장.
+        Returns: (main_pdf_s3_key, attachments_s3_keys)
+        """
+        incident_log_repo = EvidenceIncidentLogRepository(db)
+        form_data_repo = EvidenceIncidentLogFormDataRepository(db)
+        attachment_repo = IncidentLogFormDataAttachmentRepository(db)
+
+        log = incident_log_repo.get(incident_log_id)
+        form_data = form_data_repo.get(incident_log_id)
+
+        default_s3_key = (
+            f"{complaint.user_sub}/complaints/{complaint.complaint_id}/evidences/"
+            f"incident-logs/{incident_log_id}/export-pdf"
+        )
+        s3_key = form_data.pdf_s3_key or default_s3_key
+
+        need_regenerate = form_data.pdf_created_at is None or (
+            form_data.updated_at > form_data.pdf_created_at
+        )
+        exists_in_s3 = head_s3_object(settings.S3_BUCKET_NAME, s3_key) is not None
+
+        if need_regenerate or not exists_in_s3:
+            from app.domain.timeline_download.pdf import build_form_data_pdf
+
+            s3_key = default_s3_key
+            date_str = form_data.date.strftime("%Y-%m-%d")
+            time_str = form_data.time.strftime("%H:%M")
+            pdf_bytes = build_form_data_pdf(
+                title=log.name,
+                date_str=date_str,
+                time_str=time_str,
+                location=form_data.location,
+                description=form_data.description,
+            )
+            upload_fileobj(
+                fileobj=BytesIO(pdf_bytes),
+                bucket=settings.S3_BUCKET_NAME,
+                key=s3_key,
+                content_type="application/pdf",
+            )
+            setattr(form_data, "pdf_created_at", datetime.now(timezone.utc))
+            setattr(form_data, "pdf_s3_key", s3_key)
+            db.commit()
+
+        attachments = attachment_repo.list_by_incident_log_id(incident_log_id)
+        attachment_s3_keys = [a.s3_key for a in attachments]
+
+        return s3_key, attachment_s3_keys
 
 
 evidence_incident_log_service = EvidenceIncidentLogService()

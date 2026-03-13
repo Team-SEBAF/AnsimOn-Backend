@@ -84,11 +84,43 @@ def generate_presigned_put_url(
     )
 
 
+def generate_presigned_get_url(
+    bucket: str,
+    key: str,
+    expires_in: int = 3600,
+    response_content_disposition: str | None = None,
+) -> str:
+    """S3 GET 다운로드용 presigned URL 생성.
+    response_content_disposition: 다운로드 시 브라우저에 전달할 Content-Disposition (예: attachment; filename="파일명.zip")
+    """
+    client = get_s3_client()
+    params: dict = {"Bucket": bucket, "Key": key}
+    if response_content_disposition:
+        params["ResponseContentDisposition"] = response_content_disposition
+    return client.generate_presigned_url(
+        ClientMethod="get_object",
+        Params=params,
+        ExpiresIn=expires_in,
+    )
+
+
 def download_s3_object(bucket: str, key: str) -> bytes:
     """S3 객체 다운로드."""
     client = get_s3_client()
     response = client.get_object(Bucket=bucket, Key=key)
     return response["Body"].read()
+
+
+def download_s3_object_with_metadata(bucket: str, key: str) -> tuple[bytes, dict]:
+    """S3 객체 다운로드 + 메타데이터(ContentType 등) 반환."""
+    client = get_s3_client()
+    response = client.get_object(Bucket=bucket, Key=key)
+    body = response["Body"].read()
+    meta = {
+        "ContentType": response.get("ContentType"),
+        **response.get("Metadata", {}),
+    }
+    return body, meta
 
 
 def head_s3_object(bucket: str, key: str) -> dict | None:
