@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
 seed_timeline_evidence.sql 기준으로 dummy 폴더 파일을 S3에 일괄 업로드.
-content_type에 따라 dummy/img_ex.png, audio_ex.m4a, video_ex.mov, pdf_ex.pdf 중 적절한 파일 사용.
+_s3_keys_from_seed 순서대로 dummy 파일 사용. pdf는 pdf_ex.pdf.
 이미지/영상은 evidence 서비스와 동일하게 detail 추출 후 {base}/detail 업로드.
 """
+import mimetypes
 import subprocess
 import sys
 import tempfile
@@ -90,26 +91,34 @@ USER_SUB = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 COMPLAINT_ID = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
 BASE = f"{USER_SUB}/complaints/{COMPLAINT_ID}/evidences"
 
-# dummy 폴더 4개 파일: img_ex.png, audio_ex.m4a, video_ex.mov, pdf_ex.pdf
-# content_type prefix로 어떤 파일 쓸지 결정, 업로드 시 seed의 content_type 그대로 사용
-DUMMY_BY_TYPE: dict[str, str] = {
-    "image": "dummy/img_ex.png",
-    "audio": "dummy/audio_ex.m4a",
-    "video": "dummy/video_ex.mov",
-    "application/pdf": "dummy/pdf_ex.pdf",
-}
+# _s3_keys_from_seed 순서와 동일한 dummy 파일 목록. pdf는 pdf_ex.pdf
+DUMMY_PATHS_ORDERED: list[str] = [
+    "dummy/MESSAGE_1.jpg",
+    "dummy/MESSAGE_2.jpg",
+    "dummy/MESSAGE_3.png",
+    "dummy/MESSAGE_4.jpg",
+    "dummy/MESSAGE_5.jpg",
+    "dummy/MESSAGE_6.jpg",
+    "dummy/MESSAGE_7.png",
+    "dummy/MESSAGE_8.jpg",
+    "dummy/MESSAGE_9.jpg",
+    "dummy/VICTIM_IMAGE_1.png",
+    "dummy/VICTIM_VIDEO.mov",
+    "dummy/VICTIM_IMAGE_2.png",
+    "dummy/VOICE_IMAGE.png",
+    "dummy/VOICE_AUDIO_1.m4a",
+    "dummy/VOICE_AUDIO_2.m4a",
+    "dummy/pdf_ex.pdf",
+    "dummy/pdf_ex.pdf",
+    "dummy/pdf_ex.pdf",
+    "dummy/ATTACHMENT.png",
+]
 
 
-def _get_dummy_path(content_type: str) -> str:
-    if content_type.startswith("image/"):
-        return DUMMY_BY_TYPE["image"]
-    if content_type.startswith("audio/"):
-        return DUMMY_BY_TYPE["audio"]
-    if content_type.startswith("video/"):
-        return DUMMY_BY_TYPE["video"]
-    if content_type == "application/pdf":
-        return DUMMY_BY_TYPE["application/pdf"]
-    return DUMMY_BY_TYPE["image"]
+def _content_type_from_path(path: Path) -> str:
+    """파일 확장자에서 content_type 추출."""
+    ct, _ = mimetypes.guess_type(str(path), strict=False)
+    return ct or "application/octet-stream"
 
 
 def _needs_detail(s3_key: str, content_type: str) -> bool:
@@ -167,12 +176,17 @@ def main() -> None:
         raise SystemExit("S3_BUCKET_NAME 환경변수가 필요합니다.")
 
     items = _s3_keys_from_seed()
-    for s3_key, content_type in items:
-        dummy_path = _get_dummy_path(content_type)
+    if len(items) != len(DUMMY_PATHS_ORDERED):
+        raise SystemExit(
+            f"_s3_keys_from_seed({len(items)})와 DUMMY_PATHS_ORDERED({len(DUMMY_PATHS_ORDERED)}) 개수 불일치"
+        )
+
+    for (s3_key, _), dummy_path in zip(items, DUMMY_PATHS_ORDERED):
         local_path = root / dummy_path
         if not local_path.exists():
             raise SystemExit(f"파일 없음: {local_path}")
 
+        content_type = _content_type_from_path(local_path)
         file_bytes = local_path.read_bytes()
         upload_fileobj(BytesIO(file_bytes), bucket, s3_key, content_type)
         print(f"OK {s3_key} <- {dummy_path}")
