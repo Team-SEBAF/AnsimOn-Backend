@@ -136,21 +136,21 @@ def _generate_detail(file_bytes: bytes, content_type: str) -> bytes:
 
 
 def _s3_keys_from_seed() -> list[tuple[str, str]]:
-    """seed_timeline_evidence.sql에 정의된 (s3_key, content_type) 목록."""
+    """seed_timeline_evidence.sql + DUMMY_PATHS_ORDERED와 매칭되는 (s3_key, content_type) 목록."""
     return [
-        # evidence_messages (9개)
-        (f"{BASE}/messages/08e070bb-fb4e-4176-a450-375f947d1ef7/original", "image/png"),
-        (f"{BASE}/messages/db9d9261-b523-4be9-9e9e-52ad6e75150e/original", "image/png"),
+        # evidence_messages (9개) - MESSAGE_1.jpg~MESSAGE_9.jpg/.png
+        (f"{BASE}/messages/08e070bb-fb4e-4176-a450-375f947d1ef7/original", "image/jpeg"),
+        (f"{BASE}/messages/db9d9261-b523-4be9-9e9e-52ad6e75150e/original", "image/jpeg"),
         (f"{BASE}/messages/78be5c14-bfae-40a0-8bae-9159105c1748/original", "image/png"),
-        (f"{BASE}/messages/702eddc4-1eaf-4380-86dc-16b9bed5cf62/original", "image/png"),
-        (f"{BASE}/messages/83f41aee-f3a7-40d0-8740-080b7b0de4d5/original", "image/png"),
-        (f"{BASE}/messages/7c8d9e0f-1a2b-4c3d-9e5f-6a7b8c9d0e1f/original", "image/png"),
+        (f"{BASE}/messages/702eddc4-1eaf-4380-86dc-16b9bed5cf62/original", "image/jpeg"),
+        (f"{BASE}/messages/83f41aee-f3a7-40d0-8740-080b7b0de4d5/original", "image/jpeg"),
+        (f"{BASE}/messages/7c8d9e0f-1a2b-4c3d-9e5f-6a7b8c9d0e1f/original", "image/jpeg"),
         (f"{BASE}/messages/8d9e0f1a-2b3c-4d4e-0f6a-7b8c9d0e1f2a/original", "image/png"),
-        (f"{BASE}/messages/9e0f1a2b-3c4d-4e5f-1a7b-8c9d0e1f2a3b/original", "image/png"),
-        (f"{BASE}/messages/0f1a2b3c-4d5e-4f6a-2b8c-9d0e1f2a3b4c/original", "image/png"),
-        # evidence_victims (3개)
+        (f"{BASE}/messages/9e0f1a2b-3c4d-4e5f-1a7b-8c9d0e1f2a3b/original", "image/jpeg"),
+        (f"{BASE}/messages/0f1a2b3c-4d5e-4f6a-2b8c-9d0e1f2a3b4c/original", "image/jpeg"),
+        # evidence_victims (3개) - VICTIM_IMAGE_1.png, VICTIM_VIDEO.mov, VICTIM_IMAGE_2.png
         (f"{BASE}/victims/6de0bca2-6b96-4489-ab10-8e13033d40b0/original", "image/png"),
-        (f"{BASE}/victims/6a259984-0ba4-4d5e-b27b-55fb694eecbf/original", "video/mp4"),
+        (f"{BASE}/victims/6a259984-0ba4-4d5e-b27b-55fb694eecbf/original", "video/quicktime"),
         (f"{BASE}/victims/f15547c2-8278-4aa1-8422-add6ae43d368/original", "image/png"),
         # evidence_voices (3개)
         (f"{BASE}/voices/457329d6-d9e9-418a-9464-65f4fc7da8f8/original", "image/png"),
