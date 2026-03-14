@@ -57,6 +57,6 @@ def extract_event_item_data(time: str, evidence: dict) -> dict:
     return {
         "time_text": time,
         "title": title,
-        "description": description,
+        "description": description + description + description,
         "evidence_text": "증거 번호 " + evidence_text,
     }

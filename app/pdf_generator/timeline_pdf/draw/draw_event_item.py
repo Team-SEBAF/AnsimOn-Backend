@@ -1,4 +1,3 @@
-from reportlab.lib.utils import simpleSplit
 from reportlab.pdfgen.canvas import Canvas
 
 from app.pdf_generator.base import get_font
@@ -43,23 +42,10 @@ FONT_REGULAR = get_font("regular")
 def draw_event_item(
     c: Canvas,
     start_y: float,
+    layout: dict,
     time_text: str,
-    title: str,
-    description: str,
-    evidence_text: str,
     on_border: bool = True,
 ):
-    """
-    시간별 사건 draw
-
-    return
-    ----------
-    center_y : float
-        타임라인 원 위치 계산용
-    end_y : float
-        다음 요소 start_y 계산용
-    """
-
     # -------------------------
     # X POSITIONS
     # -------------------------
@@ -69,45 +55,10 @@ def draw_event_item(
     time_x = timeline_x
     content_x = time_x + TIME_CONTAINER_WIDTH
 
-    # -------------------------
-    # TEXT WRAP
-    # -------------------------
-
-    text_width = CONTENT_CONTAINER_WIDTH - (CONTENT_PADDING * 2)
-
-    title_lines = simpleSplit(title, FONT_BOLD, TITLE_FONT_SIZE, text_width)
-
-    desc_lines = simpleSplit(
-        description,
-        FONT_REGULAR,
-        DESCRIPTION_FONT_SIZE,
-        text_width,
-    )
-
-    evidence_lines = simpleSplit(
-        evidence_text,
-        FONT_MEDIUM,
-        EVIDENCE_FONT_SIZE,
-        text_width,
-    )
-
-    # -------------------------
-    # HEIGHT CALCULATION
-    # -------------------------
-
-    title_height = len(title_lines) * TITLE_FONT_SIZE * LINE_HEIGHT_RATIO
-    desc_height = len(desc_lines) * DESCRIPTION_FONT_SIZE * LINE_HEIGHT_RATIO
-    evidence_height = len(evidence_lines) * EVIDENCE_FONT_SIZE * LINE_HEIGHT_RATIO
-
-    content_height = (
-        CONTENT_PADDING
-        + title_height
-        + TITLE_DESC_GAP
-        + desc_height
-        + DESC_EVIDENCE_GAP
-        + evidence_height
-        + CONTENT_PADDING
-    )
+    title_lines = layout["title_lines"]
+    desc_lines = layout["desc_lines"]
+    evidence_lines = layout["evidence_lines"]
+    content_height = layout["height"]
 
     # -------------------------
     # BORDER TOP
