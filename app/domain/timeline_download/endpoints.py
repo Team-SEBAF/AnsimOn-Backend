@@ -21,7 +21,7 @@ def get_timeline_for_download_preview(
     complaint: Complaint = Depends(get_owned_complaint),
     db: Session = Depends(get_db),
 ):
-    return timeline_download_service.get_timeline_for_download(
+    return timeline_download_service._get_timeline_for_download(
         complaint=complaint,
         db=db,
     )
@@ -35,11 +35,13 @@ def get_timeline_for_download_preview(
 def get_timeline_pdf_preview(
     complaint: Complaint = Depends(get_owned_complaint),
     current_user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     author = current_user.name or current_user.email or "-"
     timeline_download_service.get_timeline_pdf_preview(
         complaint=complaint,
         author=author,
+        db=db,
     )
     return {"message": "저장되었습니다"}
 

@@ -126,7 +126,7 @@ class TimelineDownloadService:
                 return entity.s3_key if entity else None
         return None
 
-    def get_timeline_for_download(self, complaint: Complaint, db: Session) -> dict:
+    def _get_timeline_for_download(self, complaint: Complaint, db: Session) -> dict:
         """
         ZIP/PDF 생성용 타임라인 JSON.
         - has_thumbnail, thumbnail_url, duration_seconds 제거
@@ -223,6 +223,28 @@ class TimelineDownloadService:
         data, meta = download_s3_object_with_metadata(settings.S3_BUCKET_NAME, s3_key)
         return s3_key, data, meta.get("ContentType")
 
+    def get_timeline_pdf_preview(self, complaint: Complaint, author: str, db: Session) -> None:
+        """
+        타임라인 PDF 생성. 로컬(env=local)일 때 pdf_generator/results/에 저장.
+        """
+        case_title = complaint.name
+        timeline_json = self._get_timeline_for_download(complaint=complaint, db=db)
+        pdf_bytes = build_timeline_pdf_bytes(
+            case_title=case_title,
+            author=author,
+            timeline_json=timeline_json,
+        )
+
+        if settings.env == "local":
+            results_dir = Path(__file__).parent.parent.parent / "pdf_generator" / "results"
+            results_dir.mkdir(parents=True, exist_ok=True)
+            existing = [f.stem for f in results_dir.glob("*.pdf") if f.stem.isdigit()]
+            next_num = max((int(n) for n in existing), default=0) + 1
+            out_path = results_dir / f"{next_num}.pdf"
+            out_path.write_bytes(pdf_bytes)
+
+    # ------------------------------------------------------------
+
     def create_download_zip(self, complaint: Complaint, db: Session) -> tuple[bytes, str]:
         """
         다운로드 ZIP(대조 증거 모음 + 타임라인 PDF) 생성.
@@ -240,7 +262,7 @@ class TimelineDownloadService:
             if head_s3_object(settings.S3_BUCKET_NAME, zip_upload_s3_key) is not None:
                 return b"", zip_upload_s3_key
 
-        timeline_data = self.get_timeline_for_download(complaint=complaint, db=db)
+        timeline_data = self._get_timeline_for_download(complaint=complaint, db=db)
         date_str = datetime.now(timezone.utc).strftime("%y%m%d")
         zip_root = f"안심온_증거분석타임라인_{date_str}"
         evidence_root = f"{zip_root}/대조 증거 모음"
@@ -287,21 +309,6 @@ class TimelineDownloadService:
             )
             db.commit()
         return zip_bytes, zip_upload_s3_key
-
-    def get_timeline_pdf_preview(self, complaint: Complaint, author: str) -> None:
-        """
-        타임라인 PDF 생성. 로컬(env=local)일 때 pdf_generator/results/에 저장.
-        """
-        case_title = complaint.name
-        pdf_bytes = build_timeline_pdf_bytes(case_title=case_title, author=author)
-
-        if settings.env == "local":
-            results_dir = Path(__file__).parent.parent.parent / "pdf_generator" / "results"
-            results_dir.mkdir(parents=True, exist_ok=True)
-            existing = [f.stem for f in results_dir.glob("*.pdf") if f.stem.isdigit()]
-            next_num = max((int(n) for n in existing), default=0) + 1
-            out_path = results_dir / f"{next_num}.pdf"
-            out_path.write_bytes(pdf_bytes)
 
     def get_download_zip_presigned_url(
         self, complaint: Complaint, db: Session, expires_in: int = 3600
