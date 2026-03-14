@@ -696,12 +696,14 @@ class EvidenceIncidentLogService(EvidenceTypeService):
         exists_in_s3 = head_s3_object(settings.S3_BUCKET_NAME, s3_key) is not None
 
         if need_regenerate or not exists_in_s3:
-            from app.domain.timeline_download.pdf import build_form_data_pdf
+            from app.pdf_generator.incident_log_form_data_pdf import (
+                build_incident_log_from_data_pdf,
+            )
 
             s3_key = default_s3_key
             date_str = form_data.date.strftime("%Y-%m-%d")
             time_str = form_data.time.strftime("%H:%M")
-            pdf_bytes = build_form_data_pdf(
+            pdf_bytes = build_incident_log_from_data_pdf(
                 title=log.name,
                 date_str=date_str,
                 time_str=time_str,

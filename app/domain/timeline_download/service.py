@@ -188,6 +188,8 @@ class TimelineDownloadService:
 
         return data
 
+    # ------------------------------------------------------------
+
     def _collect_zip_entries(
         self, timeline_data: dict, evidence_root: str
     ) -> list[tuple[str, str]]:

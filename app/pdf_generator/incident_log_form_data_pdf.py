@@ -1,22 +1,14 @@
 """FORM_DATA 사건일지 PDF 생성."""
 
 from io import BytesIO
-from pathlib import Path
 
 from reportlab.lib.pagesizes import A4
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
-_FONT_PATH = Path(__file__).parent.parent.parent / "fonts" / "NotoSansKR-Regular.ttf"
-_FONT_NAME = "NotoSansKR"
-
-# 한글 폰트 등록 (모듈 로드 시 1회)
-if _FONT_PATH.exists():
-    pdfmetrics.registerFont(TTFont(_FONT_NAME, str(_FONT_PATH)))
+from app.pdf_generator.base import get_pdf_font_name
 
 
-def build_form_data_pdf(
+def build_incident_log_from_data_pdf(
     title: str,
     date_str: str,
     time_str: str,
@@ -34,7 +26,7 @@ def build_form_data_pdf(
     section_gap = 8
     max_chars = 50  # 한글 기준 줄당 글자 수
 
-    font_name = _FONT_NAME if _FONT_PATH.exists() else "Helvetica"
+    font_name = get_pdf_font_name()
 
     def _draw(label: str, value: str) -> None:
         nonlocal y
