@@ -1,22 +1,17 @@
 """FORM_DATA 사건일지 PDF 생성."""
 
 from io import BytesIO
-from pathlib import Path
 
 from reportlab.lib.pagesizes import A4
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
-_FONT_PATH = Path(__file__).parent.parent.parent / "fonts" / "NotoSansKR-Regular.ttf"
-_FONT_NAME = "NotoSansKR"
+from app.pdf_generator.base import get_font
 
-# 한글 폰트 등록 (모듈 로드 시 1회)
-if _FONT_PATH.exists():
-    pdfmetrics.registerFont(TTFont(_FONT_NAME, str(_FONT_PATH)))
+FONT_LABEL = get_font("medium")
+FONT_VALUE = get_font("regular")
 
 
-def build_form_data_pdf(
+def build_incident_log_from_data_pdf(
     title: str,
     date_str: str,
     time_str: str,
@@ -34,18 +29,16 @@ def build_form_data_pdf(
     section_gap = 8
     max_chars = 50  # 한글 기준 줄당 글자 수
 
-    font_name = _FONT_NAME if _FONT_PATH.exists() else "Helvetica"
-
     def _draw(label: str, value: str) -> None:
         nonlocal y
-        # 제목(라벨): 큰 글씨
-        c.setFont(font_name, label_font_size)
+        # 제목(라벨): Medium
+        c.setFont(FONT_LABEL, label_font_size)
         c.drawString(72, y, label)
         y -= line_height
 
-        # 내용: 작은 글씨, 여러 줄
+        # 내용: Regular, 여러 줄
         val = (value or "-").replace("\r\n", "\n").replace("\r", "\n")
-        c.setFont(font_name, value_font_size)
+        c.setFont(FONT_VALUE, value_font_size)
         for line in val.split("\n"):
             for j in range(0, len(line), max_chars):
                 chunk = line[j : j + max_chars]

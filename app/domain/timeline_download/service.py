@@ -1,15 +1,18 @@
 import mimetypes
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime
 from io import BytesIO
 from urllib.parse import quote
 from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZipFile
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
+from app.core.auth import AuthUser
 from app.core.aws import (
+    download_s3_object,
     download_s3_object_with_metadata,
     generate_presigned_get_url,
     head_s3_object,
@@ -43,6 +46,7 @@ from app.domain.timeline.repos import (
     TimelineManualEvidenceRepository,
     TimelineRepository,
 )
+from app.pdf_generator.timeline_pdf.builder import build_timeline_pdf_bytes
 
 
 def _format_evidence_numstring(date: str, time: str, index: int, sub_index: int) -> str:
@@ -124,7 +128,7 @@ class TimelineDownloadService:
                 return entity.s3_key if entity else None
         return None
 
-    def get_timeline_for_download(self, complaint: Complaint, db: Session) -> dict:
+    def _get_timeline_for_download(self, complaint: Complaint, db: Session) -> dict:
         """
         ZIP/PDF 생성용 타임라인 JSON.
         - has_thumbnail, thumbnail_url, duration_seconds 제거
@@ -188,6 +192,8 @@ class TimelineDownloadService:
 
         return data
 
+    # ------------------------------------------------------------
+
     def _collect_zip_entries(
         self, timeline_data: dict, evidence_root: str
     ) -> list[tuple[str, str]]:
@@ -219,11 +225,36 @@ class TimelineDownloadService:
         data, meta = download_s3_object_with_metadata(settings.S3_BUCKET_NAME, s3_key)
         return s3_key, data, meta.get("ContentType")
 
-    def create_download_zip(self, complaint: Complaint, db: Session) -> tuple[bytes, str]:
+    # def get_timeline_pdf_preview(self, complaint: Complaint, author: str, db: Session) -> None:
+    #     """
+    #     타임라인 PDF 생성. 로컬(env=local)일 때 pdf_generator/results/에 저장.
+    #     """
+    #     case_title = complaint.name
+    #     timeline_json = self._get_timeline_for_download(complaint=complaint, db=db)
+    #     pdf_bytes = build_timeline_pdf_bytes(
+    #         case_title=case_title,
+    #         author=author,
+    #         timeline_json=timeline_json,
+    #     )
+
+    #     if settings.env == "local":
+    #         results_dir = Path(__file__).parent.parent.parent / "pdf_generator" / "results"
+    #         results_dir.mkdir(parents=True, exist_ok=True)
+    #         existing = [f.stem for f in results_dir.glob("*.pdf") if f.stem.isdigit()]
+    #         next_num = max((int(n) for n in existing), default=0) + 1
+    #         out_path = results_dir / f"{next_num}.pdf"
+    #         out_path.write_bytes(pdf_bytes)
+
+    # ------------------------------------------------------------
+
+    def create_download_zip(
+        self, complaint: Complaint, current_user: AuthUser, db: Session
+    ) -> tuple[bytes, str]:
         """
         다운로드 ZIP(대조 증거 모음 + 타임라인 PDF) 생성.
-        need_evidence_collection_regeneration=True면 S3 존재 여부 무관하게 무조건 덮어씌움.
-        False이고 S3에 있으면 스킵.
+        - need_evidence_collection_regeneration=True: 전체 재생성 + PDF 포함
+        - need_timeline_pdf_regeneration=True (증거 재생성 불필요): 기존 ZIP 다운로드 → PDF 교체 → 재업로드
+        - 둘 다 False이고 ZIP 존재: 스킵
         Returns: (zip_bytes, s3_key)
         """
         zip_upload_s3_key = (
@@ -232,17 +263,66 @@ class TimelineDownloadService:
         )
         timeline_repo = TimelineRepository(db)
         timeline = timeline_repo.get_by_complaint_id(complaint.complaint_id)
+        zip_exists = head_s3_object(settings.S3_BUCKET_NAME, zip_upload_s3_key) is not None
+
+        # 스킵: 둘 다 False이고 ZIP 존재
         if timeline and not timeline.need_evidence_collection_regeneration:
-            if head_s3_object(settings.S3_BUCKET_NAME, zip_upload_s3_key) is not None:
+            if not timeline.need_timeline_pdf_regeneration and zip_exists:
                 return b"", zip_upload_s3_key
 
-        timeline_data = self.get_timeline_for_download(complaint=complaint, db=db)
-        date_str = datetime.now(timezone.utc).strftime("%y%m%d")
-        zip_root = f"안심온_증거분석타임라인_{date_str}"
+        timeline_data = self._get_timeline_for_download(complaint=complaint, db=db)
+        zip_root = "안심온_증거분석타임라인"
         evidence_root = f"{zip_root}/대조 증거 모음"
-        entries = self._collect_zip_entries(timeline_data, evidence_root)
+        pdf_zip_path = f"{zip_root}/타임라인.pdf"
 
-        # 병렬 다운로드 (동일 ev_s3_key 중복 방지). zip_upload_s3_key 제외(과거 버그로 덮어씌워진 경우 방지)
+        # PDF-only 재생성: 기존 ZIP 다운로드 → PDF 교체 → 재업로드
+        if (
+            timeline
+            and timeline.need_timeline_pdf_regeneration
+            and not timeline.need_evidence_collection_regeneration
+            and zip_exists
+        ):
+            author = current_user.name or current_user.email or "-"
+            pdf_bytes = build_timeline_pdf_bytes(
+                case_title=complaint.name,
+                author=author,
+                timeline_json=timeline_data,
+            )
+            old_zip_bytes = download_s3_object(settings.S3_BUCKET_NAME, zip_upload_s3_key)
+            buffer = BytesIO()
+            with ZipFile(BytesIO(old_zip_bytes), "r") as old_zf:
+                names = old_zf.namelist()
+                old_zip_root = next(
+                    (n.split("/")[0] for n in names if "/" in n and not n.endswith("/")),
+                    zip_root,
+                )
+                pdf_filename = f"{old_zip_root}/타임라인.pdf"
+                skip_paths = {pdf_filename}
+                with ZipFile(buffer, "w", ZIP_DEFLATED) as new_zf:
+                    for item in old_zf.infolist():
+                        if item.filename in skip_paths:
+                            continue
+                        if item.filename.endswith("/"):
+                            new_zf.writestr(item.filename, "")
+                        else:
+                            new_zf.writestr(item.filename, old_zf.read(item.filename))
+                    new_zf.writestr(pdf_filename, pdf_bytes)
+            buffer.seek(0)
+            zip_bytes = buffer.getvalue()
+            upload_fileobj(
+                fileobj=BytesIO(zip_bytes),
+                bucket=settings.S3_BUCKET_NAME,
+                key=zip_upload_s3_key,
+                content_type="application/zip",
+            )
+            timeline_repo.set_regeneration_flags(
+                complaint.complaint_id, need_timeline_pdf_regeneration=False
+            )
+            db.commit()
+            return zip_bytes, zip_upload_s3_key
+
+        # 전체 재생성
+        entries = self._collect_zip_entries(timeline_data, evidence_root)
         ev_s3_keys = [k for k in {ev_k for _, ev_k in entries} if k != zip_upload_s3_key]
         s3_key_to_bytes_and_ext: dict[str, tuple[bytes, str]] = {}
         if ev_s3_keys:
@@ -256,21 +336,26 @@ class TimelineDownloadService:
                     except Exception:
                         raise
 
+        author = current_user.name or current_user.email or "-"
+        pdf_bytes = build_timeline_pdf_bytes(
+            case_title=complaint.name,
+            author=author,
+            timeline_json=timeline_data,
+        )
+
         buffer = BytesIO()
         with ZipFile(buffer, "w", ZIP_DEFLATED) as zf:
-            # 빈 폴더: 타임라인_PDF
-            zf.writestr(f"{zip_root}/타임라인_PDF/", "")
+            zf.writestr(pdf_zip_path, pdf_bytes)
             for path_suffix, ev_s3_key in entries:
                 if pair := s3_key_to_bytes_and_ext.get(ev_s3_key):
                     data, ext = pair
                     if _is_zip_content(data):
-                        continue  # 과거 버그로 증거 경로가 ZIP으로 덮어씌워된 경우 스킵
+                        continue
                     zip_path = f"{evidence_root}/{path_suffix}{ext}"
                     zf.writestr(zip_path, data)
 
         buffer.seek(0)
         zip_bytes = buffer.getvalue()
-
         upload_fileobj(
             fileobj=BytesIO(zip_bytes),
             bucket=settings.S3_BUCKET_NAME,
@@ -279,20 +364,22 @@ class TimelineDownloadService:
         )
         if timeline:
             timeline_repo.set_regeneration_flags(
-                complaint.complaint_id, need_evidence_collection_regeneration=False
+                complaint.complaint_id,
+                need_evidence_collection_regeneration=False,
+                need_timeline_pdf_regeneration=False,
             )
             db.commit()
         return zip_bytes, zip_upload_s3_key
 
     def get_download_zip_presigned_url(
-        self, complaint: Complaint, db: Session, expires_in: int = 3600
+        self, complaint: Complaint, current_user: AuthUser, db: Session, expires_in: int = 3600
     ) -> str:
         """
         다운로드 ZIP(대조 증거 모음 + 타임라인 PDF) 생성 후 presigned URL 반환.
         다운로드 시 파일명: 안심온_증거분석타임라인_YYMMDD.zip
         """
-        _, s3_key = self.create_download_zip(complaint=complaint, db=db)
-        date_str = datetime.now(timezone.utc).strftime("%y%m%d")
+        _, s3_key = self.create_download_zip(complaint=complaint, current_user=current_user, db=db)
+        date_str = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%y%m%d")
         filename = f"안심온_증거분석타임라인_{date_str}.zip"
         # S3 presigned URL은 ISO-8859-1만 허용 → RFC 5987 filename* 사용
         ascii_fallback = f"AnsimOn_timeline_{date_str}.zip"
