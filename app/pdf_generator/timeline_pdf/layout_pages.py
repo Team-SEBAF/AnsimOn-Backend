@@ -22,20 +22,8 @@ def layout_pages(timeline_json):
     for group in items:
         header_data = extract_date_group_header_data(group)
 
-        # group header 페이지 체크
-        if current_y - GROUP_BOX_HEIGHT < CONTENT_BOTTOM_Y:
-            pages.append(current_page)
-            current_page = {"groups": []}
-            current_y = CONTENT_TOP_Y
-
-        page_group = {
-            "header": header_data,
-            "events": [],
-        }
-
-        current_page["groups"].append(page_group)
-
-        current_y -= GROUP_BOX_HEIGHT
+        page_group = None
+        first_event = True
 
         for event in group["events"]:
             for evidence in event["evidences"]:
@@ -52,13 +40,28 @@ def layout_pages(timeline_json):
 
                 height = layout["height"]
 
-                # 페이지 넘김 체크
-                if current_y - height < CONTENT_BOTTOM_Y:
+                # -------------------------
+                # 첫 event이면 header 포함 검사
+                # -------------------------
+
+                required_height = height
+                if first_event:
+                    required_height += GROUP_BOX_HEIGHT
+
+                if current_y - required_height < CONTENT_BOTTOM_Y:
                     pages.append(current_page)
 
                     current_page = {"groups": []}
                     current_y = CONTENT_TOP_Y
 
+                    page_group = None
+                    first_event = True
+
+                # -------------------------
+                # header 출력
+                # -------------------------
+
+                if first_event:
                     page_group = {
                         "header": header_data,
                         "events": [],
@@ -67,6 +70,12 @@ def layout_pages(timeline_json):
                     current_page["groups"].append(page_group)
 
                     current_y -= GROUP_BOX_HEIGHT
+
+                    first_event = False
+
+                # -------------------------
+                # event 추가
+                # -------------------------
 
                 page_group["events"].append(
                     {
