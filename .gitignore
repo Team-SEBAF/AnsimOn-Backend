@@ -31,6 +31,9 @@ build/
 # ---- logs ----
 *.log
 
+# ---- pdf_generator results (로컬 개발용) ----
+app/pdf_generator/results/*.pdf
+
 # ---- Lambda / deployment ----
 /layer
 /package

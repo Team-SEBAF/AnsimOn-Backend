@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from datetime import datetime, timezone
 from io import BytesIO
+from pathlib import Path
 from urllib.parse import quote
 from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -43,6 +44,7 @@ from app.domain.timeline.repos import (
     TimelineManualEvidenceRepository,
     TimelineRepository,
 )
+from app.pdf_generator.timeline_pdf.builder import build_timeline_pdf_bytes
 
 
 def _format_evidence_numstring(date: str, time: str, index: int, sub_index: int) -> str:
@@ -285,6 +287,21 @@ class TimelineDownloadService:
             )
             db.commit()
         return zip_bytes, zip_upload_s3_key
+
+    def get_timeline_pdf_preview(self, complaint: Complaint, author: str) -> None:
+        """
+        타임라인 PDF 생성. 로컬(env=local)일 때 pdf_generator/results/에 저장.
+        """
+        case_title = complaint.name
+        pdf_bytes = build_timeline_pdf_bytes(case_title=case_title, author=author)
+
+        if settings.env == "local":
+            results_dir = Path(__file__).parent.parent.parent / "pdf_generator" / "results"
+            results_dir.mkdir(parents=True, exist_ok=True)
+            existing = [f.stem for f in results_dir.glob("*.pdf") if f.stem.isdigit()]
+            next_num = max((int(n) for n in existing), default=0) + 1
+            out_path = results_dir / f"{next_num}.pdf"
+            out_path.write_bytes(pdf_bytes)
 
     def get_download_zip_presigned_url(
         self, complaint: Complaint, db: Session, expires_in: int = 3600

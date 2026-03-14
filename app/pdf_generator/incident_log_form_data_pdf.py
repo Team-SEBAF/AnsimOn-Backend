@@ -5,7 +5,10 @@ from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
-from app.pdf_generator.base import get_pdf_font_name
+from app.pdf_generator.base import get_font
+
+FONT_LABEL = get_font("medium")
+FONT_VALUE = get_font("regular")
 
 
 def build_incident_log_from_data_pdf(
@@ -26,18 +29,16 @@ def build_incident_log_from_data_pdf(
     section_gap = 8
     max_chars = 50  # 한글 기준 줄당 글자 수
 
-    font_name = get_pdf_font_name()
-
     def _draw(label: str, value: str) -> None:
         nonlocal y
-        # 제목(라벨): 큰 글씨
-        c.setFont(font_name, label_font_size)
+        # 제목(라벨): Medium
+        c.setFont(FONT_LABEL, label_font_size)
         c.drawString(72, y, label)
         y -= line_height
 
-        # 내용: 작은 글씨, 여러 줄
+        # 내용: Regular, 여러 줄
         val = (value or "-").replace("\r\n", "\n").replace("\r", "\n")
-        c.setFont(font_name, value_font_size)
+        c.setFont(FONT_VALUE, value_font_size)
         for line in val.split("\n"):
             for j in range(0, len(line), max_chars):
                 chunk = line[j : j + max_chars]

@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
 from app.domain.complaint import Complaint, get_owned_complaint
 from app.domain.timeline_download.schemas.responses import TimelineDownloadZipResponse
@@ -24,6 +25,23 @@ def get_timeline_for_download_preview(
         complaint=complaint,
         db=db,
     )
+
+
+@router.get(
+    "/{complaint_id}/timeline/download/pdf",
+    summary="[임시] 타임라인 PDF 생성",
+    description="개발용 타임라인 PDF 생성. 로컬일 때 pdf_generator/results/에 저장 후 성공 메시지 반환.",
+)
+def get_timeline_pdf_preview(
+    complaint: Complaint = Depends(get_owned_complaint),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    author = current_user.name or current_user.email or "-"
+    timeline_download_service.get_timeline_pdf_preview(
+        complaint=complaint,
+        author=author,
+    )
+    return {"message": "저장되었습니다"}
 
 
 @router.post(
