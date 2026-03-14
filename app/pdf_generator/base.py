@@ -9,6 +9,7 @@ FONT_FILES = {
     "regular": "NotoSansKR-Regular.ttf",
     "medium": "NotoSansKR-Medium.ttf",
     "semibold": "NotoSansKR-SemiBold.ttf",
+    "bold": "NotoSansKR-Bold.ttf",
 }
 
 FONT_NAMES = {}
@@ -28,5 +29,6 @@ def get_font(weight: str = "regular") -> str:
         regular
         medium
         semibold
+        bold
     """
     return FONT_NAMES.get(weight, "Helvetica")

@@ -32,3 +32,31 @@ def extract_date_group_header_data(date_group: dict) -> dict:
         "total_count": total_count,
         "evidence_number": evidence_number,
     }
+
+
+def extract_event_item_data(time: str, evidence: dict) -> dict:
+    """
+    time과 evidence(dict)에서 draw_event_item에 필요한 값 추출.
+
+    Args:
+        time: event의 time
+        evidence: evidence 1개 (title, description, evidences_numstring_s3_key_list 포함)
+
+    Returns:
+        time_text: time
+        title: evidence의 title (없으면 "-")
+        description: evidence의 description (없으면 "-")
+        evidence_text: evidences_numstring_s3_key_list keys를 ', '로 연결
+    """
+    title = evidence.get("title", "-")
+    description = evidence.get("description", "-")
+
+    numstring_map = evidence.get("evidences_numstring_s3_key_list") or {}
+    evidence_text = ", ".join(numstring_map.keys())
+
+    return {
+        "time_text": time,
+        "title": title,
+        "description": description,
+        "evidence_text": "증거 번호 " + evidence_text,
+    }

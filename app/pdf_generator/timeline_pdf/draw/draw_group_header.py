@@ -118,5 +118,6 @@ def draw_group_header(
     # -------------------------
 
     center_y = y + (GROUP_BOX_HEIGHT / 2)
+    end_y = y
 
-    return center_y
+    return center_y, end_y
