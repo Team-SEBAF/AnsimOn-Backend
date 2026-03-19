@@ -7,6 +7,7 @@ from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
+from sqlalchemy.types import Integer
 
 from app.base.base_db import Base
 
@@ -49,6 +50,7 @@ class Task(Base):
         ForeignKey("complaints.complaint_id", ondelete="CASCADE"),
         nullable=False,
     )
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
