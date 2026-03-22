@@ -116,7 +116,13 @@ poetry run uvicorn app.main:app --reload --port 8000
 docker compose up -d
 ```
 
-### 종료 및 초기화
+### 종료
+
+```bash
+docker compose down
+```
+
+### 초기화
 
 ```bash
 docker compose down -v
@@ -125,11 +131,11 @@ docker compose down -v
 - `-v` 옵션은 볼륨까지 제거하여 DB를 초기화합니다.
 - `docker-compose.yml`은 프로젝트 루트에 위치합니다.
 
----
+### DB Migration (로컬용)
 
-## 6. DB Migration (Alembic)
+로컬에서만 사용합니다. Dev/Prod 환경은 CI/CD에서 자동 적용됩니다.
 
-### Migration 생성
+**Migration 생성**
 
 ```bash
 poetry run alembic revision --autogenerate -m "migration message"
@@ -137,7 +143,7 @@ poetry run alembic revision --autogenerate -m "migration message"
 
 - SQLAlchemy 모델 변경 사항을 기반으로 migration 파일을 생성합니다.
 
-### Migration 적용
+**Migration 적용**
 
 ```bash
 poetry run alembic upgrade head
@@ -147,28 +153,27 @@ poetry run alembic upgrade head
 
 ---
 
-## 7. CI / CD 워크플로
+## 6. CI / CD 워크플로
 
-GitHub Actions를 통해 다음과 같은 워크플로가 구성되어 있습니다.
+GitHub Actions로 다음 워크플로가 구성되어 있습니다.
 
-### main 브랜치 push 시
+### dev 브랜치 push 시
 
-1. DB Migration Workflow 실행
-2. Lambda Layer Build & Deploy
-3. Application Build & Deploy (AWS Lambda)
-   - Layer와 Application이 연결되어 배포됩니다.
+1. **DB Migrate** (`db-migrate.yml`)
+   - Alembic migration 자동 적용 (Dev/Prod는 `workflow_dispatch`로 대상 선택)
 
-### main 브랜치 PR 시
+2. **Deploy Lambda** (`lambda-deploy.yml`)
+   - Lambda 함수 코드 업데이트
+   - 버전 퍼블리시 및 alias 업데이트 (`dev` / `prod`)
 
-- Application Build 검증
-  - 실제 배포 없이 빌드 단계만 확인합니다.
+### dev 브랜치 PR 시
 
----
+- **PR Check** (`pr-check.yml`)
+  - Lambda 패키지(app 디렉터리) 빌드 검증
+  - 실제 배포 없이 zip 생성 여부만 확인
 
-## 8. 환경 분리 정책
+### 수동 실행 (workflow_dispatch)
 
-| 환경 | DB | 실행 목적 |
-| --- | --- | --- |
-| Local | Docker (PostgreSQL) | 로컬 개발 |
-| Dev | AWS RDS | 개발 공용 환경 |
-| Prod | AWS RDS | 운영 환경 |
+- **Deploy Lambda Layer** (`lambda-layer-deploy.yml`)
+  - `pyproject.toml` 기준 requirements 추출 → Lambda Layer 빌드 → 업로드
+  - 의존성 변경 시 수동 실행 후 Lambda Deploy 수행

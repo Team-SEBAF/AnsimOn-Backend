@@ -116,7 +116,13 @@ For local development, PostgreSQL is provided via Docker.
 docker compose up -d
 ```
 
-### Stop & Reset
+### Stop
+
+```bash
+docker compose down
+```
+
+### Reset
 
 ```bash
 docker compose down -v
@@ -125,11 +131,11 @@ docker compose down -v
 - The `-v` option removes volumes and resets the database
 - `docker-compose.yml` is located at the project root
 
----
+### Database Migration (Local Only)
 
-## 6. Database Migration (Alembic)
+Used for local development. Dev/Prod environments run migrations via CI/CD.
 
-### Create a Migration
+**Create a Migration**
 
 ```bash
 poetry run alembic revision --autogenerate -m "migration message"
@@ -137,7 +143,7 @@ poetry run alembic revision --autogenerate -m "migration message"
 
 - Generates a migration file based on SQLAlchemy model changes
 
-### Apply Migrations
+**Apply Migrations**
 
 ```bash
 poetry run alembic upgrade head
@@ -147,28 +153,28 @@ poetry run alembic upgrade head
 
 ---
 
-## 7. CI / CD Workflows
+## 6. CI / CD Workflows
 
-GitHub Actions is configured with the following workflows.
+GitHub Actions workflows:
 
-### On push to `main`
+### On push to `dev`
 
-1. Database migration workflow
-2. Lambda layer build & deploy
-3. Application build & deploy (AWS Lambda)  
-   - The application is deployed with the corresponding Lambda layer
+1. **DB Migrate** (`db-migrate.yml`)
+   - Applies Alembic migrations
+   - Use `workflow_dispatch` to target Dev or Prod
 
-### On pull request to `main`
+2. **Deploy Lambda** (`lambda-deploy.yml`)
+   - Updates Lambda function code
+   - Publishes version and updates alias (`dev` / `prod`)
 
-- Application build verification  
-  - Ensures the app builds successfully without deployment
+### On pull request to `dev`
 
----
+- **PR Check** (`pr-check.yml`)
+  - Validates Lambda package (app directory) build
+  - Builds zip without deploying
 
-## 8. Environment Separation Policy
+### Manual (workflow_dispatch)
 
-| Environment | Database | Purpose |
-| --- | --- | --- |
-| Local | Docker (PostgreSQL) | Local development |
-| Dev | AWS RDS | Shared development environment |
-| Prod | AWS RDS | Production environment |
+- **Deploy Lambda Layer** (`lambda-layer-deploy.yml`)
+  - Extracts requirements from `pyproject.toml` → builds Lambda Layer → uploads
+  - Run manually when dependencies change, then run Lambda Deploy
