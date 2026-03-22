@@ -3,6 +3,10 @@ name: PR Check
 on:
   pull_request:
     branches: [dev]
+    paths-ignore:
+      - "README.md"
+      - "README.ko.md"
+      - "**.md"
 
 jobs:
   build-check:

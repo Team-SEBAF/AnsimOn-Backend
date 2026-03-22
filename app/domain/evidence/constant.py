@@ -11,7 +11,16 @@ class EvidenceTypeRestrict:
     max_duration_seconds: Optional[int] = None
 
 
-EVIDENCE_MESSAGE_RESTRICT = EvidenceTypeRestrict(
+@dataclass(frozen=True)
+class MediaTypeRestrict:
+    """타입별(영상/이미지) 제한. max_count는 Evidence 단위(EVIDENCE_VICTIM_RESTRICT)에서만."""
+
+    allowed_types: Set[str]
+    max_size_bytes: int
+    max_duration_seconds: Optional[int] = None
+
+
+EVIDENCE_IMAGE_RESTRICT = EvidenceTypeRestrict(
     allowed_types={
         "image/jpeg",
         "image/png",
@@ -22,7 +31,10 @@ EVIDENCE_MESSAGE_RESTRICT = EvidenceTypeRestrict(
     max_size_bytes=10 * 1024 * 1024,  # 10MB / 파일
 )
 
-EVIDENCE_VOICE_RESTRICT = EvidenceTypeRestrict(
+EVIDENCE_MESSAGE_RESTRICT = EVIDENCE_IMAGE_RESTRICT
+
+# VOICE: 음성 + 이미지. max_count는 EVIDENCE_VOICE_RESTRICT에만.
+EVIDENCE_VOICE_AUDIO_RESTRICT = MediaTypeRestrict(
     allowed_types={
         "audio/mp4",  # m4a
         "audio/x-m4a",
@@ -30,19 +42,44 @@ EVIDENCE_VOICE_RESTRICT = EvidenceTypeRestrict(
         "audio/wav",
         "audio/x-wav",
     },
-    max_count=5,
     max_size_bytes=20 * 1024 * 1024,  # 20MB
     max_duration_seconds=300,  # 5분
 )
 
-EVIDENCE_TRACKING_RESTRICT = EvidenceTypeRestrict(
-    allowed_types={
-        "video/mp4",
-        "video/quicktime",  # mov
-    },
-    max_count=3,
+EVIDENCE_VOICE_IMAGE_RESTRICT = MediaTypeRestrict(
+    allowed_types=EVIDENCE_IMAGE_RESTRICT.allowed_types,
+    max_size_bytes=EVIDENCE_IMAGE_RESTRICT.max_size_bytes,  # 10MB, MESSAGE와 동일
+)
+
+EVIDENCE_VOICE_RESTRICT = EvidenceTypeRestrict(
+    allowed_types=EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types
+    | EVIDENCE_VOICE_IMAGE_RESTRICT.allowed_types,
+    max_count=5,
+    max_size_bytes=0,  # presigned/register에서 타입별 EVIDENCE_VOICE_AUDIO/IMAGE_RESTRICT 사용
+    max_duration_seconds=None,
+)
+
+# 영상 제한. VICTIM, form-data 첨부, Timeline 등에서 공통 사용.
+EVIDENCE_VIDEO_RESTRICT = MediaTypeRestrict(
+    allowed_types={"video/mp4", "video/quicktime"},
     max_size_bytes=500 * 1024 * 1024,  # 500MB
     max_duration_seconds=300,  # 5분
+)
+
+# VICTIM: 영상 + 이미지. max_count는 EVIDENCE_VICTIM_RESTRICT에만.
+EVIDENCE_VICTIM_VIDEO_RESTRICT = EVIDENCE_VIDEO_RESTRICT
+
+EVIDENCE_VICTIM_IMAGE_RESTRICT = MediaTypeRestrict(
+    allowed_types=EVIDENCE_IMAGE_RESTRICT.allowed_types,
+    max_size_bytes=EVIDENCE_IMAGE_RESTRICT.max_size_bytes,  # 10MB, MESSAGE와 동일
+)
+
+EVIDENCE_VICTIM_RESTRICT = EvidenceTypeRestrict(
+    allowed_types=EVIDENCE_VICTIM_VIDEO_RESTRICT.allowed_types
+    | EVIDENCE_VICTIM_IMAGE_RESTRICT.allowed_types,
+    max_count=3,
+    max_size_bytes=0,  # presigned/register에서 타입별 EVIDENCE_VICTIM_VIDEO/IMAGE_RESTRICT 사용
+    max_duration_seconds=None,
 )
 
 EVIDENCE_DOCUMENT_RESTRICT = EvidenceTypeRestrict(
@@ -69,14 +106,14 @@ class EvidenceType(str, Enum):
 
     MESSAGE: 메신저, 문자, DM
     VOICE: 통화, 음성
-    TRACKING: 접근, 추적 흔적
+    VICTIM: 피해 사진/영상
     INCIDENT_LOG: 신고, 상담 기록
     REPORT_RECORD: 사건 일지
     """
 
     MESSAGE = "MESSAGE"
     VOICE = "VOICE"
-    TRACKING = "TRACKING"
+    VICTIM = "VICTIM"
     REPORT_RECORD = "REPORT_RECORD"
     INCIDENT_LOG = "INCIDENT_LOG"
 
@@ -85,3 +122,26 @@ class EvidenceVariant(str, Enum):
     THUMBNAIL = "thumbnail"
     DETAIL = "detail"
     ORIGINAL = "original"
+
+
+class FileType(str, Enum):
+    """파일 미디어 타입. content_type에서 파생."""
+
+    IMAGE = "IMAGE"
+    AUDIO = "AUDIO"
+    VIDEO = "VIDEO"
+    DOCUMENT = "DOCUMENT"
+    ETC = "ETC"
+
+
+def get_file_type_from_content_type(content_type: str) -> FileType:
+    """content_type → FileType 매핑."""
+    if content_type in EVIDENCE_IMAGE_RESTRICT.allowed_types:
+        return FileType.IMAGE
+    if content_type in EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types:
+        return FileType.AUDIO
+    if content_type in EVIDENCE_VIDEO_RESTRICT.allowed_types:
+        return FileType.VIDEO
+    if content_type in EVIDENCE_DOCUMENT_RESTRICT.allowed_types:
+        return FileType.DOCUMENT
+    return FileType.ETC

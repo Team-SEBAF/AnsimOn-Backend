@@ -58,6 +58,7 @@ class EvidenceVoiceDetailResponse(BaseResponse):
     voice_id: UUID = Field(
         ..., description="증거 음성 ID", examples=[UUID("123e4567-e89b-12d3-a456-426614174000")]
     )
+    type: str = Field(..., description="파일 타입")
     filename: str = Field(..., description="파일명", examples=["evidence.mp3"])
     duration_seconds: int = Field(..., description="음성 길이(초)", examples=[123])
     size_bytes: int = Field(..., description="파일 크기(바이트)", examples=[12345])

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     COGNITO_CLIENT_SECRET: str | None = None
     COGNITO_DOMAIN: str | None = None
     S3_BUCKET_NAME: str | None = None
+    SQS_QUEUE_URL: str | None = None
 
 
 settings = Settings()

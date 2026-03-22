@@ -3,6 +3,10 @@ name: Deploy Lambda
 on:
   push:
     branches: [dev]
+    paths-ignore:
+      - "README.md"
+      - "README.ko.md"
+      - "**.md"
   workflow_dispatch:
 
 permissions:

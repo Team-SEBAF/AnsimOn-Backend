@@ -7,7 +7,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.base.base_response import BaseResponse, BaseSuccessResponse
-from app.core.aws import get_cognito_client
+from app.core.aws import delete_s3_objects_by_prefix, get_cognito_client
 from app.core.database import get_db
 from app.core.settings import settings
 from app.dev.utils import _check_dev_environment, _get_dev_db_instance, _get_rds_client
@@ -107,6 +107,9 @@ def delete_dev_user(email: str, db: Session = Depends(get_db)):
         raise
 
     user_sub = next((attr["Value"] for attr in resp["UserAttributes"] if attr["Name"] == "sub"))
+
+    if settings.S3_BUCKET_NAME:
+        delete_s3_objects_by_prefix(settings.S3_BUCKET_NAME, f"{user_sub}/")
 
     user_repo = UserRepository(db)
     user_repo.delete_by_user_sub(user_sub)

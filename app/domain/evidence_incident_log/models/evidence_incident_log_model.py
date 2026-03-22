@@ -68,5 +68,14 @@ class EvidenceIncidentLogFormData(Base):
     time: Mapped[time] = mapped_column(Time, nullable=False)  # HH:MM
     location: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    witness: Mapped[str] = mapped_column(Text, nullable=True)
-    perceived_risk: Mapped[str] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    pdf_created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="FORM_DATA PDF 최종 생성 시각. 재생성 필요 시 비교용",
+    )
+    pdf_s3_key: Mapped[str | None] = mapped_column(
+        String(512), nullable=True, comment="FORM_DATA PDF S3 키"
+    )
