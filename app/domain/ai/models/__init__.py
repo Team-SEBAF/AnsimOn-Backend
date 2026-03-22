@@ -1,3 +1,3 @@
-from .task_model import Task, TaskStatus, TaskType
+from .task_model import LLMType, Task, TaskStatus, TaskType
 
-__all__ = ["Task", "TaskStatus", "TaskType"]
+__all__ = ["LLMType", "Task", "TaskStatus", "TaskType"]

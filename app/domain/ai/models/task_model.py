@@ -28,6 +28,13 @@ class TaskStatus(str, Enum):
     FAILED = "FAILED"
 
 
+class LLMType(str, Enum):
+    """LLM 타입 (message 전달용)"""
+
+    MOCK = "mock"
+    OPEN_AI = "openAI"
+
+
 class Task(Base):
     __tablename__ = "tasks"
 
@@ -51,6 +58,12 @@ class Task(Base):
         nullable=False,
     )
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    processed_evidence_count: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="처리된 증거수"
+    )
+    total_evidence_count: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="총 증거수"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
