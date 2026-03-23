@@ -54,6 +54,7 @@ from app.domain.evidence_incident_log.repos.incident_log_form_data_attachment_re
 )
 from app.domain.evidence_victim.utils import get_video_duration
 from app.domain.evidence_voice.utils import get_audio_duration
+from app.domain.timeline.repos.timeline_repository import TimelineRepository
 
 
 def _validate_incident_log_register_restrict(metadata_list: list[dict]) -> None:
@@ -255,6 +256,9 @@ class EvidenceIncidentLogService(EvidenceTypeService):
 
         db.bulk_insert_mappings(EvidenceIncidentLog, incident_log_rows)
         db.bulk_insert_mappings(EvidenceIncidentLogFile, incident_log_file_rows)
+        TimelineRepository(db).set_regeneration_flags(
+            complaint.complaint_id, need_timeline_regeneration=True
+        )
         db.commit()
 
         results = [

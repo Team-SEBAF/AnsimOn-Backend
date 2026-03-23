@@ -1,3 +1,3 @@
-from .responses import TaskRequestResponse
+from .responses import TaskRequestResponse, TimelineNeedToGenerateResponse
 
-__all__ = ["TaskRequestResponse"]
+__all__ = ["TaskRequestResponse", "TimelineNeedToGenerateResponse"]

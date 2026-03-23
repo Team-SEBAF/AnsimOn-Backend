@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -61,8 +59,10 @@ def get_evidence_presigned_url(
 def delete_evidence(
     request: schemas.DeleteEvidenceRequest,
     current_user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     evidence_service.delete_evidence(
         request=request,
         current_user=current_user,
+        db=db,
     )

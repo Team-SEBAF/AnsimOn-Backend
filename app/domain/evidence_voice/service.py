@@ -27,6 +27,7 @@ from app.domain.evidence_voice import schemas
 from app.domain.evidence_voice.models.evidence_voice_model import EvidenceVoice
 from app.domain.evidence_voice.repos.evidence_voice_repository import EvidenceVoiceRepository
 from app.domain.evidence_voice.utils import get_audio_duration
+from app.domain.timeline.repos.timeline_repository import TimelineRepository
 
 
 def _collect_voice_register_restrict_failures_from_metadata(
@@ -221,6 +222,9 @@ class EvidenceVoiceService(EvidenceTypeService):
         )
         # 6) DB 저장
         db.bulk_insert_mappings(EvidenceVoice, rows)
+        TimelineRepository(db).set_regeneration_flags(
+            complaint.complaint_id, need_timeline_regeneration=True
+        )
         db.commit()
 
         results = [
