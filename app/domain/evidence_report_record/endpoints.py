@@ -33,22 +33,22 @@ def register_report_record(
     )
 
 
-@router.get(
-    "/{complaint_id}/evidences/report-records/previews",
-    summary="REPORT_RECORD 타입 신고・사건 일지 프리뷰 리스트 조회 [미사용]",
-    description="REPORT_RECORD 타입 신고・사건 일지 프리뷰 리스트를 조회합니다.",
-    response_model=schemas.EvidenceReportRecordPreviewListResponse,
-)
-def get_evidence_report_record_previews(
-    complaint: Complaint = Depends(get_owned_complaint),
-    limit: int = Query(5, ge=1, le=20),
-    db: Session = Depends(get_db),
-):
-    return evidence_report_record_service.get_preview_report_records(
-        complaint=complaint,
-        limit=limit,
-        db=db,
-    )
+# @router.get(
+#     "/{complaint_id}/evidences/report-records/previews",
+#     summary="REPORT_RECORD 타입 신고・사건 일지 프리뷰 리스트 조회 [미사용]",
+#     description="REPORT_RECORD 타입 신고・사건 일지 프리뷰 리스트를 조회합니다.",
+#     response_model=schemas.EvidenceReportRecordPreviewListResponse,
+# )
+# def get_evidence_report_record_previews(
+#     complaint: Complaint = Depends(get_owned_complaint),
+#     limit: int = Query(5, ge=1, le=20),
+#     db: Session = Depends(get_db),
+# ):
+#     return evidence_report_record_service.get_preview_report_records(
+#         complaint=complaint,
+#         limit=limit,
+#         db=db,
+#     )
 
 
 @router.get(
@@ -69,20 +69,20 @@ def get_evidence_report_record_details(
     )
 
 
-@router.get(
-    "/evidence/report-record/{report_record_id}/original",
-    summary="REPORT_RECORD 타입 신고・사건 일지 원본 조회 (10분 유효) [미사용]",
-    description="REPORT_RECORD 타입 신고・사건 일지 원본을 조회합니다.",
-    response_model=schemas.EvidenceReportRecordOriginalResponse,
-    responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,
-)
-def get_evidence_report_record_original(
-    report_record_id: UUID,
-    current_user: AuthUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    return evidence_report_record_service.get_original_report_record(
-        report_record_id=report_record_id,
-        current_user=current_user,
-        db=db,
-    )
+# @router.get(
+#     "/evidence/report-record/{report_record_id}/original",
+#     summary="REPORT_RECORD 타입 신고・사건 일지 원본 조회 (10분 유효) [미사용]",
+#     description="REPORT_RECORD 타입 신고・사건 일지 원본을 조회합니다.",
+#     response_model=schemas.EvidenceReportRecordOriginalResponse,
+#     responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,
+# )
+# def get_evidence_report_record_original(
+#     report_record_id: UUID,
+#     current_user: AuthUser = Depends(get_current_user),
+#     db: Session = Depends(get_db),
+# ):
+#     return evidence_report_record_service.get_original_report_record(
+#         report_record_id=report_record_id,
+#         current_user=current_user,
+#         db=db,
+#     )
