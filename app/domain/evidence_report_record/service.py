@@ -20,6 +20,7 @@ from app.domain.evidence_report_record.models.evidence_report_record_model impor
 from app.domain.evidence_report_record.repos.evidence_report_record_repository import (
     EvidenceReportRecordRepository,
 )
+from app.domain.timeline.repos.timeline_repository import TimelineRepository
 
 
 def _validate_report_record_register_restrict(metadata_list: list[dict]) -> None:
@@ -134,6 +135,9 @@ class EvidenceReportRecordService(EvidenceTypeService):
         ]
 
         db.bulk_insert_mappings(EvidenceReportRecord, rows)
+        TimelineRepository(db).set_regeneration_flags(
+            complaint.complaint_id, need_timeline_regeneration=True
+        )
         db.commit()
 
         results = [

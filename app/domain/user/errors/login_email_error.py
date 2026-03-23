@@ -59,7 +59,7 @@ LOGIN_EMAIL_ERRORS_RESPONSES = {
             }
         },
     },
-    400: {
+    403: {
         "model": LoginEmailErrorResponse,
         "content": {
             "application/json": {
@@ -101,5 +101,5 @@ def handle_login_email_error(e: ClientError):
             code=LoginEmailErrorCode.USER_NOT_CONFIRMED,
             message="이메일 인증이 완료되지 않았습니다. 이메일 인증을 완료한 후 다시 시도해 주세요.",
             debug_message=f"이메일 인증이 완료되지 않았습니다. code: {code}",
-            status_code=400,
+            status_code=403,
         )

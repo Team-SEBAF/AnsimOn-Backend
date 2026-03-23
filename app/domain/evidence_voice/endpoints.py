@@ -33,22 +33,22 @@ def register_voice(
     )
 
 
-@router.get(
-    "/{complaint_id}/evidences/voices/previews",
-    summary="VOICE 타입 증거 프리뷰 리스트 조회 [미사용]",
-    description="VOICE 타입 증거 프리뷰 리스트를 조회합니다.",
-    response_model=schemas.EvidenceVoicePreviewListResponse,
-)
-def get_evidence_voice_previews(
-    complaint: Complaint = Depends(get_owned_complaint),
-    limit: int = Query(5, ge=1, le=20),
-    db: Session = Depends(get_db),
-):
-    return evidence_voice_service.get_preview_voices(
-        complaint=complaint,
-        limit=limit,
-        db=db,
-    )
+# @router.get(
+#     "/{complaint_id}/evidences/voices/previews",
+#     summary="VOICE 타입 증거 프리뷰 리스트 조회 [미사용]",
+#     description="VOICE 타입 증거 프리뷰 리스트를 조회합니다.",
+#     response_model=schemas.EvidenceVoicePreviewListResponse,
+# )
+# def get_evidence_voice_previews(
+#     complaint: Complaint = Depends(get_owned_complaint),
+#     limit: int = Query(5, ge=1, le=20),
+#     db: Session = Depends(get_db),
+# ):
+#     return evidence_voice_service.get_preview_voices(
+#         complaint=complaint,
+#         limit=limit,
+#         db=db,
+#     )
 
 
 @router.get(
@@ -69,20 +69,20 @@ def get_evidence_voice_details(
     )
 
 
-@router.get(
-    "/evidence/voice/{voice_id}/original",
-    summary="VOICE 타입 증거 음성 원본 조회 (원본 음성 10분 유효) [미사용]",
-    description="VOICE 타입 증거 음성 원본을 조회합니다.",
-    response_model=schemas.EvidenceVoiceOriginalResponse,
-    responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,
-)
-def get_evidence_voice_original(
-    voice_id: UUID,
-    current_user: AuthUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    return evidence_voice_service.get_original_voice(
-        voice_id=voice_id,
-        current_user=current_user,
-        db=db,
-    )
+# @router.get(
+#     "/evidence/voice/{voice_id}/original",
+#     summary="VOICE 타입 증거 음성 원본 조회 (원본 음성 10분 유효) [미사용]",
+#     description="VOICE 타입 증거 음성 원본을 조회합니다.",
+#     response_model=schemas.EvidenceVoiceOriginalResponse,
+#     responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,
+# )
+# def get_evidence_voice_original(
+#     voice_id: UUID,
+#     current_user: AuthUser = Depends(get_current_user),
+#     db: Session = Depends(get_db),
+# ):
+#     return evidence_voice_service.get_original_voice(
+#         voice_id=voice_id,
+#         current_user=current_user,
+#         db=db,
+#     )

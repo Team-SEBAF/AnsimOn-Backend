@@ -30,6 +30,7 @@ from app.domain.evidence_victim.repos.evidence_victim_repository import (
     EvidenceVictimRepository,
 )
 from app.domain.evidence_victim.utils import get_video_duration, get_video_image_at_0
+from app.domain.timeline.repos.timeline_repository import TimelineRepository
 
 
 def _collect_victim_register_restrict_failures_from_metadata(
@@ -234,6 +235,9 @@ class EvidenceVictimService(EvidenceTypeService):
         with ThreadPoolExecutor(max_workers=max(1, min(len(rows), 5))) as executor:
             rows = list(executor.map(_upload_victim_thumbnails, rows))
         db.bulk_insert_mappings(EvidenceVictim, rows)
+        TimelineRepository(db).set_regeneration_flags(
+            complaint.complaint_id, need_timeline_regeneration=True
+        )
         db.commit()
 
         results = [
