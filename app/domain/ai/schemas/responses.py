@@ -15,6 +15,15 @@ class TaskRequestResponse(BaseResponse):
     )
 
 
+class TimelineTaskIdResponse(BaseResponse):
+    """현재(가장 최근) 타임라인 태스크 ID 응답"""
+
+    task_id: UUID | None = Field(
+        ...,
+        description="가장 최근 타임라인 태스크 ID (없으면 null)",
+    )
+
+
 class TimelineNeedToGenerateResponse(BaseResponse):
     """타임라인 생성 필요 여부 응답 (최초 생성·재생성 모두 해당)"""
 
