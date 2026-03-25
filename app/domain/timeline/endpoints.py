@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -18,15 +18,19 @@ router = APIRouter(prefix="/api/v1", tags=["Timeline"])
 @router.get(
     "/{complaint_id}/timeline",
     summary="타임라인 조회",
-    description="날짜 > 시각 > 증거 계층 구조의 타임라인을 조회합니다. (row 없으면 default insert)",
+    description="날짜 > 시각 > 증거 계층 구조의 타임라인을 조회합니다. ",
     response_model=schemas.TimelineResponse,
     responses=GET_TIMELINE_ERRORS_RESPONSES,
 )
 def get_timeline(
     complaint: Complaint = Depends(get_owned_complaint),
+    generate_dummy: bool = Query(
+        False,
+        description="(임시 Parameter) True면 더미 데이터를 DB에 저장하고 반환합니다. 만약 AI 생성 결과가 이미 저장되어 있다면, 기존 데이터를 삭제하고 더미 데이터를 새로 저장합니다.",
+    ),
     db: Session = Depends(get_db),
 ):
-    return timeline_service.get_timeline(complaint.complaint_id, db)
+    return timeline_service.get_timeline(complaint.complaint_id, db, generate_dummy=generate_dummy)
 
 
 @router.get(

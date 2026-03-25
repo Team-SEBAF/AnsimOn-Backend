@@ -77,8 +77,6 @@ class _EvidenceMetadata:
 
 
 class TimelineService:
-    """타임라인 조회 및 default 데이터 insert."""
-
     @staticmethod
     def _detail_presigned_url(s3_key: str) -> str:
         """s3_key의 detail variant presigned URL 반환."""
@@ -234,19 +232,25 @@ class TimelineService:
                 status_code=400,
             )
 
-    def get_timeline(self, complaint_id: UUID, db: Session) -> schemas.TimelineResponse:
-        """타임라인 조회. row 없으면 default insert 후 반환."""
+    def get_timeline(
+        self, complaint_id: UUID, db: Session, *, generate_dummy: bool = False
+    ) -> schemas.TimelineResponse:
+        """타임라인 조회. generate_dummy=True일 때만 시드 삽입(기존 row 있으면 삭제 후)."""
         timeline_repo = TimelineRepository(db)
         timeline = timeline_repo.get_by_complaint_id(complaint_id)
-        if timeline is None:
-            # TODO: AI 연결 전까지 시드 데이터로 조회
+
+        if generate_dummy:
+            if timeline is not None:
+                timeline_repo.delete(timeline)
+                db.flush()
             timeline = self._insert_dummy_default_data(complaint_id, db)
-            # raise CodeException(
-            #     code=GetTimelineErrorCode.TIMELINE_NOT_FOUND,
-            #     message="타임라인을 찾을 수 없습니다.",
-            #     debug_message=f"complaint_id: {complaint_id}에 해당하는 타임라인이 없습니다.",
-            #     status_code=404,
-            # )
+        elif timeline is None:
+            raise CodeException(
+                code=GetTimelineErrorCode.TIMELINE_NOT_FOUND,
+                message="타임라인을 찾을 수 없습니다.",
+                debug_message=f"complaint_id: {complaint_id}에 해당하는 타임라인이 없습니다.",
+                status_code=404,
+            )
 
         data = deepcopy(timeline.timeline_json)
 
