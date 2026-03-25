@@ -5,7 +5,6 @@ from mangum import Mangum
 
 from app.base.base_error import register_exception_handlers
 from app.core.settings import settings
-from app.dev.endpoints import router as dev_router
 from app.domain.ai.endpoints import router as ai_router
 from app.domain.complaint.endpoints import router as complaint_router
 from app.domain.evidence.endpoints import router as evidence_router
@@ -17,6 +16,7 @@ from app.domain.evidence_voice.endpoints import router as evidence_voice_router
 from app.domain.timeline.endpoints import router as timeline_router
 from app.domain.timeline_download.endpoints import router as timeline_download_router
 from app.domain.user.endpoints import router as user_router
+from app.sse.endpoints import router as sse_router
 
 if settings.AWS_PROFILE:
     boto3.setup_default_session(profile_name=settings.AWS_PROFILE)
@@ -37,9 +37,14 @@ app.add_middleware(
 # 예외 핸들러 등록
 register_exception_handlers(app)
 
+if settings.env == "prod":
+    from app._server_cost.prod_endpoints import router as server_cost_router
 
-if settings.env == "dev":
-    app.include_router(dev_router)
+    app.include_router(server_cost_router)
+elif settings.env == "dev":
+    from app._server_cost.dev_endpoints import router as server_cost_router
+
+    app.include_router(server_cost_router)
 
 app.include_router(user_router)
 app.include_router(complaint_router)
@@ -52,5 +57,7 @@ app.include_router(evidence_incident_log_router)
 app.include_router(timeline_router)
 app.include_router(timeline_download_router)
 app.include_router(ai_router)
+app.include_router(sse_router)
+
 
 handler = Mangum(app)
