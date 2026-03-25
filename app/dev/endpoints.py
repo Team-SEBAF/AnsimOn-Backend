@@ -10,7 +10,8 @@ from app.base.base_response import BaseResponse, BaseSuccessResponse
 from app.core.aws import delete_s3_objects_by_prefix, get_cognito_client
 from app.core.database import get_db
 from app.core.settings import settings
-from app.dev.utils import _check_dev_environment, _get_dev_db_instance, _get_rds_client
+from app.dev.db_utils import _check_dev_environment, _get_dev_db_instance, _get_rds_client
+from app.dev.sse_utils import dev_sse_is_available, dev_sse_set_desired_count
 from app.domain.user.repos.user_repository import UserRepository
 
 router = APIRouter(
@@ -19,10 +20,11 @@ router = APIRouter(
 )
 
 
-class DevDbStatusResponse(BaseResponse):
+class InfraStatusResponse(BaseResponse):
     status: Literal["available", "unavailable"]
 
 
+# DB 제어
 @router.post(
     "/db/start",
     summary="Dev DB 시작",
@@ -48,16 +50,16 @@ def start_dev_db():
     "/db/status",
     summary="Dev DB 실행 여부 조회",
     description="Dev DB가 실행 중인지 여부를 조회합니다.",
-    response_model=DevDbStatusResponse,
+    response_model=InfraStatusResponse,
 )
 def get_dev_db_status(db: Session = Depends(get_db)):
     _check_dev_environment()
 
     try:
         db.execute(text("SELECT 1"))  # 테이블 없이도 실행 가능
-        return DevDbStatusResponse(status="available")
+        return InfraStatusResponse(status="available")
     except OperationalError:
-        return DevDbStatusResponse(status="unavailable")
+        return InfraStatusResponse(status="unavailable")
 
 
 @router.post(
@@ -81,6 +83,50 @@ def stop_dev_db():
     )
 
 
+# SSE 서버 제어
+@router.post(
+    "/sse/start",
+    summary="Dev SSE 서버 시작",
+    description="Dev 환경용 SSE 서버를 켭니다. 대략 1분 소요됩니다. 시작 중에는 status API 에서 unavailable 상태로 나타날 수 있습니다.",
+    response_model=BaseSuccessResponse,
+)
+def dev_sse_start():
+    _check_dev_environment()
+    dev_sse_set_desired_count(1)
+    return BaseSuccessResponse(
+        message="SSE 서버 시작 요청을 보냈습니다. 대략 1분 소요됩니다. 시작 중에는 status API 에서 unavailable 상태로 나타날 수 있습니다.",
+    )
+
+
+@router.get(
+    "/sse/status",
+    summary="Dev SSE 서버 실행 여부 조회",
+    description="SSE 서버가 실행 중인지 여부를 조회합니다.",
+    response_model=InfraStatusResponse,
+)
+def dev_sse_status():
+    _check_dev_environment()
+    if dev_sse_is_available():
+        return InfraStatusResponse(status="available")
+    return InfraStatusResponse(status="unavailable")
+
+
+@router.post(
+    "/sse/stop",
+    summary="Dev SSE 서버 중지",
+    description="Dev 환경용 SSE 서버를 끕니다. 대략 10초 소요됩니다. 중지 중에는 status API 에서 available 상태로 나타날 수 있습니다.",
+    response_model=BaseSuccessResponse,
+)
+def dev_sse_stop():
+    _check_dev_environment()
+    dev_sse_set_desired_count(0)
+    return BaseSuccessResponse(
+        message="SSE 서버 중지 요청을 보냈습니다. 대략 10초 소요됩니다. 중지 중에는 status API 에서 available 상태로 나타날 수 있습니다.",
+    )
+
+
+# 회원 탈퇴
+# 사용하려면 AWS_PROFILE에 "CognitoDevAdminAccess" 권한 추가 필요
 @router.delete(
     "/users",
     summary="회원 탈퇴",
