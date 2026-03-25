@@ -17,6 +17,7 @@ from app.domain.evidence_voice.endpoints import router as evidence_voice_router
 from app.domain.timeline.endpoints import router as timeline_router
 from app.domain.timeline_download.endpoints import router as timeline_download_router
 from app.domain.user.endpoints import router as user_router
+from app.sse.endpoints import router as sse_router
 
 if settings.AWS_PROFILE:
     boto3.setup_default_session(profile_name=settings.AWS_PROFILE)
@@ -52,5 +53,6 @@ app.include_router(evidence_incident_log_router)
 app.include_router(timeline_router)
 app.include_router(timeline_download_router)
 app.include_router(ai_router)
+app.include_router(sse_router)
 
 handler = Mangum(app)
