@@ -44,7 +44,7 @@ def get_current_timeline_task_id(
 
 @router.post(
     "/{complaint_id}/ai/timeline/request/generate",
-    summary="타임라인 생성 요청 (아직 실행하지 말아주세요.)",
+    summary="타임라인 생성 요청",
     description="타임라인 생성 요청을 보냅니다. 이 API에서는 생성 결과를 응답하지 않습니다. SSE 서버와 연결하여 결과 스트림을 확인하세요.",
     response_model=TaskRequestResponse,
 )
