@@ -1,5 +1,3 @@
-"""비용 절감용 SSE ECS 서비스 desiredCount 제어."""
-
 import boto3
 from botocore.exceptions import ClientError
 from fastapi import HTTPException
@@ -7,11 +5,11 @@ from fastapi import HTTPException
 from app.core.settings import settings
 
 
-def _get_ecs_client():
+def get_ecs_client():
     return boto3.client("ecs", region_name=settings.AWS_REGION)
 
 
-def _sse_cluster_service() -> tuple[str, str]:
+def require_cluster_and_service() -> tuple[str, str]:
     cluster = (settings.SSE_ECS_CLUSTER or "").strip()
     service = (settings.SSE_ECS_SERVICE or "").strip()
     if not cluster or not service:
@@ -22,10 +20,9 @@ def _sse_cluster_service() -> tuple[str, str]:
     return cluster, service
 
 
-def sse_set_desired_count(desired: int) -> None:
-    """ECS 서비스 desiredCount 설정 (0=중지, 1=시작)."""
-    cluster, service = _sse_cluster_service()
-    ecs = _get_ecs_client()
+def set_desired_count(desired: int) -> None:
+    cluster, service = require_cluster_and_service()
+    ecs = get_ecs_client()
     try:
         ecs.update_service(
             cluster=cluster,
@@ -39,10 +36,9 @@ def sse_set_desired_count(desired: int) -> None:
         ) from e
 
 
-def sse_is_available() -> bool:
-    """RUNNING 태스크가 1개 이상이면 True."""
-    cluster, service = _sse_cluster_service()
-    ecs = _get_ecs_client()
+def ecs_running_count_at_least_one() -> bool:
+    cluster, service = require_cluster_and_service()
+    ecs = get_ecs_client()
     try:
         resp = ecs.describe_services(cluster=cluster, services=[service])
     except ClientError as e:
