@@ -28,13 +28,13 @@ def get_sse_server_url() -> str:
     """
     ECS Fargate 서비스의 RUNNING 태스크 1개의 Public IP로 SSE base URL 문자열 반환.
     """
-    cluster = (settings.SSE_ECS_CLUSTER or "").strip()
+    cluster = (settings.ECS_CLUSTER or "").strip()
     service = (settings.SSE_ECS_SERVICE or "").strip()
     if not cluster or not service:
         raise CodeException(
             code=SseUrlErrorCode.SSE_NOT_CONFIGURED,
             message="SSE ECS 클러스터·서비스가 설정되어 있지 않습니다.",
-            debug_message="환경 변수 SSE_ECS_CLUSTER, SSE_ECS_SERVICE를 설정하세요.",
+            debug_message="환경 변수 ECS_CLUSTER, SSE_ECS_SERVICE를 설정하세요.",
             status_code=503,
         )
 

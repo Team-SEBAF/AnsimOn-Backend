@@ -3,6 +3,7 @@ import asyncio
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app._server_cost.ai_worker.service import server_cost_ai_worker_service
 from app._server_cost.db.service import server_cost_db_service
 from app._server_cost.schemas import InfraStatusResponse
 from app._server_cost.sse.service import server_cost_sse_service
@@ -24,6 +25,7 @@ async def server_on():
     await asyncio.gather(
         asyncio.to_thread(server_cost_db_service.start_db),
         asyncio.to_thread(server_cost_sse_service.start_sse),
+        asyncio.to_thread(server_cost_ai_worker_service.raise_min_for_warm_pool),
     )
     return BaseSuccessResponse(
         message="Prod 서버 시작 요청을 보냈습니다. 대략 3~6분 소요될 수 있습니다."
@@ -38,7 +40,8 @@ async def server_on():
 def server_status(db: Session = Depends(get_db)):
     db_st = server_cost_db_service.get_db_connection_status(db)
     sse_st = server_cost_sse_service.get_sse_status()
-    if db_st.status == "available" and sse_st.status == "available":
+    ai_ok = server_cost_ai_worker_service.running_count_at_least_warm_min()
+    if db_st.status == "available" and sse_st.status == "available" and ai_ok:
         return InfraStatusResponse(status="available")
     return InfraStatusResponse(status="unavailable")
 
@@ -52,6 +55,7 @@ async def server_off():
     await asyncio.gather(
         asyncio.to_thread(server_cost_db_service.stop_db),
         asyncio.to_thread(server_cost_sse_service.stop_sse),
+        asyncio.to_thread(server_cost_ai_worker_service.scale_down_off),
     )
     return BaseSuccessResponse(
         message="Prod 서버 중지 요청을 보냈습니다. 대략 8~15분 소요될 수 있습니다."

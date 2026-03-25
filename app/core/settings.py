@@ -29,10 +29,12 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str | None = None
     SQS_QUEUE_URL: str | None = None
 
-    # SSE 서버(Fargate) URL 조회용 — 비어 있으면 GET /sse/server-url 은 SSE_NOT_CONFIGURED
-    SSE_ECS_CLUSTER: str | None = None
+    ECS_CLUSTER: str | None = None
     SSE_ECS_SERVICE: str | None = None
     SSE_SERVER_PORT: int = 8000
+    AI_WORKER_ECS_SERVICE: str | None = None
+    AI_WORKER_AUTOSCALING_MAX_CAPACITY: int = 5
+    AI_WORKER_WARM_MIN_TASKS: int = 2
 
 
 settings = Settings()

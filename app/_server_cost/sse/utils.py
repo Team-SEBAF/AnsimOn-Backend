@@ -10,12 +10,12 @@ def get_ecs_client():
 
 
 def require_cluster_and_service() -> tuple[str, str]:
-    cluster = (settings.SSE_ECS_CLUSTER or "").strip()
+    cluster = (settings.ECS_CLUSTER or "").strip()
     service = (settings.SSE_ECS_SERVICE or "").strip()
     if not cluster or not service:
         raise HTTPException(
             status_code=503,
-            detail="SSE_ECS_CLUSTER / SSE_ECS_SERVICE 환경 변수가 설정되어 있지 않습니다.",
+            detail="ECS_CLUSTER / SSE_ECS_SERVICE 환경 변수가 설정되어 있지 않습니다.",
         )
     return cluster, service
 

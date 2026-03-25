@@ -27,7 +27,7 @@ SSE_URL_ERRORS_RESPONSES = {
                         "value": {
                             "code": "SSE_NOT_CONFIGURED",
                             "message": "SSE ECS 클러스터·서비스가 설정되어 있지 않습니다.",
-                            "debug_message": "환경 변수 SSE_ECS_CLUSTER, SSE_ECS_SERVICE를 설정하세요.",
+                            "debug_message": "환경 변수 ECS_CLUSTER, SSE_ECS_SERVICE를 설정하세요.",
                         },
                     },
                     "SSE_SERVER_NOT_RUNNING": {
