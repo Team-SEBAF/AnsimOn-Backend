@@ -401,14 +401,14 @@ DEFAULT_TIMELINE_EVIDENCES = [
         "evidence_type": EvidenceType.VICTIM,
         "file_type": FileType.IMAGE,
     },
-    # EVIDENCE_ID_9: 퇴근길 접근 시도 (INCIDENT_LOG 1)
+    # EVIDENCE_ID_9: 퇴근길 접근 시도 (INCIDENT_LOG FORM_DATA)
     {
         "timeline_evidence_id": EVIDENCE_ID_9,
         "index": 1,
         "referenced_evidence_id": UUID("2c504997-7042-4ac6-a8fe-cf42c31fbea4"),
         "is_original_evidence": True,
         "evidence_type": EvidenceType.INCIDENT_LOG,
-        "file_type": FileType.DOCUMENT,
+        "file_type": FileType.ETC,
     },
     # EVIDENCE_ID_10: 협박 이메일 (REPORT_RECORD 1)
     {
@@ -428,14 +428,14 @@ DEFAULT_TIMELINE_EVIDENCES = [
         "evidence_type": EvidenceType.REPORT_RECORD,
         "file_type": FileType.DOCUMENT,
     },
-    # EVIDENCE_ID_12: 경찰 신고 접수 (INCIDENT_LOG 1)
+    # EVIDENCE_ID_12: 경찰 신고 접수 (INCIDENT_LOG FORM_DATA)
     {
         "timeline_evidence_id": EVIDENCE_ID_12,
         "index": 1,
         "referenced_evidence_id": UUID("27556c3d-ad16-44f0-9a64-5bc28b0d1521"),
         "is_original_evidence": True,
         "evidence_type": EvidenceType.INCIDENT_LOG,
-        "file_type": FileType.DOCUMENT,
+        "file_type": FileType.ETC,
     },
     # EVIDENCE_ID_13: 추가 협박 문자 (VOICE 1)
     {
