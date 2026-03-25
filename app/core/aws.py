@@ -1,3 +1,5 @@
+import json
+
 import boto3
 from botocore.exceptions import ClientError
 
@@ -135,3 +137,17 @@ def head_s3_object(bucket: str, key: str) -> dict | None:
         if code == "403":
             return None  # 객체 없을 때 일부 설정에서 403 반환
         raise
+
+
+def get_sqs_client():
+    return boto3.client(
+        "sqs",
+        region_name=settings.AWS_REGION,
+    )
+
+
+def send_sqs_message(message: dict):
+    get_sqs_client().send_message(
+        QueueUrl=settings.SQS_QUEUE_URL,
+        MessageBody=json.dumps(message),
+    )

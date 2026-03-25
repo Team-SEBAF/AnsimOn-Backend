@@ -6,6 +6,7 @@ from mangum import Mangum
 from app.base.base_error import register_exception_handlers
 from app.core.settings import settings
 from app.dev.endpoints import router as dev_router
+from app.domain.ai.endpoints import router as ai_router
 from app.domain.complaint.endpoints import router as complaint_router
 from app.domain.evidence.endpoints import router as evidence_router
 from app.domain.evidence_incident_log.endpoints import router as evidence_incident_log_router
@@ -50,5 +51,6 @@ app.include_router(evidence_report_record_router)
 app.include_router(evidence_incident_log_router)
 app.include_router(timeline_router)
 app.include_router(timeline_download_router)
+app.include_router(ai_router)
 
 handler = Mangum(app)

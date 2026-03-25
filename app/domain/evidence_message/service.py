@@ -18,6 +18,7 @@ from app.domain.evidence.utils import (
     fetch_s3_metadata_for_register,
 )
 from app.domain.evidence_message import schemas
+from app.domain.timeline.repos.timeline_repository import TimelineRepository
 
 from .models.evidence_message_model import EvidenceMessage
 from .repos.evidence_message_repository import EvidenceMessageRepository
@@ -157,6 +158,9 @@ class EvidenceMessageService(EvidenceTypeService):
             rows = list(executor.map(_process_message_item, metadata_list))
         # 5) DB 저장
         db.bulk_insert_mappings(EvidenceMessage, rows)
+        TimelineRepository(db).set_regeneration_flags(
+            complaint.complaint_id, need_timeline_regeneration=True
+        )
         db.commit()
 
         results = [

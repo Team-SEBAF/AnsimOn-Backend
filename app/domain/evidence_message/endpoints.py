@@ -33,22 +33,22 @@ def register_message(
     )
 
 
-@router.get(
-    "/{complaint_id}/evidences/messages/previews",
-    summary="MESSAGE 타입 증거 프리뷰 리스트 조회 (썸네일 이미지 1시간 유효) [미사용]",
-    description="MESSAGE 타입 증거 프리뷰 리스트를 조회합니다.",
-    response_model=schemas.EvidenceMessagePreviewListResponse,
-)
-def get_evidence_message_previews(
-    complaint: Complaint = Depends(get_owned_complaint),
-    limit: int = Query(5, ge=1, le=20),
-    db: Session = Depends(get_db),
-):
-    return evidence_message_service.get_preview_messages(
-        complaint=complaint,
-        limit=limit,
-        db=db,
-    )
+# @router.get(
+#     "/{complaint_id}/evidences/messages/previews",
+#     summary="MESSAGE 타입 증거 프리뷰 리스트 조회 (썸네일 이미지 1시간 유효) [미사용]",
+#     description="MESSAGE 타입 증거 프리뷰 리스트를 조회합니다.",
+#     response_model=schemas.EvidenceMessagePreviewListResponse,
+# )
+# def get_evidence_message_previews(
+#     complaint: Complaint = Depends(get_owned_complaint),
+#     limit: int = Query(5, ge=1, le=20),
+#     db: Session = Depends(get_db),
+# ):
+#     return evidence_message_service.get_preview_messages(
+#         complaint=complaint,
+#         limit=limit,
+#         db=db,
+#     )
 
 
 @router.get(
@@ -69,20 +69,20 @@ def get_evidence_message_details(
     )
 
 
-@router.get(
-    "/evidence/message/{message_id}/original",
-    summary="MESSAGE 타입 증거 이미지 원본 조회 (원본 이미지 10분 유효) [미사용]",
-    description="MESSAGE 타입 증거 이미지 원본을 조회합니다.",
-    response_model=schemas.EvidenceMessageOriginalImageResponse,
-    responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,
-)
-def get_evidence_message_original(
-    message_id: UUID,
-    current_user: AuthUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    return evidence_message_service.get_original_message(
-        message_id=message_id,
-        current_user=current_user,
-        db=db,
-    )
+# @router.get(
+#     "/evidence/message/{message_id}/original",
+#     summary="MESSAGE 타입 증거 이미지 원본 조회 (원본 이미지 10분 유효) [미사용]",
+#     description="MESSAGE 타입 증거 이미지 원본을 조회합니다.",
+#     response_model=schemas.EvidenceMessageOriginalImageResponse,
+#     responses=evidence_errors.GET_EVIDENCE_ERRORS_RESPONSES,
+# )
+# def get_evidence_message_original(
+#     message_id: UUID,
+#     current_user: AuthUser = Depends(get_current_user),
+#     db: Session = Depends(get_db),
+# ):
+#     return evidence_message_service.get_original_message(
+#         message_id=message_id,
+#         current_user=current_user,
+#         db=db,
+#     )

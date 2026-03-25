@@ -320,6 +320,7 @@ class EvidenceService:
         self,
         request: schemas.DeleteEvidenceRequest,
         current_user: AuthUser,
+        db: Session,
     ) -> None:
         def _delete_one(evidence_id: UUID) -> None:
             session = SessionLocal()
@@ -338,6 +339,14 @@ class EvidenceService:
             futures = [executor.submit(_delete_one, eid) for eid in request.evidence_ids]
             for future in futures:
                 future.result()
+
+        complaint = ComplaintRepository(db).get_by_user_sub(current_user.user_sub)
+        from app.domain.timeline.repos.timeline_repository import TimelineRepository
+
+        TimelineRepository(db).set_regeneration_flags(
+            complaint.complaint_id, need_timeline_regeneration=True
+        )
+        db.commit()
 
 
 class EvidenceTypeService:
