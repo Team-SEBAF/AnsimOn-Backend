@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app._server_cost.ai_worker.service import server_cost_ai_worker_service
 from app._server_cost.db.service import server_cost_db_service
-from app._server_cost.schemas import InfraStatusResponse
+from app._server_cost.schemas import ProdServerCostStatusResponse
 from app._server_cost.sse.service import server_cost_sse_service
 from app.base.base_response import BaseSuccessResponse
 from app.core.database import get_db
@@ -34,16 +34,18 @@ async def server_on():
 
 @router.get(
     "/status",
-    summary="Prod 서버 실행 여부 조회 (available이 응답되면 배포 웹사이트 정상 동작)",
-    response_model=InfraStatusResponse,
+    summary="Prod 서버 실행 여부 조회 (DB / SSE / AI 모두 available 이어야 배포 웹사이트 정상 동작)",
+    response_model=ProdServerCostStatusResponse,
 )
 def server_status(db: Session = Depends(get_db)):
     db_st = server_cost_db_service.get_db_connection_status(db)
     sse_st = server_cost_sse_service.get_sse_status()
     ai_ok = server_cost_ai_worker_service.running_count_at_least_warm_min()
-    if db_st.status == "available" and sse_st.status == "available" and ai_ok:
-        return InfraStatusResponse(status="available")
-    return InfraStatusResponse(status="unavailable")
+    return ProdServerCostStatusResponse(
+        db=db_st.status,
+        sse=sse_st.status,
+        ai="available" if ai_ok else "unavailable",
+    )
 
 
 @router.post(

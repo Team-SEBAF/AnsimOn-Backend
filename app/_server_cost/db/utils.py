@@ -12,7 +12,7 @@ def get_rds_client():
 
 
 RDS_INSTANCE_TAGS = {
-    "Env": "dev",
+    "Env": settings.env,
     "Project": "Ansimon",
 }
 
