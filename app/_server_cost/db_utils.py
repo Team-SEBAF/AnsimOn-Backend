@@ -4,14 +4,6 @@ from fastapi import HTTPException
 from app.core.settings import settings
 
 
-def _check_dev_environment():
-    if settings.env != "dev":
-        raise HTTPException(
-            status_code=403,
-            detail="이 API는 개발 환경에서만 사용할 수 있습니다.",
-        )
-
-
 def _get_rds_client():
     return boto3.client(
         "rds",
@@ -19,7 +11,7 @@ def _get_rds_client():
     )
 
 
-DEV_DB_TAGS = {
+RDS_INSTANCE_TAGS = {
     "Env": "dev",
     "Project": "Ansimon",
 }
@@ -27,10 +19,10 @@ DEV_DB_TAGS = {
 
 def _match_tags(tag_list: list[dict]) -> bool:
     tag_map = {t["Key"]: t["Value"] for t in tag_list}
-    return all(tag_map.get(k) == v for k, v in DEV_DB_TAGS.items())
+    return all(tag_map.get(k) == v for k, v in RDS_INSTANCE_TAGS.items())
 
 
-def _get_dev_db_instance():
+def _get_rds_instance_by_tags():
     rds = _get_rds_client()
     resp = rds.describe_db_instances()
 
@@ -43,5 +35,5 @@ def _get_dev_db_instance():
 
     raise HTTPException(
         status_code=404,
-        detail="Dev RDS 인스턴스를 찾을 수 없습니다.",
+        detail="태그 조건에 맞는 RDS 인스턴스를 찾을 수 없습니다.",
     )

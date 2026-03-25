@@ -1,4 +1,4 @@
-"""Dev 전용 SSE ECS 제어 (desiredCount). 실사용자 API 아님."""
+"""비용 절감용 SSE ECS 서비스 desiredCount 제어."""
 
 import boto3
 from botocore.exceptions import ClientError
@@ -22,7 +22,7 @@ def _sse_cluster_service() -> tuple[str, str]:
     return cluster, service
 
 
-def dev_sse_set_desired_count(desired: int) -> None:
+def sse_set_desired_count(desired: int) -> None:
     """ECS 서비스 desiredCount 설정 (0=중지, 1=시작)."""
     cluster, service = _sse_cluster_service()
     ecs = _get_ecs_client()
@@ -39,8 +39,8 @@ def dev_sse_set_desired_count(desired: int) -> None:
         ) from e
 
 
-def dev_sse_is_available() -> bool:
-    """RUNNING 태스크가 1개 이상이면 True (SSE 서버 켜진 상태로 간주)."""
+def sse_is_available() -> bool:
+    """RUNNING 태스크가 1개 이상이면 True."""
     cluster, service = _sse_cluster_service()
     ecs = _get_ecs_client()
     try:

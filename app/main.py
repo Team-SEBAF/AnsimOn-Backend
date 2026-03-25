@@ -3,9 +3,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
+from app._server_cost.endpoints import router as server_cost_router
 from app.base.base_error import register_exception_handlers
 from app.core.settings import settings
-from app.dev.endpoints import router as dev_router
 from app.domain.ai.endpoints import router as ai_router
 from app.domain.complaint.endpoints import router as complaint_router
 from app.domain.evidence.endpoints import router as evidence_router
@@ -38,10 +38,7 @@ app.add_middleware(
 # 예외 핸들러 등록
 register_exception_handlers(app)
 
-
-if settings.env == "dev":
-    app.include_router(dev_router)
-
+app.include_router(server_cost_router)
 app.include_router(user_router)
 app.include_router(complaint_router)
 app.include_router(evidence_router)
@@ -54,5 +51,6 @@ app.include_router(timeline_router)
 app.include_router(timeline_download_router)
 app.include_router(ai_router)
 app.include_router(sse_router)
+
 
 handler = Mangum(app)
