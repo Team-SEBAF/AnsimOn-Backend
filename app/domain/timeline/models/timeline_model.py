@@ -26,7 +26,7 @@ class Timeline(Base):
     need_timeline_regeneration: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
-        default=True,
+        default=False,
         comment="타임라인 JSON 재생성 필요 여부",
     )
     need_evidence_collection_regeneration: Mapped[bool] = mapped_column(
