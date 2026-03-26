@@ -36,7 +36,12 @@ jobs:
       - name: Prepare layer requirements
         run: |
           cp requirements.txt requirements.layer.txt
+          # Lambda 런타임에 이미 있음
           sed -i '/^boto3/d;/^botocore/d;/^s3transfer/d' requirements.layer.txt
+          # pillow / pillow-heif는 함수에 수동 연결한 별도 레이어에서 제공
+          sed -i '/^pillow/d;/^pillow-heif/d' requirements.layer.txt
+          # 마이그레이션 전용 — Lambda 런타임에는 불필요
+          sed -i '/^alembic/d' requirements.layer.txt
 
       - name: Build layer
         run: |
@@ -48,6 +53,11 @@ jobs:
             bash -c "
               pip install --no-cache-dir -r requirements.layer.txt -t layer/python
             "
+
+      - name: Prune layer bloat
+        run: |
+          find layer/python -type d -name tests -exec rm -rf {} + 2>/dev/null || true
+          find layer/python -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
       - name: Zip layer
         run: |

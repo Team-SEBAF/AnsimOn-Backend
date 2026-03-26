@@ -38,5 +38,7 @@ app/pdf_generator/results/*.pdf
 /layer
 /package
 lambda.zip
+pillow-layer.zip
+ffmpeg-layer.zip
 requirements.txt
 requirements.layer.txt
