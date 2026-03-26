@@ -38,10 +38,8 @@ jobs:
           cp requirements.txt requirements.layer.txt
           # Lambda 런타임에 이미 있음
           sed -i '/^boto3/d;/^botocore/d;/^s3transfer/d' requirements.layer.txt
-          # pillow / pillow-heif는 함수에 수동 연결한 별도 레이어에서 제공
-          sed -i '/^pillow/d;/^pillow-heif/d' requirements.layer.txt
-          # 마이그레이션 전용 — Lambda 런타임에는 불필요
-          sed -i '/^alembic/d' requirements.layer.txt
+          # 마이그레이션 전용 — Lambda 런타임에는 불필요 (alembic 제거 후에도 export에 남는 mako 줄 삭제)
+          sed -i '/^alembic/d;/^mako/d' requirements.layer.txt
 
       - name: Build layer
         run: |
