@@ -86,6 +86,18 @@ class TimelineService:
             expires_in=60 * 60,
         )
 
+    @staticmethod
+    def _sort_timeline_json_items(timeline_json: dict) -> None:
+        """items를 date순, 각 날짜의 events를 time순으로 정렬 (DB JSON과 무관하게 조회 응답 일관)."""
+        items = timeline_json.get("items")
+        if not items:
+            return
+        items.sort(key=lambda x: x.get("date", ""))
+        for dg in items:
+            evs = dg.get("events")
+            if evs:
+                evs.sort(key=lambda x: x.get("time", ""))
+
     def _insert_dummy_default_data(self, complaint_id: UUID, db: Session) -> Timeline:
         """complaint_id에 해당하는 timeline row 없을 때 default JSON + evidences insert."""
         timeline_repo = TimelineRepository(db)
@@ -253,6 +265,7 @@ class TimelineService:
             )
 
         data = deepcopy(timeline.timeline_json)
+        self._sort_timeline_json_items(data)
 
         for date_group in data.get("items", []):
             for event in date_group.get("events", []):

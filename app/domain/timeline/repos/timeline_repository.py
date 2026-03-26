@@ -223,6 +223,13 @@ class TimelineRepository(BaseRepository):
             found_ev["index"] = max((e.get("index", 1) for e in target_evidences), default=0) + 1
             target_evidences.append(found_ev)
 
+            # add_manual_evidence_to_json 과 동일: date/time 변경으로 구조가 바뀌면 정렬 유지
+            items.sort(key=lambda x: x.get("date", ""))
+            for dg in items:
+                evs = dg.get("events")
+                if evs:
+                    evs.sort(key=lambda x: x.get("time", ""))
+
         timeline.timeline_json["items"] = [dg for dg in items if dg.get("events")]
         flag_modified(timeline, "timeline_json")
         timeline.need_timeline_pdf_regeneration = True
