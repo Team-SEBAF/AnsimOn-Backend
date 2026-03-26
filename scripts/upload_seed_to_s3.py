@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.core.aws import upload_fileobj
 from app.core.settings import settings
+from app.domain.evidence_message.utils import make_image_top_crop
 
 # evidence 서비스와 동일: 이미지(jpeg,png,heic) / 영상(mp4,quicktime)
 _IMAGE_TYPES = {"image/jpeg", "image/png", "image/heic"}
@@ -25,20 +26,9 @@ _VIDEO_TYPES = {"video/mp4", "video/quicktime"}
 
 
 def _make_image_top_crop(file_bytes: bytes, size: int, quality: int) -> bytes:
-    """이미지 → 정사각형 썸네일 (evidence_message.utils와 동일)."""
-    img = Image.open(BytesIO(file_bytes))
-    img = ImageOps.exif_transpose(img)
-    img = img.convert("RGB")
-    orig_w, orig_h = img.size
-    scale = size / orig_h if orig_w >= orig_h else size / orig_w
-    resized_w, resized_h = int(orig_w * scale), int(orig_h * scale)
-    img = img.resize((resized_w, resized_h), Image.Resampling.LANCZOS)
-    left = max(0, (resized_w - size) // 2)
-    img = img.crop((left, 0, left + size, size))
-    buf = BytesIO()
-    img.save(buf, format="JPEG", quality=quality, optimize=True)
-    buf.seek(0)
-    return buf.read()
+    """이미지 → 정사각형 썸네일 (evidence_message.utils.make_image_top_crop과 동일)."""
+    out, _, _ = make_image_top_crop(file_bytes=file_bytes, size=size, quality=quality)
+    return out
 
 
 def _get_video_image_at_0(file_bytes: bytes, size: int, quality: int) -> bytes:
