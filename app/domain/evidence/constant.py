@@ -25,7 +25,6 @@ EVIDENCE_IMAGE_RESTRICT = EvidenceTypeRestrict(
         "image/jpeg",
         "image/png",
         "image/heic",
-        "image/heif",
     },
     max_count=10,
     max_size_bytes=10 * 1024 * 1024,  # 10MB / 파일

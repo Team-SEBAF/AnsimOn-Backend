@@ -4,6 +4,7 @@ seed_timeline_evidence.sql 기준으로 dummy 폴더 파일을 S3에 일괄 업�
 _s3_keys_from_seed 순서대로 dummy 파일 사용. pdf는 pdf_ex.pdf.
 이미지/영상은 evidence 서비스와 동일하게 detail 추출 후 {base}/detail 업로드.
 """
+
 import mimetypes
 import subprocess
 import sys
@@ -18,8 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.core.aws import upload_fileobj
 from app.core.settings import settings
 
-# evidence 서비스와 동일: 이미지(jpeg,png,heic,heif) / 영상(mp4,quicktime)
-_IMAGE_TYPES = {"image/jpeg", "image/png", "image/heic", "image/heif"}
+# evidence 서비스와 동일: 이미지(jpeg,png,heic) / 영상(mp4,quicktime)
+_IMAGE_TYPES = {"image/jpeg", "image/png", "image/heic"}
 _VIDEO_TYPES = {"video/mp4", "video/quicktime"}
 
 
