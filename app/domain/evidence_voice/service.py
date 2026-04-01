@@ -162,6 +162,7 @@ class EvidenceVoiceService(EvidenceTypeService):
                 "voice_id": item.voice_id,
                 "complaint_id": complaint.complaint_id,
                 "filename": item.filename,
+                "file_created_at": item.file_created_at,
             },
         )
         # 3) 1차 검증 (content_type, size) - failed 수집
@@ -205,6 +206,7 @@ class EvidenceVoiceService(EvidenceTypeService):
                 "s3_key": m["s3_key"],
                 "content_type": ct,
                 "size_bytes": m["size_bytes"],
+                "file_created_at": m["file_created_at"],
                 "duration_seconds": duration_seconds,
             }, None
 

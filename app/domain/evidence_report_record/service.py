@@ -117,6 +117,7 @@ class EvidenceReportRecordService(EvidenceTypeService):
                 "report_record_id": item.report_record_id,
                 "complaint_id": complaint.complaint_id,
                 "filename": item.filename,
+                "file_created_at": item.file_created_at,
             },
         )
         # 3) content_type, size 검증
@@ -130,6 +131,7 @@ class EvidenceReportRecordService(EvidenceTypeService):
                 "s3_key": m["s3_key"],
                 "content_type": m["content_type"],
                 "size_bytes": m["size_bytes"],
+                "file_created_at": m["file_created_at"],
             }
             for m in metadata_list
         ]
