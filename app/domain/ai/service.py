@@ -116,6 +116,7 @@ class AIService:
                 "task_id": str(task_id),
                 "type": "document",
                 "complaint_id": str(complaint.complaint_id),
+                "user_email": current_user.email,
                 "user_name": current_user.name,
                 "user_birthdate": current_user.birthdate,
             }
