@@ -5,22 +5,12 @@ from pydantic import Field
 from app.base.base_response import BaseResponse
 
 
-class TaskRequestResponse(BaseResponse):
-    """AI 태스크 요청 응답"""
-
-    task_id: UUID = Field(
-        ...,
-        description="생성된 태스크 ID",
-        examples=["123e4567-e89b-12d3-a456-426614174000"],
-    )
-
-
-class TimelineTaskIdResponse(BaseResponse):
-    """현재(가장 최근) 타임라인 태스크 ID 응답"""
+class TaskIdResponse(BaseResponse):
+    """AI 태스크 ID 응답 (생성 요청·현재 태스크 조회 공통)."""
 
     task_id: UUID | None = Field(
         ...,
-        description="가장 최근 타임라인 태스크 ID (없으면 null)",
+        description="태스크 ID. 생성 요청 시 항상 UUID, 현재 태스크 조회 시 없으면 null",
     )
 
 

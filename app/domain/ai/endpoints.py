@@ -3,14 +3,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.domain.ai.errors import CURRENT_TASK_ERRORS_RESPONSES
-from app.domain.ai.models import LLMType
-from app.domain.ai.schemas.responses import (
-    NeedToGenerateResponse,
-    TaskRequestResponse,
-    TimelineTaskIdResponse,
-)
+from app.domain.ai.models import LLMType, TaskType
+from app.domain.ai.schemas.responses import NeedToGenerateResponse, TaskIdResponse
 from app.domain.ai.service import ai_service
 from app.domain.complaint import Complaint, get_owned_complaint
+from app.domain.complaint.models.complaint_model import ComplaintStep
 
 router = APIRouter(prefix="/api/v1", tags=["AI"])
 
@@ -32,28 +29,40 @@ def get_need_to_generate(
     "/{complaint_id}/ai/timeline/current-task-id",
     summary="현재 타임라인 생성 요청 중인 태스크 ID 조회",
     description="현재 타임라인 생성 요청 중인 태스크 ID를 조회합니다. 생성 도중 재접속 시 확인할 때 사용합니다.",
-    response_model=TimelineTaskIdResponse,
+    response_model=TaskIdResponse,
     responses=CURRENT_TASK_ERRORS_RESPONSES,
 )
 def get_current_timeline_task_id(
     complaint: Complaint = Depends(get_owned_complaint),
     db: Session = Depends(get_db),
 ):
-    return ai_service.get_current_timeline_task_id(complaint, db)
+    return ai_service.get_current_task_id(
+        complaint,
+        db,
+        expected_step=ComplaintStep.TIMELINE_GENERATING,
+        task_type=TaskType.TIMELINE,
+    )
 
 
 @router.post(
     "/{complaint_id}/ai/timeline/request/generate",
     summary="타임라인 생성 요청",
     description="타임라인 생성 요청을 보냅니다. 이 API에서는 생성 결과를 응답하지 않습니다. SSE 서버와 연결하여 결과 스트림을 확인하세요.",
-    response_model=TaskRequestResponse,
+    response_model=TaskIdResponse,
 )
 def request_generate_timeline(
     complaint: Complaint = Depends(get_owned_complaint),
     db: Session = Depends(get_db),
     llm_type: LLMType = Query(..., description="mock 또는 openAI"),
 ):
-    return ai_service.request_generate_timeline(complaint, db, llm_type)
+    return ai_service.request_generate(
+        complaint,
+        db,
+        task_type=TaskType.TIMELINE,
+        complaint_step=ComplaintStep.TIMELINE_GENERATING,
+        sqs_message_type="timeline",
+        llm_type=llm_type,
+    )
 
 
 @router.get(
@@ -67,3 +76,41 @@ def get_document_need_to_generate(
     db: Session = Depends(get_db),
 ):
     return ai_service.get_document_need_to_generate(complaint.complaint_id, db)
+
+
+@router.get(
+    "/{complaint_id}/ai/document/current-task-id",
+    summary="현재 고소장/진술서 생성 요청 중인 태스크 ID 조회",
+    description="현재 고소장·진술서 생성 요청 중인 태스크 ID를 조회합니다. 생성 도중 재접속 시 확인할 때 사용합니다.",
+    response_model=TaskIdResponse,
+    responses=CURRENT_TASK_ERRORS_RESPONSES,
+)
+def get_current_document_task_id(
+    complaint: Complaint = Depends(get_owned_complaint),
+    db: Session = Depends(get_db),
+):
+    return ai_service.get_current_task_id(
+        complaint,
+        db,
+        expected_step=ComplaintStep.DOCUMENT_GENERATING,
+        task_type=TaskType.DOCUMENT,
+    )
+
+
+@router.post(
+    "/{complaint_id}/ai/document/request/generate",
+    summary="고소장/진술서 생성 요청",
+    description="고소장·진술서 생성 요청을 보냅니다. 이 API에서는 생성 결과를 응답하지 않습니다. SSE 서버와 연결하여 결과 스트림을 확인하세요.",
+    response_model=TaskIdResponse,
+)
+def request_generate_document(
+    complaint: Complaint = Depends(get_owned_complaint),
+    db: Session = Depends(get_db),
+):
+    return ai_service.request_generate(
+        complaint,
+        db,
+        task_type=TaskType.DOCUMENT,
+        complaint_step=ComplaintStep.DOCUMENT_GENERATING,
+        sqs_message_type="document",
+    )
