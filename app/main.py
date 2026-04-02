@@ -7,6 +7,8 @@ from app.base.base_error import register_exception_handlers
 from app.core.settings import settings
 from app.domain.ai.endpoints import router as ai_router
 from app.domain.complaint.endpoints import router as complaint_router
+from app.domain.document.endpoints import router as document_router
+from app.domain.download.endpoints import router as download_router
 from app.domain.evidence.endpoints import router as evidence_router
 from app.domain.evidence_incident_log.endpoints import router as evidence_incident_log_router
 from app.domain.evidence_message.endpoints import router as evidence_message_router
@@ -14,7 +16,6 @@ from app.domain.evidence_report_record.endpoints import router as evidence_repor
 from app.domain.evidence_victim.endpoints import router as evidence_victim_router
 from app.domain.evidence_voice.endpoints import router as evidence_voice_router
 from app.domain.timeline.endpoints import router as timeline_router
-from app.domain.timeline_download.endpoints import router as timeline_download_router
 from app.domain.user.endpoints import router as user_router
 from app.sse.endpoints import router as sse_router
 
@@ -55,7 +56,8 @@ app.include_router(evidence_victim_router)
 app.include_router(evidence_report_record_router)
 app.include_router(evidence_incident_log_router)
 app.include_router(timeline_router)
-app.include_router(timeline_download_router)
+app.include_router(document_router)
+app.include_router(download_router)
 app.include_router(ai_router)
 app.include_router(sse_router)
 

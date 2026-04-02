@@ -1,11 +1,6 @@
-from .responses import (
-    TaskRequestResponse,
-    TimelineNeedToGenerateResponse,
-    TimelineTaskIdResponse,
-)
+from .responses import NeedToGenerateResponse, TaskIdResponse
 
 __all__ = [
-    "TaskRequestResponse",
-    "TimelineNeedToGenerateResponse",
-    "TimelineTaskIdResponse",
+    "NeedToGenerateResponse",
+    "TaskIdResponse",
 ]
