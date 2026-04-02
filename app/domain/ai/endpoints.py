@@ -94,7 +94,7 @@ def get_current_document_task_id(
 @router.post(
     "/{complaint_id}/ai/document/request/generate",
     summary="고소장/진술서 생성 요청",
-    description="고소장·진술서 생성 요청을 보냅니다. 이 API에서는 생성 결과를 응답하지 않습니다. SSE 서버와 연결하여 결과 스트림을 확인하세요.",
+    description="고소장·진술서 생성 요청을 보냅니다. 이 API에서는 생성 결과를 응답하지 않습니다.",
     response_model=TaskIdResponse,
 )
 def request_generate_document(
