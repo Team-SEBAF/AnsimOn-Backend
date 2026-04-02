@@ -14,6 +14,7 @@ from app.domain.ai.schemas.responses import (
 )
 from app.domain.complaint import Complaint
 from app.domain.complaint.models.complaint_model import ComplaintStep
+from app.domain.document.repos.document_repository import DocumentRepository
 from app.domain.timeline.errors.get_timeline_error import GetTimelineErrorCode
 from app.domain.timeline.repos.timeline_repository import TimelineRepository
 
@@ -74,7 +75,9 @@ class AIService:
                 debug_message=f"complaint_id: {complaint_id}에 해당하는 타임라인이 없습니다.",
                 status_code=404,
             )
-        return NeedToGenerateResponse(need_to_generate=timeline.need_timeline_pdf_regeneration)
+        document = DocumentRepository(db).get_by_complaint_id(complaint_id)
+        need_to_generate = document is None or timeline.need_timeline_pdf_regeneration
+        return NeedToGenerateResponse(need_to_generate=need_to_generate)
 
 
 ai_service = AIService()

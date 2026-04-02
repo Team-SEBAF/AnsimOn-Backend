@@ -11,7 +11,6 @@ from app.domain.ai.schemas.responses import (
 )
 from app.domain.ai.service import ai_service
 from app.domain.complaint import Complaint, get_owned_complaint
-from app.domain.timeline.errors import GET_TIMELINE_ERRORS_RESPONSES
 
 router = APIRouter(prefix="/api/v1", tags=["AI"])
 
@@ -62,7 +61,6 @@ def request_generate_timeline(
     summary="고소장/진술서 생성 필요 여부 조회",
     description="고소장/진술서 생성 필요 여부 조회합니다. 생성된 적 없거나 재생성 필요 시 True를 반환합니다. Step 03로 넘어갈 때 확인해 주세요.",
     response_model=NeedToGenerateResponse,
-    responses=GET_TIMELINE_ERRORS_RESPONSES,
 )
 def get_document_need_to_generate(
     complaint: Complaint = Depends(get_owned_complaint),
