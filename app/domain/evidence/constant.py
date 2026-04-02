@@ -62,7 +62,7 @@ EVIDENCE_VOICE_RESTRICT = EvidenceTypeRestrict(
 EVIDENCE_VIDEO_RESTRICT = MediaTypeRestrict(
     allowed_types={"video/mp4", "video/quicktime"},
     max_size_bytes=500 * 1024 * 1024,  # 500MB
-    max_duration_seconds=300,  # 5분
+    max_duration_seconds=120,  # 2분
 )
 
 # VICTIM: 영상 + 이미지. max_count는 EVIDENCE_VICTIM_RESTRICT에만.
