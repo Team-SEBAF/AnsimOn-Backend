@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 from sqlalchemy.orm import Session
 
 from app.base.base_error import CodeException
+from app.core.auth import AuthUser
 from app.core.aws import send_sqs_message
 from app.domain.ai.errors.current_task_error import CurrentTaskErrorCode
 from app.domain.ai.models import LLMType, Task, TaskStatus, TaskType
@@ -61,39 +62,64 @@ class AIService:
         )
         return TaskIdResponse(task_id=task.id if task else None)
 
-    def request_generate(
+    def request_timeline_generate(
         self,
         complaint: Complaint,
         db: Session,
-        *,
-        task_type: TaskType,
-        complaint_step: ComplaintStep,
-        sqs_message_type: str,
-        llm_type: LLMType
-        | None = None,  # TODO: 비용 절감을 위해 mock 분기 사용을 유지하기 위함. 없었다면 공통 모듈로 했어야 했기에 유지.
+        llm_type: LLMType,
     ) -> TaskIdResponse:
         task_id = uuid4()
 
-        complaint.step = complaint_step
+        complaint.step = ComplaintStep.TIMELINE_GENERATING
 
         task = Task(
             id=task_id,
-            type=task_type,
+            type=TaskType.TIMELINE,
             status=TaskStatus.PENDING,
             complaint_id=complaint.complaint_id,
         )
         TaskRepository(db).create(task)
         db.commit()
 
-        message: dict[str, str] = {
-            "task_id": str(task_id),
-            "type": sqs_message_type,
-            "complaint_id": str(complaint.complaint_id),
-        }
-        if task_type == TaskType.TIMELINE:
-            message["llm_type"] = llm_type.value if llm_type is not None else LLMType.OPEN_AI.value
+        send_sqs_message(
+            {
+                "task_id": str(task_id),
+                "type": "timeline",
+                "complaint_id": str(complaint.complaint_id),
+                "llm_type": llm_type.value,
+            }
+        )
 
-        send_sqs_message(message)
+        return TaskIdResponse(task_id=task_id)
+
+    def request_document_generate(
+        self,
+        complaint: Complaint,
+        db: Session,
+        current_user: AuthUser,
+    ) -> TaskIdResponse:
+        task_id = uuid4()
+
+        complaint.step = ComplaintStep.DOCUMENT_GENERATING
+
+        task = Task(
+            id=task_id,
+            type=TaskType.DOCUMENT,
+            status=TaskStatus.PENDING,
+            complaint_id=complaint.complaint_id,
+        )
+        TaskRepository(db).create(task)
+        db.commit()
+
+        send_sqs_message(
+            {
+                "task_id": str(task_id),
+                "type": "document",
+                "complaint_id": str(complaint.complaint_id),
+                "user_name": current_user.name,
+                "user_birthdate": current_user.birthdate,
+            }
+        )
 
         return TaskIdResponse(task_id=task_id)
 

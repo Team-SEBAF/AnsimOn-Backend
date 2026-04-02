@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
 from app.domain.ai.errors import CURRENT_TASK_ERRORS_RESPONSES
 from app.domain.ai.models import LLMType, TaskType
@@ -55,14 +56,7 @@ def request_generate_timeline(
     db: Session = Depends(get_db),
     llm_type: LLMType = Query(..., description="mock 또는 openAI"),
 ):
-    return ai_service.request_generate(
-        complaint,
-        db,
-        task_type=TaskType.TIMELINE,
-        complaint_step=ComplaintStep.TIMELINE_GENERATING,
-        sqs_message_type="timeline",
-        llm_type=llm_type,
-    )
+    return ai_service.request_timeline_generate(complaint, db, llm_type)
 
 
 @router.get(
@@ -104,13 +98,8 @@ def get_current_document_task_id(
     response_model=TaskIdResponse,
 )
 def request_generate_document(
+    current_user: AuthUser = Depends(get_current_user),
     complaint: Complaint = Depends(get_owned_complaint),
     db: Session = Depends(get_db),
 ):
-    return ai_service.request_generate(
-        complaint,
-        db,
-        task_type=TaskType.DOCUMENT,
-        complaint_step=ComplaintStep.DOCUMENT_GENERATING,
-        sqs_message_type="document",
-    )
+    return ai_service.request_document_generate(complaint, db, current_user)
