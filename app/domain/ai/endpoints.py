@@ -5,12 +5,13 @@ from app.core.database import get_db
 from app.domain.ai.errors import CURRENT_TASK_ERRORS_RESPONSES
 from app.domain.ai.models import LLMType
 from app.domain.ai.schemas.responses import (
+    NeedToGenerateResponse,
     TaskRequestResponse,
-    TimelineNeedToGenerateResponse,
     TimelineTaskIdResponse,
 )
 from app.domain.ai.service import ai_service
 from app.domain.complaint import Complaint, get_owned_complaint
+from app.domain.timeline.errors import GET_TIMELINE_ERRORS_RESPONSES
 
 router = APIRouter(prefix="/api/v1", tags=["AI"])
 
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/api/v1", tags=["AI"])
     "/{complaint_id}/ai/timeline/need-to-generate",
     summary="타임라인 생성 필요 여부 조회",
     description="타임라인 생성 필요 여부를 조회합니다. 생성된 적 없거나 재생성 필요 시 True를 반환합니다. Step 02로 넘어갈 때 확인해 주세요.",
-    response_model=TimelineNeedToGenerateResponse,
+    response_model=NeedToGenerateResponse,
 )
 def get_need_to_generate(
     complaint: Complaint = Depends(get_owned_complaint),
@@ -54,3 +55,17 @@ def request_generate_timeline(
     llm_type: LLMType = Query(..., description="mock 또는 openAI"),
 ):
     return ai_service.request_generate_timeline(complaint, db, llm_type)
+
+
+@router.get(
+    "/{complaint_id}/ai/document/need-to-generate",
+    summary="고소장/진술서 생성 필요 여부 조회",
+    description="고소장/진술서 생성 필요 여부 조회합니다. 생성된 적 없거나 재생성 필요 시 True를 반환합니다. Step 03로 넘어갈 때 확인해 주세요.",
+    response_model=NeedToGenerateResponse,
+    responses=GET_TIMELINE_ERRORS_RESPONSES,
+)
+def get_document_need_to_generate(
+    complaint: Complaint = Depends(get_owned_complaint),
+    db: Session = Depends(get_db),
+):
+    return ai_service.get_document_need_to_generate(complaint.complaint_id, db)

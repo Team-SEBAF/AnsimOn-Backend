@@ -24,10 +24,5 @@ class TimelineTaskIdResponse(BaseResponse):
     )
 
 
-class TimelineNeedToGenerateResponse(BaseResponse):
-    """타임라인 생성 필요 여부 응답 (최초 생성·재생성 모두 해당)"""
-
-    need_to_generate: bool = Field(
-        ...,
-        description="타임라인 생성 필요 여부 (생성된 적 없거나 재생성 필요 시 True)",
-    )
+class NeedToGenerateResponse(BaseResponse):
+    need_to_generate: bool = Field(..., description="생성 필요 여부")

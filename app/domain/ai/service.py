@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
@@ -8,12 +8,13 @@ from app.domain.ai.errors.current_task_error import CurrentTaskErrorCode
 from app.domain.ai.models import LLMType, Task, TaskStatus, TaskType
 from app.domain.ai.repos.task_repository import TaskRepository
 from app.domain.ai.schemas.responses import (
+    NeedToGenerateResponse,
     TaskRequestResponse,
-    TimelineNeedToGenerateResponse,
     TimelineTaskIdResponse,
 )
 from app.domain.complaint import Complaint
 from app.domain.complaint.models.complaint_model import ComplaintStep
+from app.domain.timeline.errors.get_timeline_error import GetTimelineErrorCode
 from app.domain.timeline.repos.timeline_repository import TimelineRepository
 
 
@@ -22,7 +23,7 @@ class AIService:
         timeline_repo = TimelineRepository(db)
         timeline = timeline_repo.get_by_complaint_id(complaint_id)
         need = timeline.need_timeline_regeneration if timeline else True
-        return TimelineNeedToGenerateResponse(need_to_generate=need)
+        return NeedToGenerateResponse(need_to_generate=need)
 
     def get_current_timeline_task_id(self, complaint: Complaint, db: Session):
         if complaint.step != ComplaintStep.TIMELINE_GENERATING:
@@ -60,6 +61,20 @@ class AIService:
         send_sqs_message(message)
 
         return TaskRequestResponse(task_id=task_id)
+
+    def get_document_need_to_generate(
+        self, complaint_id: UUID, db: Session
+    ) -> NeedToGenerateResponse:
+        timeline_repo = TimelineRepository(db)
+        timeline = timeline_repo.get_by_complaint_id(complaint_id)
+        if timeline is None:
+            raise CodeException(
+                code=GetTimelineErrorCode.TIMELINE_NOT_FOUND,
+                message="타임라인을 찾을 수 없습니다.",
+                debug_message=f"complaint_id: {complaint_id}에 해당하는 타임라인이 없습니다.",
+                status_code=404,
+            )
+        return NeedToGenerateResponse(need_to_generate=timeline.need_timeline_pdf_regeneration)
 
 
 ai_service = AIService()
