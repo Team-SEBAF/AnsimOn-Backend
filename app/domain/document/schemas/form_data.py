@@ -97,10 +97,6 @@ class ComplaintFormSection4CrimeFacts(BaseModel):
         default=None,
         description="4. 범죄사실 — 본문(자유 서술)",
     )
-    closing_summary: str | None = Field(
-        default=None,
-        description="4. 범죄사실 — 정리·요약(맺음말)",
-    )
 
 
 class ComplaintFormSection5ComplaintReason(BaseModel):
@@ -109,10 +105,6 @@ class ComplaintFormSection5ComplaintReason(BaseModel):
     content: str | None = Field(
         default=None,
         description="5. 고소 이유 — 본문",
-    )
-    closing_summary: str | None = Field(
-        default=None,
-        description="5. 고소 이유 — 정리·요약(맺음말)",
     )
 
 
