@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
 from app.domain.complaint import Complaint, get_owned_complaint
-from app.domain.timeline_download.schemas.responses import TimelineDownloadZipResponse
-from app.domain.timeline_download.service import timeline_download_service
+from app.domain.download.schemas.responses import TimelineDownloadZipResponse
+from app.domain.download.service import timeline_download_service
 
-router = APIRouter(prefix="/api/v1", tags=["Timeline Download"])
+router = APIRouter(prefix="/api/v1", tags=["Download"])
 
 
 # @router.get(
