@@ -14,8 +14,11 @@ from .form_data import (
     ComplaintFormSubmissionFooter,
     StatementFormData,
 )
+from .requests import PatchComplaintFormDataRequest, PatchStatementFormDataRequest
 
 __all__ = [
+    "PatchComplaintFormDataRequest",
+    "PatchStatementFormDataRequest",
     "ComplaintFormData",
     "ComplaintFormSection1Complainant",
     "ComplaintFormSection1Contacts",
