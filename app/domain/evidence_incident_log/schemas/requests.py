@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import Field
@@ -11,6 +12,7 @@ from app.domain.evidence_incident_log.schemas.dtos import EvidenceIncidentLogFor
 class EvidenceIncidentLogFileRegisterItemRequest(BaseRequest):
     incident_log_id: UUID = Field(..., description="Presigned URL 발급 시 받은 incident_log_id")
     filename: str = Field(..., description="파일명", examples=["evidence.pdf"])
+    file_created_at: datetime = Field(..., description="원본 파일 생성 시각")
 
 
 class EvidenceIncidentLogFileRegisterRequest(BaseRequest):

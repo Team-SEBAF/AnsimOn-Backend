@@ -24,36 +24,36 @@ VALUES (
 
 -- 3) evidence_messages (MESSAGE 타입) - 9개 (기존 5 + MESSAGE 그룹용 4)
 -- path_segment: messages
-INSERT INTO evidence_messages (message_id, complaint_id, filename, s3_key, content_type, size_bytes, width, height, created_at, updated_at) VALUES
-('08e070bb-fb4e-4176-a450-375f947d1ef7', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg1.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/08e070bb-fb4e-4176-a450-375f947d1ef7/original', 'image/jpeg', 240110, 381, 738, NOW(), NOW()),
-('db9d9261-b523-4be9-9e9e-52ad6e75150e', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg2.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/db9d9261-b523-4be9-9e9e-52ad6e75150e/original', 'image/jpeg', 78964, 620, 1105, NOW(), NOW()),
-('78be5c14-bfae-40a0-8bae-9159105c1748', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg3.png', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/78be5c14-bfae-40a0-8bae-9159105c1748/original', 'image/png', 624243, 567, 523, NOW(), NOW()),
-('702eddc4-1eaf-4380-86dc-16b9bed5cf62', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg4.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/702eddc4-1eaf-4380-86dc-16b9bed5cf62/original', 'image/jpeg', 72925, 620, 1107, NOW(), NOW()),
-('83f41aee-f3a7-40d0-8740-080b7b0de4d5', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg5.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/83f41aee-f3a7-40d0-8740-080b7b0de4d5/original', 'image/jpeg', 49127, 472, 1024, NOW(), NOW()),
-('7c8d9e0f-1a2b-4c3d-9e5f-6a7b8c9d0e1f', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg6.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/7c8d9e0f-1a2b-4c3d-9e5f-6a7b8c9d0e1f/original', 'image/jpeg', 31000, 630, 602, NOW(), NOW()),
-('8d9e0f1a-2b3c-4d4e-0f6a-7b8c9d0e1f2a', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg7.png', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/8d9e0f1a-2b3c-4d4e-0f6a-7b8c9d0e1f2a/original', 'image/png', 333828, 700, 601, NOW(), NOW()),
-('9e0f1a2b-3c4d-4e5f-1a7b-8c9d0e1f2a3b', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg8.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/9e0f1a2b-3c4d-4e5f-1a7b-8c9d0e1f2a3b/original', 'image/jpeg', 36074, 1280, 720, NOW(), NOW()),
-('0f1a2b3c-4d5e-4f6a-2b8c-9d0e1f2a3b4c', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg9.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/0f1a2b3c-4d5e-4f6a-2b8c-9d0e1f2a3b4c/original', 'image/jpeg', 19922, 500, 250, NOW(), NOW());
+INSERT INTO evidence_messages (message_id, complaint_id, filename, s3_key, content_type, size_bytes, file_created_at, width, height, created_at, updated_at) VALUES
+('08e070bb-fb4e-4176-a450-375f947d1ef7', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg1.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/08e070bb-fb4e-4176-a450-375f947d1ef7/original', 'image/jpeg', 240110, NOW(), 381, 738, NOW(), NOW()),
+('db9d9261-b523-4be9-9e9e-52ad6e75150e', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg2.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/db9d9261-b523-4be9-9e9e-52ad6e75150e/original', 'image/jpeg', 78964, NOW(), 620, 1105, NOW(), NOW()),
+('78be5c14-bfae-40a0-8bae-9159105c1748', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg3.png', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/78be5c14-bfae-40a0-8bae-9159105c1748/original', 'image/png', 624243, NOW(), 567, 523, NOW(), NOW()),
+('702eddc4-1eaf-4380-86dc-16b9bed5cf62', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg4.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/702eddc4-1eaf-4380-86dc-16b9bed5cf62/original', 'image/jpeg', 72925, NOW(), 620, 1107, NOW(), NOW()),
+('83f41aee-f3a7-40d0-8740-080b7b0de4d5', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg5.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/83f41aee-f3a7-40d0-8740-080b7b0de4d5/original', 'image/jpeg', 49127, NOW(), 472, 1024, NOW(), NOW()),
+('7c8d9e0f-1a2b-4c3d-9e5f-6a7b8c9d0e1f', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg6.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/7c8d9e0f-1a2b-4c3d-9e5f-6a7b8c9d0e1f/original', 'image/jpeg', 31000, NOW(), 630, 602, NOW(), NOW()),
+('8d9e0f1a-2b3c-4d4e-0f6a-7b8c9d0e1f2a', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg7.png', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/8d9e0f1a-2b3c-4d4e-0f6a-7b8c9d0e1f2a/original', 'image/png', 333828, NOW(), 700, 601, NOW(), NOW()),
+('9e0f1a2b-3c4d-4e5f-1a7b-8c9d0e1f2a3b', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg8.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/9e0f1a2b-3c4d-4e5f-1a7b-8c9d0e1f2a3b/original', 'image/jpeg', 36074, NOW(), 1280, 720, NOW(), NOW()),
+('0f1a2b3c-4d5e-4f6a-2b8c-9d0e1f2a3b4c', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'msg9.jpg', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/messages/0f1a2b3c-4d5e-4f6a-2b8c-9d0e1f2a3b4c/original', 'image/jpeg', 19922, NOW(), 500, 250, NOW(), NOW());
 
 -- 4) evidence_victims (VICTIM 타입) - 3개
 -- path_segment: victims
-INSERT INTO evidence_victims (victim_id, complaint_id, filename, s3_key, content_type, size_bytes, duration_seconds, created_at, updated_at) VALUES
-('6de0bca2-6b96-4489-ab10-8e13033d40b0', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'victim1.png', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/victims/6de0bca2-6b96-4489-ab10-8e13033d40b0/original', 'image/png', 547777, NULL, NOW(), NOW()),
-('6a259984-0ba4-4d5e-b27b-55fb694eecbf', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'victim2.mov', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/victims/6a259984-0ba4-4d5e-b27b-55fb694eecbf/original', 'video/quicktime', 70598418, 32, NOW(), NOW()),
-('f15547c2-8278-4aa1-8422-add6ae43d368', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'victim3.png', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/victims/f15547c2-8278-4aa1-8422-add6ae43d368/original', 'image/png', 425932, NULL, NOW(), NOW());
+INSERT INTO evidence_victims (victim_id, complaint_id, filename, s3_key, content_type, size_bytes, file_created_at, duration_seconds, created_at, updated_at) VALUES
+('6de0bca2-6b96-4489-ab10-8e13033d40b0', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'victim1.png', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/victims/6de0bca2-6b96-4489-ab10-8e13033d40b0/original', 'image/png', 547777, NOW(), NULL, NOW(), NOW()),
+('6a259984-0ba4-4d5e-b27b-55fb694eecbf', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'victim2.mov', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/victims/6a259984-0ba4-4d5e-b27b-55fb694eecbf/original', 'video/quicktime', 70598418, NOW(), 32, NOW(), NOW()),
+('f15547c2-8278-4aa1-8422-add6ae43d368', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'victim3.png', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/victims/f15547c2-8278-4aa1-8422-add6ae43d368/original', 'image/png', 425932, NOW(), NULL, NOW(), NOW());
 
 -- 5) evidence_voices (VOICE 타입) - 3개
 -- path_segment: voices
-INSERT INTO evidence_voices (voice_id, complaint_id, filename, s3_key, content_type, size_bytes, duration_seconds, created_at, updated_at) VALUES
-('457329d6-d9e9-418a-9464-65f4fc7da8f8', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'voice1.png', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/voices/457329d6-d9e9-418a-9464-65f4fc7da8f8/original', 'image/png', 334330, NULL, NOW(), NOW()),
-('a1b29641-c680-43a5-a713-fa4842469960', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'voice2.m4a', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/voices/a1b29641-c680-43a5-a713-fa4842469960/original', 'audio/mp4', 146174, 16, NOW(), NOW()),
-('672626d0-21ac-4f95-8711-6b67105a06f2', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'voice3.m4a', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/voices/672626d0-21ac-4f95-8711-6b67105a06f2/original', 'audio/mp4', 202558, 23, NOW(), NOW());
+INSERT INTO evidence_voices (voice_id, complaint_id, filename, s3_key, content_type, size_bytes, file_created_at, duration_seconds, created_at, updated_at) VALUES
+('457329d6-d9e9-418a-9464-65f4fc7da8f8', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'voice1.png', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/voices/457329d6-d9e9-418a-9464-65f4fc7da8f8/original', 'image/png', 334330, NOW(), NULL, NOW(), NOW()),
+('a1b29641-c680-43a5-a713-fa4842469960', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'voice2.m4a', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/voices/a1b29641-c680-43a5-a713-fa4842469960/original', 'audio/mp4', 146174, NOW(), 16, NOW(), NOW()),
+('672626d0-21ac-4f95-8711-6b67105a06f2', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'voice3.m4a', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/voices/672626d0-21ac-4f95-8711-6b67105a06f2/original', 'audio/mp4', 202558, NOW(), 23, NOW(), NOW());
 
 -- 6) evidence_report_records (REPORT_RECORD 타입) - 2개
 -- path_segment: report-records
-INSERT INTO evidence_report_records (report_record_id, complaint_id, filename, s3_key, content_type, size_bytes, created_at, updated_at) VALUES
-('f8166b42-1ffb-4c1f-a48d-8d2234476652', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'report1.pdf', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/report-records/f8166b42-1ffb-4c1f-a48d-8d2234476652/original', 'application/pdf', 1431, NOW(), NOW()),
-('3a4b5c6d-7e8f-4a9b-0c1d-2e3f4a5b6c7d', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'report2.pdf', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/report-records/3a4b5c6d-7e8f-4a9b-0c1d-2e3f4a5b6c7d/original', 'application/pdf', 1431, NOW(), NOW());
+INSERT INTO evidence_report_records (report_record_id, complaint_id, filename, s3_key, content_type, size_bytes, file_created_at, created_at, updated_at) VALUES
+('f8166b42-1ffb-4c1f-a48d-8d2234476652', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'report1.pdf', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/report-records/f8166b42-1ffb-4c1f-a48d-8d2234476652/original', 'application/pdf', 1431, NOW(), NOW(), NOW()),
+('3a4b5c6d-7e8f-4a9b-0c1d-2e3f4a5b6c7d', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'report2.pdf', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/report-records/3a4b5c6d-7e8f-4a9b-0c1d-2e3f4a5b6c7d/original', 'application/pdf', 1431, NOW(), NOW(), NOW());
 
 -- 7) evidence_incident_logs (INCIDENT_LOG 타입) - FILE 1개 + FORM_DATA 2개
 INSERT INTO evidence_incident_logs (incident_log_id, complaint_id, name, type, created_at, updated_at) VALUES
@@ -62,8 +62,8 @@ INSERT INTO evidence_incident_logs (incident_log_id, complaint_id, name, type, c
 ('27556c3d-ad16-44f0-9a64-5bc28b0d1521', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '경찰 신고 접수', 'FORM_DATA', NOW(), NOW());
 
 -- FILE 1개 (evidence_incident_log_files)
-INSERT INTO evidence_incident_log_files (incident_log_id, s3_key, content_type, size_bytes) VALUES
-('4b5c6d7e-8f9a-4b0c-1d2e-3f4a5b6c7d8e', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/incident-logs/4b5c6d7e-8f9a-4b0c-1d2e-3f4a5b6c7d8e/original', 'application/pdf', 1431);
+INSERT INTO evidence_incident_log_files (incident_log_id, s3_key, content_type, size_bytes, file_created_at) VALUES
+('4b5c6d7e-8f9a-4b0c-1d2e-3f4a5b6c7d8e', 'f47ac10b-58cc-4372-a567-0e02b2c3d479/complaints/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11/evidences/incident-logs/4b5c6d7e-8f9a-4b0c-1d2e-3f4a5b6c7d8e/original', 'application/pdf', 1431, NOW());
 
 -- FORM_DATA 2개 (evidence_incident_log_form_data)
 INSERT INTO evidence_incident_log_form_data (incident_log_id, date, time, location, description) VALUES

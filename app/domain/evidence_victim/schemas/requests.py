@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import Field
@@ -9,6 +10,7 @@ from app.domain.evidence.constant import EVIDENCE_VICTIM_RESTRICT
 class EvidenceVictimRegisterItemRequest(BaseRequest):
     victim_id: UUID = Field(..., description="Presigned URL 발급 시 받은 victim_id")
     filename: str = Field(..., description="파일명", examples=["evidence.mp4"])
+    file_created_at: datetime = Field(..., description="원본 파일 생성 시각")
 
 
 class EvidenceVictimRegisterRequest(BaseRequest):

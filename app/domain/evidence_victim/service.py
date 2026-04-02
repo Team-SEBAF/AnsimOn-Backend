@@ -162,6 +162,7 @@ class EvidenceVictimService(EvidenceTypeService):
                 "victim_id": item.victim_id,
                 "complaint_id": complaint.complaint_id,
                 "filename": item.filename,
+                "file_created_at": item.file_created_at,
             },
         )
         (
@@ -187,6 +188,7 @@ class EvidenceVictimService(EvidenceTypeService):
                 "s3_key": m["s3_key"],
                 "content_type": ct,
                 "size_bytes": m["size_bytes"],
+                "file_created_at": m["file_created_at"],
                 "duration_seconds": duration_seconds,
                 "_file_bytes": file_bytes,
             }, None
