@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey
+from sqlalchemy import Boolean, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -26,6 +26,18 @@ class Document(Base):
     )
     complaint_form_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     statement_form_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    need_complaint_pdf_regeneration: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        comment="고소장 PDF 재생성 필요 여부",
+    )
+    need_statement_pdf_regeneration: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        comment="진술서 PDF 재생성 필요 여부",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
