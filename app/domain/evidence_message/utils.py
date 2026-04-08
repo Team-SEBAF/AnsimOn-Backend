@@ -3,7 +3,7 @@ import tempfile
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, UnidentifiedImageError
 
 from app.core.settings import settings
 from app.domain.evidence.constant import EVIDENCE_IMAGE_RESTRICT
@@ -88,13 +88,11 @@ def extract_image_meta(file_bytes: bytes) -> tuple[int, int, str]:
     try:
         image = Image.open(BytesIO(file_bytes))
         image.load()
-        image = ImageOps.exif_transpose(image)
         width, height = image.size
         content_type = _mime_for_pil_format(image.format)
         return width, height, content_type
     except (UnidentifiedImageError, OSError):
         image = _open_image_for_processing(file_bytes)
-        image = ImageOps.exif_transpose(image)
         width, height = image.size
         # ffmpeg 경로면 원본이 HEIC/HEIF로 간주 (S3 original은 그대로 HEIC)
         return width, height, "image/heic"
@@ -113,7 +111,6 @@ def make_image_top_crop(
     - 출력은 항상 JPEG
     """
     img = _open_image_for_processing(file_bytes)
-    img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
 
     orig_w, orig_h = img.size

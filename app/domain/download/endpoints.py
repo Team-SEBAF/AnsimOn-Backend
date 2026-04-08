@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
 from app.domain.complaint import Complaint, get_owned_complaint
+from app.domain.download.document_service import document_download_service
 from app.domain.download.schemas.responses import TimelineDownloadZipResponse
-from app.domain.download.service import timeline_download_service
+from app.domain.download.timeline_service import timeline_download_service
 
 router = APIRouter(prefix="/api/v1", tags=["Download"])
 
@@ -62,3 +63,22 @@ def create_download_zip(
         db=db,
     )
     return TimelineDownloadZipResponse(download_url=url)
+
+
+@router.post(
+    "/{complaint_id}/document/download/pdf-preview",
+    summary="[임시] 고소장 PDF 생성 (로컬 저장)",
+    description="개발용. 빈 고소장 PDF를 pdf_generator/results/에 {n}_complaint.pdf 로 저장합니다. S3 미사용.",
+)
+def post_complaint_pdf_preview(
+    complaint: Complaint = Depends(get_owned_complaint),
+    db: Session = Depends(get_db),
+):
+    path = document_download_service.save_complaint_pdf_preview_local(
+        complaint=complaint,
+        db=db,
+    )
+    return {
+        "message": "저장되었습니다",
+        "path": str(path),
+    }
