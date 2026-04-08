@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from app.domain.document.schemas.form_data import (
     ComplaintFormSection1Complainant,
     ComplaintFormSection2Accused,
-    ComplaintFormSection3ComplaintPurpose,
+    # ComplaintFormSection3ComplaintPurpose,  # 3. 고소 취지 — PDF 고정 문구 (폼 PATCH 불가)
     ComplaintFormSection4CrimeFacts,
     ComplaintFormSection5ComplaintReason,
     ComplaintFormSection6Evidence,
@@ -22,10 +22,10 @@ class PatchComplaintFormDataRequest(BaseModel):
         default=None,
         description="2. 피고소인",
     )
-    section_3_complaint_purpose: ComplaintFormSection3ComplaintPurpose | None = Field(
-        default=None,
-        description="3. 고소 취지",
-    )
+    # section_3_complaint_purpose: ComplaintFormSection3ComplaintPurpose | None = Field(
+    #     default=None,
+    #     description="3. 고소 취지",
+    # )
     section_4_crime_facts: ComplaintFormSection4CrimeFacts | None = Field(
         default=None,
         description="4. 범죄 사실",

@@ -81,13 +81,14 @@ class ComplaintFormSection2Accused(BaseModel):
     )
 
 
-class ComplaintFormSection3ComplaintPurpose(BaseModel):
-    """3. 고소 취지."""
-
-    content: str | None = Field(
-        default=None,
-        description="3. 고소 취지 — 본문(구하는 취지)",
-    )
+# 고소 취지(3항)는 폼 입력이 아니라 고소장 PDF 생성 시 고정 문구로 넣음 — 폼/DB에서는 제외.
+# class ComplaintFormSection3ComplaintPurpose(BaseModel):
+#     """3. 고소 취지."""
+#
+#     content: str | None = Field(
+#         default=None,
+#         description="3. 고소 취지 — 본문(구하는 취지)",
+#     )
 
 
 class ComplaintFormSection4CrimeFacts(BaseModel):
@@ -169,10 +170,10 @@ class ComplaintFormData(BaseModel):
         default_factory=ComplaintFormSection2Accused,
         description="2. 피고소인",
     )
-    section_3_complaint_purpose: ComplaintFormSection3ComplaintPurpose = Field(
-        default_factory=ComplaintFormSection3ComplaintPurpose,
-        description="3. 고소 취지",
-    )
+    # section_3_complaint_purpose: ComplaintFormSection3ComplaintPurpose = Field(
+    #     default_factory=ComplaintFormSection3ComplaintPurpose,
+    #     description="3. 고소 취지",
+    # )
     section_4_crime_facts: ComplaintFormSection4CrimeFacts = Field(
         default_factory=ComplaintFormSection4CrimeFacts,
         description="4. 범죄 사실",
