@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
 from app.domain.complaint import Complaint, get_owned_complaint
+from app.domain.download.all_download_service import all_download_service
 from app.domain.download.document_service import document_download_service
-from app.domain.download.schemas.responses import TimelineDownloadZipResponse
+from app.domain.download.schemas.responses import DownloadZipResponse
 from app.domain.download.timeline_service import timeline_download_service
 
 router = APIRouter(prefix="/api/v1", tags=["Download"])
@@ -49,36 +50,89 @@ router = APIRouter(prefix="/api/v1", tags=["Download"])
 
 @router.post(
     "/{complaint_id}/timeline/download/zip",
-    summary="ZIP 다운로드용 presigned URL 발급",
+    summary="타임라인 ZIP 다운로드용 presigned URL 발급",
     description="다운로드 ZIP(대조 증거 모음 + 타임라인 PDF) 생성 후 S3 업로드, presigned URL 반환.",
 )
 def create_download_zip(
     complaint: Complaint = Depends(get_owned_complaint),
     current_user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> TimelineDownloadZipResponse:
+) -> DownloadZipResponse:
     url = timeline_download_service.get_download_zip_presigned_url(
         complaint=complaint,
         current_user=current_user,
         db=db,
     )
-    return TimelineDownloadZipResponse(download_url=url)
+    return DownloadZipResponse(download_url=url)
+
+
+# @router.post(
+#     "/{complaint_id}/document/download/complaint-docx-preview",
+#     summary="[임시] 고소장 DOCX 생성 (로컬 저장)",
+#     description="개발용. docxtpl 템플릿으로 고소장 docx를 doc_generator/results/에 {n}_complaint.docx 로 저장합니다. S3 미사용.",
+# )
+# def post_complaint_docx_preview(
+#     complaint: Complaint = Depends(get_owned_complaint),
+#     db: Session = Depends(get_db),
+# ):
+#     path = document_download_service.save_complaint_docx_preview_local(
+#         complaint=complaint,
+#         db=db,
+#     )
+#     return {
+#         "message": "저장되었습니다",
+#         "path": str(path),
+#     }
+
+
+# @router.post(
+#     "/{complaint_id}/document/download/statement-docx-preview",
+#     summary="[임시] 진술서 DOCX 생성 (로컬 저장)",
+#     description="개발용. docxtpl 템플릿으로 진술서 docx를 doc_generator/results/에 {n}_statement.docx 로 저장합니다. S3 미사용.",
+# )
+# def post_statement_docx_preview(
+#     complaint: Complaint = Depends(get_owned_complaint),
+#     db: Session = Depends(get_db),
+# ):
+#     path = document_download_service.save_statement_docx_preview_local(
+#         complaint=complaint,
+#         db=db,
+#     )
+#     return {
+#         "message": "저장되었습니다",
+#         "path": str(path),
+#     }
 
 
 @router.post(
-    "/{complaint_id}/document/download/pdf-preview",
-    summary="[임시] 고소장 PDF 생성 (로컬 저장)",
-    description="개발용. 빈 고소장 PDF를 pdf_generator/results/에 {n}_complaint.pdf 로 저장합니다. S3 미사용.",
+    "/{complaint_id}/document/download/zip",
+    summary="고소장·진술서 ZIP 다운로드용 presigned URL 발급",
+    description="다운로드 ZIP(고소장 + 진술서) 생성 후 S3 업로드, presigned URL 반환.",
 )
-def post_complaint_pdf_preview(
+def post_document_download_zip(
     complaint: Complaint = Depends(get_owned_complaint),
     db: Session = Depends(get_db),
-):
-    path = document_download_service.save_complaint_pdf_preview_local(
+) -> DownloadZipResponse:
+    url = document_download_service.get_download_zip_presigned_url(
         complaint=complaint,
         db=db,
     )
-    return {
-        "message": "저장되었습니다",
-        "path": str(path),
-    }
+    return DownloadZipResponse(download_url=url)
+
+
+@router.post(
+    "/{complaint_id}/all/download/zip",
+    summary="통합 ZIP(타임라인·고소장·진술서) presigned URL",
+    description="다운로드 ZIP(대조 증거 모음 + 타임라인 PDF + 고소장 + 진술서) 생성 후 S3 업로드, presigned URL 반환.",
+)
+def post_all_download_zip(
+    complaint: Complaint = Depends(get_owned_complaint),
+    current_user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DownloadZipResponse:
+    url = all_download_service.get_all_download_zip_presigned_url(
+        complaint=complaint,
+        current_user=current_user,
+        db=db,
+    )
+    return DownloadZipResponse(download_url=url)

@@ -1,3 +1,3 @@
-from .responses import TimelineDownloadZipResponse
+from .responses import DownloadZipResponse
 
-__all__ = ["TimelineDownloadZipResponse"]
+__all__ = ["DownloadZipResponse"]

@@ -48,17 +48,14 @@ class PatchComplaintFormDataRequest(BaseModel):
     )
     submission_footer: ComplaintFormSubmissionFooter | None = Field(
         default=None,
-        description="제출일·고소인/제출인·제출처",
+        description="고소인/제출인·제출처(제출일은 수기)",
     )
 
 
 class PatchStatementFormDataRequest(BaseModel):
     damage_facts_statement: str | None = Field(default=None, description="피해 사실 진술")
-    date_year: int | None = Field(default=None, description="작성 일자 — 연(년)")
-    date_month: int | None = Field(default=None, description="작성 일자 — 월")
-    date_day: int | None = Field(default=None, description="작성 일자 — 일")
     declarant_name: str | None = Field(default=None, description="진술인 성명(인)")
     submission_target_police_station: str | None = Field(
         default=None,
-        description="제출처",
+        description="제출처(제출일은 수기)",
     )
