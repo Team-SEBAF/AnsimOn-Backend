@@ -97,6 +97,7 @@ class AIService:
         complaint: Complaint,
         db: Session,
         current_user: AuthUser,
+        llm_type: LLMType,
     ) -> TaskIdResponse:
         task_id = uuid4()
 
@@ -116,6 +117,7 @@ class AIService:
                 "task_id": str(task_id),
                 "type": "document",
                 "complaint_id": str(complaint.complaint_id),
+                "llm_type": llm_type.value,
                 "user_email": current_user.email,
                 "user_name": current_user.name,
                 "user_birthdate": current_user.birthdate,
