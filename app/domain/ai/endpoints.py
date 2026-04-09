@@ -101,5 +101,6 @@ def request_generate_document(
     current_user: AuthUser = Depends(get_current_user),
     complaint: Complaint = Depends(get_owned_complaint),
     db: Session = Depends(get_db),
+    llm_type: LLMType = Query(..., description="mock 또는 openAI"),
 ):
-    return ai_service.request_document_generate(complaint, db, current_user)
+    return ai_service.request_document_generate(complaint, db, current_user, llm_type)
