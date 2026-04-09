@@ -66,15 +66,15 @@ def create_download_zip(
 
 
 @router.post(
-    "/{complaint_id}/document/download/pdf-preview",
-    summary="[임시] 고소장 PDF 생성 (로컬 저장)",
-    description="개발용. 빈 고소장 PDF를 pdf_generator/results/에 {n}_complaint.pdf 로 저장합니다. S3 미사용.",
+    "/{complaint_id}/document/download/complaint-docx-preview",
+    summary="[임시] 고소장 DOCX 생성 (로컬 저장)",
+    description="개발용. docxtpl 템플릿으로 고소장 docx를 doc_generator/results/에 {n}_complaint.docx 로 저장합니다. S3 미사용.",
 )
-def post_complaint_pdf_preview(
+def post_complaint_docx_preview(
     complaint: Complaint = Depends(get_owned_complaint),
     db: Session = Depends(get_db),
 ):
-    path = document_download_service.save_complaint_pdf_preview_local(
+    path = document_download_service.save_complaint_docx_preview_local(
         complaint=complaint,
         db=db,
     )
