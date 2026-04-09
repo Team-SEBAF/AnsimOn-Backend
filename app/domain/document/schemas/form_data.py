@@ -190,9 +190,6 @@ class StatementFormData(BaseModel):
         default=None,
         description="피해 사실 진술(필수 입력란 본문)",
     )
-    date_year: int | None = Field(default=None, description="작성 일자 — 연(년)")
-    date_month: int | None = Field(default=None, description="작성 일자 — 월")
-    date_day: int | None = Field(default=None, description="작성 일자 — 일")
     declarant_name: str | None = Field(default=None, description="진술인 성명(인)")
     submission_target_police_station: str | None = Field(
         default=None,

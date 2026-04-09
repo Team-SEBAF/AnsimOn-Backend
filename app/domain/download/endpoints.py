@@ -82,3 +82,22 @@ def post_complaint_docx_preview(
         "message": "저장되었습니다",
         "path": str(path),
     }
+
+
+@router.post(
+    "/{complaint_id}/document/download/statement-docx-preview",
+    summary="[임시] 진술서 DOCX 생성 (로컬 저장)",
+    description="개발용. docxtpl 템플릿으로 진술서 docx를 doc_generator/results/에 {n}_statement.docx 로 저장합니다. S3 미사용.",
+)
+def post_statement_docx_preview(
+    complaint: Complaint = Depends(get_owned_complaint),
+    db: Session = Depends(get_db),
+):
+    path = document_download_service.save_statement_docx_preview_local(
+        complaint=complaint,
+        db=db,
+    )
+    return {
+        "message": "저장되었습니다",
+        "path": str(path),
+    }
