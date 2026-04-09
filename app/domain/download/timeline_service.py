@@ -19,6 +19,7 @@ from app.core.aws import (
     upload_fileobj,
 )
 from app.core.settings import settings
+from app.doc_generator.timeline_pdf.builder import build_timeline_pdf_bytes
 from app.domain.complaint import Complaint
 from app.domain.evidence.constant import EvidenceType
 from app.domain.evidence_incident_log.models.evidence_incident_log_model import (
@@ -46,7 +47,6 @@ from app.domain.timeline.repos import (
     TimelineManualEvidenceRepository,
     TimelineRepository,
 )
-from app.pdf_generator.timeline_pdf.builder import build_timeline_pdf_bytes
 
 
 def _format_evidence_numstring(date: str, time: str, index: int, sub_index: int) -> str:
@@ -272,7 +272,7 @@ class TimelineDownloadService:
 
         timeline_data = self._get_timeline_for_download(complaint=complaint, db=db)
         zip_root = "안심온_증거분석타임라인"
-        evidence_root = f"{zip_root}/대조 증거 모음"
+        evidence_root = f"{zip_root}/타임라인 대조 증거 모음"
         pdf_zip_path = f"{zip_root}/타임라인.pdf"
 
         # PDF-only 재생성: 기존 ZIP 다운로드 → PDF 교체 → 재업로드

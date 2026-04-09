@@ -57,8 +57,8 @@ app.include_router(evidence_report_record_router)
 app.include_router(evidence_incident_log_router)
 app.include_router(timeline_router)
 app.include_router(document_router)
-app.include_router(download_router)
 app.include_router(ai_router)
+app.include_router(download_router)
 app.include_router(sse_router)
 
 

@@ -1,9 +1,9 @@
-from app.pdf_generator.timeline_pdf.draw.draw_group_header import GROUP_BOX_HEIGHT
-from app.pdf_generator.timeline_pdf.layout_constants import (
+from app.doc_generator.timeline_pdf.draw.draw_group_header import GROUP_BOX_HEIGHT
+from app.doc_generator.timeline_pdf.layout_constants import (
     CONTENT_BOTTOM_Y,
     CONTENT_TOP_Y,
 )
-from app.pdf_generator.timeline_pdf.utils import (
+from app.doc_generator.timeline_pdf.utils import (
     extract_date_group_header_data,
     extract_event_item_data,
 )

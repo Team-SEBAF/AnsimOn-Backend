@@ -1,11 +1,11 @@
 from reportlab.pdfgen.canvas import Canvas
 
-from app.pdf_generator.base import get_font
-from app.pdf_generator.color_constants import (
+from app.doc_generator.base import get_font
+from app.doc_generator.timeline_pdf.color_constants import (
     COLOR_BORDER_DIVIDER,
     COLOR_TEXT_SECONDARY,
 )
-from app.pdf_generator.timeline_pdf.layout_constants import (
+from app.doc_generator.timeline_pdf.layout_constants import (
     PAGE_PADDING_LEFT,
 )
 

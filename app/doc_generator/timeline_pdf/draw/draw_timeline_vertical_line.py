@@ -1,9 +1,9 @@
 from reportlab.pdfgen.canvas import Canvas
 
-from app.pdf_generator.timeline_pdf.draw.draw_group_header import (
+from app.doc_generator.timeline_pdf.draw.draw_group_header import (
     TIMELINE_VERTICAL_LINE_CONTAINER_WIDTH,
 )
-from app.pdf_generator.timeline_pdf.layout_constants import (
+from app.doc_generator.timeline_pdf.layout_constants import (
     CONTENT_BOTTOM_Y,
     PAGE_PADDING_LEFT,
 )
