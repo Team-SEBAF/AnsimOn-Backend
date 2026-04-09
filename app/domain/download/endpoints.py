@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
 from app.domain.complaint import Complaint, get_owned_complaint
+from app.domain.download.all_download_service import all_download_service
 from app.domain.download.document_service import document_download_service
 from app.domain.download.schemas.responses import DownloadZipResponse
 from app.domain.download.timeline_service import timeline_download_service
@@ -112,8 +113,26 @@ def post_document_download_zip(
     complaint: Complaint = Depends(get_owned_complaint),
     db: Session = Depends(get_db),
 ) -> DownloadZipResponse:
-    url = document_download_service.get_document_download_zip_presigned_url(
+    url = document_download_service.get_download_zip_presigned_url(
         complaint=complaint,
+        db=db,
+    )
+    return DownloadZipResponse(download_url=url)
+
+
+@router.post(
+    "/{complaint_id}/all/download/zip",
+    summary="통합 ZIP(타임라인·고소장·진술서) presigned URL",
+    description="다운로드 ZIP(대조 증거 모음 + 타임라인 PDF + 고소장 + 진술서) 생성 후 S3 업로드, presigned URL 반환.",
+)
+def post_all_download_zip(
+    complaint: Complaint = Depends(get_owned_complaint),
+    current_user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DownloadZipResponse:
+    url = all_download_service.get_all_download_zip_presigned_url(
+        complaint=complaint,
+        current_user=current_user,
         db=db,
     )
     return DownloadZipResponse(download_url=url)

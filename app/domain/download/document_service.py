@@ -77,7 +77,7 @@ class DocumentDownloadService:
     #     out_path.write_bytes(build_statement_docx_bytes(statement_form_data))
     #     return out_path
 
-    def create_document_download_zip(
+    def create_download_zip(
         self,
         complaint: Complaint,
         db: Session,
@@ -131,14 +131,14 @@ class DocumentDownloadService:
         db.commit()
         return zip_bytes, zip_upload_s3_key
 
-    def get_document_download_zip_presigned_url(
+    def get_download_zip_presigned_url(
         self,
         complaint: Complaint,
         db: Session,
         expires_in: int = 3600,
     ) -> str:
         """ZIP이 없거나 재생성이 필요하면 생성·업로드 후 presigned GET URL 반환."""
-        _, s3_key = self.create_document_download_zip(complaint=complaint, db=db)
+        _, s3_key = self.create_download_zip(complaint=complaint, db=db)
         date_str = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%y%m%d")
         filename = f"안심온_고소장진술서_{date_str}.zip"
         ascii_fallback = f"AnsimOn_complaint_statement_{date_str}.zip"
