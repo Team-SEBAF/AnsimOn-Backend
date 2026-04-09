@@ -19,6 +19,7 @@ from app.core.aws import (
     upload_fileobj,
 )
 from app.core.settings import settings
+from app.doc_generator.timeline_pdf.builder import build_timeline_pdf_bytes
 from app.domain.complaint import Complaint
 from app.domain.evidence.constant import EvidenceType
 from app.domain.evidence_incident_log.models.evidence_incident_log_model import (
@@ -46,7 +47,6 @@ from app.domain.timeline.repos import (
     TimelineManualEvidenceRepository,
     TimelineRepository,
 )
-from app.pdf_generator.timeline_pdf.builder import build_timeline_pdf_bytes
 
 
 def _format_evidence_numstring(date: str, time: str, index: int, sub_index: int) -> str:

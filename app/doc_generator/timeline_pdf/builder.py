@@ -4,9 +4,9 @@ from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
-from app.pdf_generator.timeline_pdf.draw import draw_timeline_vertical_line
-from app.pdf_generator.timeline_pdf.layout_pages import layout_pages
-from app.pdf_generator.timeline_pdf.render_pages import render_pages
+from app.doc_generator.timeline_pdf.draw import draw_timeline_vertical_line
+from app.doc_generator.timeline_pdf.layout_pages import layout_pages
+from app.doc_generator.timeline_pdf.render_pages import render_pages
 
 from .footer import draw_footer
 from .header import draw_header

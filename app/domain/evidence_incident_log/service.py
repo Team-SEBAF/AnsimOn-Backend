@@ -702,7 +702,7 @@ class EvidenceIncidentLogService(EvidenceTypeService):
         exists_in_s3 = head_s3_object(settings.S3_BUCKET_NAME, s3_key) is not None
 
         if need_regenerate or not exists_in_s3:
-            from app.pdf_generator.incident_log_form_data_pdf import (
+            from app.doc_generator.incident_log_form_data_pdf import (
                 build_incident_log_from_data_pdf,
             )
 

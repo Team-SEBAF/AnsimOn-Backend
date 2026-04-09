@@ -1,6 +1,6 @@
-from app.pdf_generator.timeline_pdf.draw.draw_event_item import draw_event_item
-from app.pdf_generator.timeline_pdf.draw.draw_group_header import draw_group_header
-from app.pdf_generator.timeline_pdf.layout_constants import CONTENT_TOP_Y
+from app.doc_generator.timeline_pdf.draw.draw_event_item import draw_event_item
+from app.doc_generator.timeline_pdf.draw.draw_group_header import draw_group_header
+from app.doc_generator.timeline_pdf.layout_constants import CONTENT_TOP_Y
 
 
 def render_pages(c, page):

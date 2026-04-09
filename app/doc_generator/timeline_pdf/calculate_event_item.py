@@ -1,6 +1,6 @@
 from reportlab.lib.utils import simpleSplit
 
-from app.pdf_generator.base import get_font
+from app.doc_generator.base import get_font
 
 from .draw.draw_event_item import (
     CONTENT_CONTAINER_WIDTH,

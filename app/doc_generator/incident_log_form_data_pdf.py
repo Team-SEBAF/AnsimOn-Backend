@@ -5,7 +5,7 @@ from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
-from app.pdf_generator.base import get_font
+from app.doc_generator.base import get_font
 
 FONT_LABEL = get_font("medium")
 FONT_VALUE = get_font("regular")
