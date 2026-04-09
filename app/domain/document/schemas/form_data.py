@@ -81,16 +81,6 @@ class ComplaintFormSection2Accused(BaseModel):
     )
 
 
-# 고소 취지(3항)는 폼 입력이 아니라 고소장 PDF 생성 시 고정 문구로 넣음 — 폼/DB에서는 제외.
-# class ComplaintFormSection3ComplaintPurpose(BaseModel):
-#     """3. 고소 취지."""
-#
-#     content: str | None = Field(
-#         default=None,
-#         description="3. 고소 취지 — 본문(구하는 취지)",
-#     )
-
-
 class ComplaintFormSection4CrimeFacts(BaseModel):
     """4. 범죄 사실."""
 
@@ -146,11 +136,8 @@ class ComplaintFormSection8Other(BaseModel):
 
 
 class ComplaintFormSubmissionFooter(BaseModel):
-    """제출일·서명·제출처(하단)."""
+    """서명·제출처(하단). 제출일은 수기 작성."""
 
-    date_year: int | None = Field(default=None, description="하단 — 제출일(년)")
-    date_month: int | None = Field(default=None, description="하단 — 제출일(월)")
-    date_day: int | None = Field(default=None, description="하단 — 제출일(일)")
     accuser_name: str | None = Field(default=None, description="하단 — 고소인 성명(인)")
     submitter_name: str | None = Field(default=None, description="하단 — 제출인 성명(인)")
     submission_target_police_station: str | None = Field(
@@ -170,10 +157,6 @@ class ComplaintFormData(BaseModel):
         default_factory=ComplaintFormSection2Accused,
         description="2. 피고소인",
     )
-    # section_3_complaint_purpose: ComplaintFormSection3ComplaintPurpose = Field(
-    #     default_factory=ComplaintFormSection3ComplaintPurpose,
-    #     description="3. 고소 취지",
-    # )
     section_4_crime_facts: ComplaintFormSection4CrimeFacts = Field(
         default_factory=ComplaintFormSection4CrimeFacts,
         description="4. 범죄 사실",
@@ -196,7 +179,7 @@ class ComplaintFormData(BaseModel):
     )
     submission_footer: ComplaintFormSubmissionFooter = Field(
         default_factory=ComplaintFormSubmissionFooter,
-        description="제출일·고소인/제출인·제출처",
+        description="고소인/제출인·제출처(제출일은 수기)",
     )
 
 

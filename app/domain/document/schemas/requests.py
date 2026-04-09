@@ -48,7 +48,7 @@ class PatchComplaintFormDataRequest(BaseModel):
     )
     submission_footer: ComplaintFormSubmissionFooter | None = Field(
         default=None,
-        description="제출일·고소인/제출인·제출처",
+        description="고소인/제출인·제출처(제출일은 수기)",
     )
 
 
