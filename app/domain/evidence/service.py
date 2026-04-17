@@ -12,8 +12,9 @@ from app.core.settings import settings
 from app.domain.complaint import Complaint, ComplaintRepository
 from app.domain.evidence import schemas
 from app.domain.evidence.constant import (
-    EVIDENCE_DOCUMENT_RESTRICT,
+    EVIDENCE_INCIDENT_LOG_RESTRICT,
     EVIDENCE_MESSAGE_RESTRICT,
+    EVIDENCE_REPORT_RECORD_RESTRICT,
     EVIDENCE_VICTIM_IMAGE_RESTRICT,
     EVIDENCE_VICTIM_RESTRICT,
     EVIDENCE_VICTIM_VIDEO_RESTRICT,
@@ -157,8 +158,8 @@ def _get_presigned_config(
         EvidenceType.MESSAGE: EVIDENCE_MESSAGE_RESTRICT,
         EvidenceType.VOICE: EVIDENCE_VOICE_RESTRICT,
         EvidenceType.VICTIM: EVIDENCE_VICTIM_RESTRICT,
-        EvidenceType.REPORT_RECORD: EVIDENCE_DOCUMENT_RESTRICT,
-        EvidenceType.INCIDENT_LOG: EVIDENCE_DOCUMENT_RESTRICT,
+        EvidenceType.REPORT_RECORD: EVIDENCE_REPORT_RECORD_RESTRICT,
+        EvidenceType.INCIDENT_LOG: EVIDENCE_INCIDENT_LOG_RESTRICT,
     }
     path_map = {
         EvidenceType.MESSAGE: "messages",

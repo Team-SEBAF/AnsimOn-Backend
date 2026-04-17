@@ -7,8 +7,9 @@ from app.core.aws import generate_presigned_put_url, head_s3_object
 from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence.constant import (
-    EVIDENCE_DOCUMENT_RESTRICT,
+    EVIDENCE_DOCUMENT_ALLOWED_TYPES,
     EVIDENCE_IMAGE_RESTRICT,
+    EVIDENCE_REPORT_RECORD_RESTRICT,
     EVIDENCE_VIDEO_RESTRICT,
     EVIDENCE_VOICE_AUDIO_RESTRICT,
     EvidenceTypeRestrict,
@@ -107,9 +108,9 @@ def get_restrict_by_content_type(
         return EVIDENCE_IMAGE_RESTRICT
     if content_type in EVIDENCE_VOICE_AUDIO_RESTRICT.allowed_types:
         return EVIDENCE_VOICE_AUDIO_RESTRICT
-    if content_type in EVIDENCE_DOCUMENT_RESTRICT.allowed_types:
-        return EVIDENCE_DOCUMENT_RESTRICT
-    return EVIDENCE_DOCUMENT_RESTRICT  # 알 수 없는 타입: 10MB 기본
+    if content_type in EVIDENCE_DOCUMENT_ALLOWED_TYPES:
+        return EVIDENCE_REPORT_RECORD_RESTRICT  # max_count 미사용이므로 상관없음
+    return EVIDENCE_REPORT_RECORD_RESTRICT
 
 
 def generate_presigned_urls_for_unrestricted_content(

@@ -570,12 +570,13 @@ class TimelineService:
         db: Session,
     ) -> schemas.ManualTimelineEvidenceFormDataResponse:
         timeline_repo = TimelineRepository(db)
+        description = request.description or ""
         timeline_evidence_id, index = timeline_repo.add_manual_evidence_to_json(
             complaint_id=complaint_id,
             date=request.date,
             time=request.time,
             title=request.title,
-            description=request.description,
+            description=description,
             tags=request.tags,
         )
         timeline_repo.set_regeneration_flags(
@@ -589,7 +590,7 @@ class TimelineService:
             date=request.date,
             time=request.time,
             title=request.title,
-            description=request.description,
+            description=description,
             tags=request.tags,
         )
 
