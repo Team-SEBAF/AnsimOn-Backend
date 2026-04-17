@@ -1,13 +1,10 @@
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 import app.domain.evidence.errors as evidence_errors
-from app.core.auth import AuthUser, get_current_user
 from app.core.database import get_db
 from app.domain.complaint import Complaint, get_owned_complaint
-from app.domain.evidence.constant import EVIDENCE_DOCUMENT_RESTRICT
+from app.domain.evidence.constant import EVIDENCE_REPORT_RECORD_RESTRICT
 from app.domain.evidence_report_record import schemas
 from app.domain.evidence_report_record.service import evidence_report_record_service
 
@@ -16,7 +13,7 @@ router = APIRouter(prefix="/api/v1", tags=["Evidence Report Record"])
 
 @router.post(
     "/{complaint_id}/evidences/report-records/register",
-    summary=f"REPORT_RECORD 타입 신고・사건 일지 Presigned URL로 S3 업로드 완료 후, 메타데이터 DB 저장 (복수 업로드 지원, 최대 {EVIDENCE_DOCUMENT_RESTRICT.max_count}개)",
+    summary=f"REPORT_RECORD 타입 신고・사건 일지 Presigned URL로 S3 업로드 완료 후, 메타데이터 DB 저장 (복수 업로드 지원, 최대 {EVIDENCE_REPORT_RECORD_RESTRICT.max_count}개)",
     description="Presigned URL로 S3 업로드 완료 후 호출하세요.",
     response_model=schemas.EvidenceReportRecordRegisterListResponse,
     responses=evidence_errors.REGISTER_EVIDENCE_ERRORS_RESPONSES,

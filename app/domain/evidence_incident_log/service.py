@@ -12,8 +12,8 @@ from app.core.settings import settings
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
 from app.domain.evidence.constant import (
-    EVIDENCE_DOCUMENT_RESTRICT,
     EVIDENCE_IMAGE_RESTRICT,
+    EVIDENCE_INCIDENT_LOG_RESTRICT,
     EVIDENCE_VIDEO_RESTRICT,
     EVIDENCE_VOICE_AUDIO_RESTRICT,
 )
@@ -59,7 +59,7 @@ from app.domain.timeline.repos.timeline_repository import TimelineRepository
 
 def _validate_incident_log_register_restrict(metadata_list: list[dict]) -> None:
     """content_type 먼저, 통과한 것만 size. duration 없음."""
-    restrict = EVIDENCE_DOCUMENT_RESTRICT
+    restrict = EVIDENCE_INCIDENT_LOG_RESTRICT
     content_type_failed_evidence_ids: list[str] = []
     size_bytes_failed_evidence_ids: list[str] = []
 
@@ -194,11 +194,11 @@ class EvidenceIncidentLogService(EvidenceTypeService):
             complaint_id=complaint_id,
             db=db,
         )
-        if total_count >= EVIDENCE_DOCUMENT_RESTRICT.max_count:
+        if total_count >= EVIDENCE_INCIDENT_LOG_RESTRICT.max_count:
             raise CodeException(
                 code=EvidenceMaxCountExceededErrorCode.EVIDENCE_MAX_COUNT_EXCEEDED,
                 message="해당 증거 타입의 최대 개수를 초과했습니다.",
-                debug_message=f"INCIDENT_LOG 타입 사건 일지 파일의 최대 개수({EVIDENCE_DOCUMENT_RESTRICT.max_count}개)를 초과했습니다.",
+                debug_message=f"INCIDENT_LOG 타입 사건 일지 파일의 최대 개수({EVIDENCE_INCIDENT_LOG_RESTRICT.max_count}개)를 초과했습니다.",
                 status_code=400,
             )
         return total_count
@@ -217,7 +217,7 @@ class EvidenceIncidentLogService(EvidenceTypeService):
         check_register_max_count(
             total_count=total_count,
             request_count=len(request.items),
-            restrict=EVIDENCE_DOCUMENT_RESTRICT,
+            restrict=EVIDENCE_INCIDENT_LOG_RESTRICT,
             type_name="INCIDENT_LOG",
         )
         # 2) S3 메타데이터 조회

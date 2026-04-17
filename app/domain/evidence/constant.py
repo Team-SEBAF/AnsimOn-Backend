@@ -81,22 +81,33 @@ EVIDENCE_VICTIM_RESTRICT = EvidenceTypeRestrict(
     max_duration_seconds=None,
 )
 
-EVIDENCE_DOCUMENT_RESTRICT = EvidenceTypeRestrict(
-    allowed_types={
-        # PDF
-        "application/pdf",
-        # Word
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        # HWP (windows only)
-        "application/x-hwp",
-        "application/haansofthwp",
-        "application/vnd.hancom.hwp",
-        # TXT
-        "text/plain",
-    },
+# 문서 MIME·용량 공통. REPORT_RECORD / INCIDENT_LOG는 max_count만 다름.
+# allowed_types는 두 restrict가 동일 set을 참조(불변으로만 사용).
+EVIDENCE_DOCUMENT_ALLOWED_TYPES = {
+    # PDF
+    "application/pdf",
+    # Word
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    # HWP (windows only)
+    "application/x-hwp",
+    "application/haansofthwp",
+    "application/vnd.hancom.hwp",
+    # TXT
+    "text/plain",
+}
+_EVIDENCE_DOCUMENT_MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
+
+EVIDENCE_REPORT_RECORD_RESTRICT = EvidenceTypeRestrict(
+    allowed_types=EVIDENCE_DOCUMENT_ALLOWED_TYPES,
     max_count=3,
-    max_size_bytes=10 * 1024 * 1024,  # 10MB
+    max_size_bytes=_EVIDENCE_DOCUMENT_MAX_SIZE_BYTES,
+)
+
+EVIDENCE_INCIDENT_LOG_RESTRICT = EvidenceTypeRestrict(
+    allowed_types=EVIDENCE_DOCUMENT_ALLOWED_TYPES,
+    max_count=5,
+    max_size_bytes=_EVIDENCE_DOCUMENT_MAX_SIZE_BYTES,
 )
 
 
@@ -141,6 +152,6 @@ def get_file_type_from_content_type(content_type: str) -> FileType:
         return FileType.AUDIO
     if content_type in EVIDENCE_VIDEO_RESTRICT.allowed_types:
         return FileType.VIDEO
-    if content_type in EVIDENCE_DOCUMENT_RESTRICT.allowed_types:
+    if content_type in EVIDENCE_DOCUMENT_ALLOWED_TYPES:
         return FileType.DOCUMENT
     return FileType.ETC

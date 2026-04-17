@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import AuthUser
 from app.domain.complaint import Complaint
 from app.domain.evidence import EvidenceTypeService
-from app.domain.evidence.constant import EVIDENCE_DOCUMENT_RESTRICT
+from app.domain.evidence.constant import EVIDENCE_REPORT_RECORD_RESTRICT
 from app.domain.evidence.errors.register_validation_error import (
     raise_evidence_register_validation_failed,
 )
@@ -25,7 +25,7 @@ from app.domain.timeline.repos.timeline_repository import TimelineRepository
 
 def _validate_report_record_register_restrict(metadata_list: list[dict]) -> None:
     """content_type 먼저, 통과한 것만 size. duration 없음."""
-    restrict = EVIDENCE_DOCUMENT_RESTRICT
+    restrict = EVIDENCE_REPORT_RECORD_RESTRICT
     content_type_failed_evidence_ids: list[str] = []
     size_bytes_failed_evidence_ids: list[str] = []
 
@@ -104,7 +104,7 @@ class EvidenceReportRecordService(EvidenceTypeService):
         check_register_max_count(
             total_count=total_count,
             request_count=len(request.items),
-            restrict=EVIDENCE_DOCUMENT_RESTRICT,
+            restrict=EVIDENCE_REPORT_RECORD_RESTRICT,
             type_name="REPORT_RECORD",
         )
         # 2) S3 메타데이터 조회

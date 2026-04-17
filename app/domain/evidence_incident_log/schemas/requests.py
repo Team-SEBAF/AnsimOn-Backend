@@ -4,7 +4,7 @@ from uuid import UUID
 from pydantic import Field
 
 from app.base.base_request import BaseRequest, create_partial_request
-from app.domain.evidence.constant import EVIDENCE_DOCUMENT_RESTRICT
+from app.domain.evidence.constant import EVIDENCE_INCIDENT_LOG_RESTRICT
 from app.domain.evidence.schemas.common import EvidencePresignedUrlItemRequest
 from app.domain.evidence_incident_log.schemas.dtos import EvidenceIncidentLogFormDataDTO
 
@@ -19,7 +19,7 @@ class EvidenceIncidentLogFileRegisterRequest(BaseRequest):
     items: list[EvidenceIncidentLogFileRegisterItemRequest] = Field(
         ...,
         min_length=1,
-        max_length=EVIDENCE_DOCUMENT_RESTRICT.max_count,
+        max_length=EVIDENCE_INCIDENT_LOG_RESTRICT.max_count,
         description="등록할 사건 일지 파일 목록",
     )
 
