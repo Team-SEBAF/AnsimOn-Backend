@@ -27,7 +27,7 @@ class ManualTimelineEvidenceFormDataUploadRequest(BaseRequest):
     date: str = Field(..., description="날짜 (YYYY-MM-DD)", examples=["2026-02-12"])
     time: str = Field(..., description="시각 HH:MM", examples=["14:00"])
     title: str = Field(..., description="제목", examples=["추가 증거"])
-    description: str = Field(..., description="설명", examples=["직접 촬영한 사진"])
+    description: str | None = Field(None, description="설명", examples=["직접 촬영한 사진"])
     tags: list[TimelineTag] = Field(
         default_factory=list, description="태그", examples=[["REPEAT", "THREAT_COERCION"]]
     )
