@@ -42,3 +42,6 @@ lambda.zip
 ffmpeg-layer.zip
 requirements.txt
 requirements.layer.txt
+
+# ---- integration test set ----
+tests/integration_test_set/

@@ -40,6 +40,56 @@ def _url(base_url: str | None, path: str) -> str:
     return f"{base_url}{path}"
 
 
+def _ensure_db_available(db: Any) -> None:
+    logger.info("(1) DB 연결 상태 확인")
+    db_status = server_cost_db_service.get_db_connection_status(db).status
+    if db_status != "available":
+        logger.warning("DB를 먼저 켜주세요")
+        pytest.skip("DB를 먼저 켜주세요")
+    logger.info("(1) 완료")
+
+
+def _fetch_auth_context(client: Any, base_url: str | None, test_target: str) -> dict[str, str]:
+    logger.info("(2) 로그인 후 access_token, user_sub, complaint_id 불러오기")
+
+    login_payload = (
+        {"email": "test_prod_9090@example.com", "password": "SecurePass123!"}
+        if test_target == "prod"
+        else {"email": "test_dev_9090@example.com", "password": "SecurePass123!"}
+    )
+    login_response = client.post(_url(base_url, "/api/v1/users/login/email"), json=login_payload)
+    access_token = login_response.json()["access_token"]
+
+    me_response = client.get(
+        _url(base_url, "/api/v1/users/me"),
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    me_data = me_response.json()
+    user_sub = me_data["user_sub"]
+    complaint_id = str(me_data["complaint_id"])
+
+    logger.info("access_token=%s", access_token)
+    logger.info("user_sub=%s", user_sub)
+    logger.info("complaint_id=%s", complaint_id)
+    logger.info("(2) 완료")
+
+    return {
+        "access_token": access_token,
+        "user_sub": user_sub,
+        "complaint_id": complaint_id,
+    }
+
+
+def _reset_existing_data(db: Any, user_sub: str) -> None:
+    logger.info("(3) 기존 데이터 초기화 시작")
+    user_repo = UserRepository(db)
+    user_repo.delete_by_user_sub(user_sub)
+    db.commit()
+
+    delete_s3_objects_by_prefix(settings.S3_BUCKET_NAME, f"{user_sub}/")
+    logger.info("(3) 완료")
+
+
 def _download_integration_dataset() -> None:
     logger.info("(4) 테스트 데이터셋 다운로드 시작")
 
@@ -51,10 +101,16 @@ def _download_integration_dataset() -> None:
     paginator = s3.get_paginator("list_objects_v2")
     downloaded_count = 0
 
-    for page in paginator.paginate(
-        Bucket=settings.S3_BUCKET_NAME,
-        Prefix=INTEGRATION_DATASET_PREFIX,
+    for page_index, page in enumerate(
+        paginator.paginate(
+            Bucket=settings.S3_BUCKET_NAME,
+            Prefix=INTEGRATION_DATASET_PREFIX,
+        ),
+        start=1,
     ):
+        page_files = page.get("Contents", [])
+        logger.info("(4) 다운로드 진행중 - page=%s, page_files=%s", page_index, len(page_files))
+
         for obj in page.get("Contents", []):
             key = obj["Key"]
             if key.endswith("/"):
@@ -68,6 +124,15 @@ def _download_integration_dataset() -> None:
             local_path.parent.mkdir(parents=True, exist_ok=True)
             s3.download_file(settings.S3_BUCKET_NAME, key, str(local_path))
             downloaded_count += 1
+
+            if downloaded_count % 10 == 0:
+                logger.info("(4) 다운로드 진행중 - downloaded_files=%s", downloaded_count)
+
+        logger.info(
+            "(4) 페이지 완료 - page=%s, downloaded_files=%s",
+            page_index,
+            downloaded_count,
+        )
 
     logger.info(
         "(4) 테스트 데이터셋 다운로드 완료 (files=%s, dir=%s)",
@@ -104,54 +169,14 @@ def integration_context(client: Any) -> dict[str, str]:
         logger.info("integration_context 시작")
 
         # 1. DB 연결 상태 확인
-        logger.info("(1) DB 연결 상태 확인")
-        db_status = server_cost_db_service.get_db_connection_status(db).status
-        if db_status != "available":
-            logger.warning("DB를 먼저 켜주세요")
-            pytest.skip("DB를 먼저 켜주세요")
-        logger.info("(1) 완료")
-
+        _ensure_db_available(db)
         # 2. 로그인 후 access_token, user_sub, complaint_id 불러오기
-        logger.info("(2) 로그인 후 access_token, user_sub, complaint_id 불러오기")
-        login_payload = (
-            {"email": "test_prod_9090@example.com", "password": "SecurePass123!"}
-            if test_target == "prod"
-            else {"email": "test_dev_9090@example.com", "password": "SecurePass123!"}
-        )
-        login_response = client.post(
-            _url(base_url, "/api/v1/users/login/email"), json=login_payload
-        )
-        access_token = login_response.json()["access_token"]
-
-        me_response = client.get(
-            _url(base_url, "/api/v1/users/me"),
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        me_data = me_response.json()
-        user_sub = me_data["user_sub"]
-        complaint_id = str(me_data["complaint_id"])
-
-        logger.info("access_token=%s", access_token)
-        logger.info("user_sub=%s", user_sub)
-        logger.info("complaint_id=%s", complaint_id)
-        logger.info("(2) 완료")
-
+        auth_context = _fetch_auth_context(client, base_url, test_target)
         # 3. 기존 데이터 초기화
-        logger.info("(3) 기존 데이터 초기화 시작")
-        user_repo = UserRepository(db)
-        user_repo.delete_by_user_sub(user_sub)
-        db.commit()
-
-        delete_s3_objects_by_prefix(settings.S3_BUCKET_NAME, f"{user_sub}/")
-        logger.info("(3) 완료")
-
-        # 4. 스토리지 테스트 데이터셋 다운로드
+        _reset_existing_data(db, auth_context["user_sub"])
+        # 4. 스토리지에서 테스트 데이터셋 다운로드
         _download_integration_dataset()
 
-        return {
-            "access_token": access_token,
-            "user_sub": user_sub,
-            "complaint_id": complaint_id,
-        }
+        return auth_context
     finally:
         db.close()
