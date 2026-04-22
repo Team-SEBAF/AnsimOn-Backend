@@ -1,4 +1,6 @@
 import logging
+import shutil
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -6,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app._server_cost.db.service import server_cost_db_service
-from app.core.aws import delete_s3_objects_by_prefix
+from app.core.aws import delete_s3_objects_by_prefix, get_s3_client
 from app.core.database import SessionLocal
 from app.core.settings import settings
 from app.domain.user import UserRepository
@@ -16,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 DEV_BASE_URL = "https://fvccs6z1m1.execute-api.ap-northeast-2.amazonaws.com/dev"
 PROD_BASE_URL = "https://cus4odof27.execute-api.ap-northeast-2.amazonaws.com/prod"
+INTEGRATION_DATASET_PREFIX = "integration_test_set/"
+INTEGRATION_DATASET_DOWNLOAD_DIR = Path(__file__).resolve().parent / "integration_test_set"
 
 
 def _get_test_target() -> str:
@@ -34,6 +38,42 @@ def _url(base_url: str | None, path: str) -> str:
     if base_url is None:
         return path
     return f"{base_url}{path}"
+
+
+def _download_integration_dataset() -> None:
+    logger.info("(4) 테스트 데이터셋 다운로드 시작")
+
+    if INTEGRATION_DATASET_DOWNLOAD_DIR.exists():
+        shutil.rmtree(INTEGRATION_DATASET_DOWNLOAD_DIR)
+    INTEGRATION_DATASET_DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    s3 = get_s3_client()
+    paginator = s3.get_paginator("list_objects_v2")
+    downloaded_count = 0
+
+    for page in paginator.paginate(
+        Bucket=settings.S3_BUCKET_NAME,
+        Prefix=INTEGRATION_DATASET_PREFIX,
+    ):
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            if key.endswith("/"):
+                continue
+
+            relative_key = key.removeprefix(INTEGRATION_DATASET_PREFIX)
+            if not relative_key:
+                continue
+
+            local_path = INTEGRATION_DATASET_DOWNLOAD_DIR / relative_key
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            s3.download_file(settings.S3_BUCKET_NAME, key, str(local_path))
+            downloaded_count += 1
+
+    logger.info(
+        "(4) 테스트 데이터셋 다운로드 완료 (files=%s, dir=%s)",
+        downloaded_count,
+        INTEGRATION_DATASET_DOWNLOAD_DIR,
+    )
 
 
 @pytest.fixture(scope="session")
@@ -104,6 +144,9 @@ def integration_context(client: Any) -> dict[str, str]:
 
         delete_s3_objects_by_prefix(settings.S3_BUCKET_NAME, f"{user_sub}/")
         logger.info("(3) 완료")
+
+        # 4. 스토리지 테스트 데이터셋 다운로드
+        _download_integration_dataset()
 
         return {
             "access_token": access_token,
