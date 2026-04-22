@@ -38,12 +38,11 @@
 | Authentication | AWS Cognito |
 | Storage | AWS S3 |
 
-### Planned
+### Testing
 
 | 구분 | 기술 |
 | --- | --- |
-| Caching | Redis |
-| Test | pytest |
+| Framework | pytest |
 
 ---
 
@@ -153,7 +152,29 @@ poetry run alembic upgrade head
 
 ---
 
-## 6. CI / CD 워크플로
+## 6. 테스트 명령어
+
+프로젝트 루트에서 아래 명령어로 테스트를 실행합니다.
+
+```bash
+poetry run pytest
+```
+
+로그까지 확인하려면:
+
+```bash
+poetry run pytest --log-cli-level=INFO
+```
+
+특정 파일만 실행하려면:
+
+```bash
+poetry run pytest tests/test_integration_setup.py
+```
+
+---
+
+## 7. CI / CD 워크플로
 
 GitHub Actions로 다음 워크플로가 구성되어 있습니다.
 

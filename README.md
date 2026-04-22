@@ -38,12 +38,11 @@ local development and AWS deployment environments (Dev / Prod).
 | Authentication | AWS Cognito |
 | Storage | AWS S3 |
 
-### Planned
+### Testing
 
 | Category | Technology |
 | --- | --- |
-| Caching | Redis |
-| Testing | pytest |
+| Framework | pytest |
 
 ---
 
@@ -153,7 +152,29 @@ poetry run alembic upgrade head
 
 ---
 
-## 6. CI / CD Workflows
+## 6. Test Commands
+
+Run tests from the project root:
+
+```bash
+poetry run pytest
+```
+
+Run with logs:
+
+```bash
+poetry run pytest --log-cli-level=INFO
+```
+
+Run only a specific file:
+
+```bash
+poetry run pytest tests/test_integration_setup.py
+```
+
+---
+
+## 7. CI / CD Workflows
 
 GitHub Actions workflows:
 
