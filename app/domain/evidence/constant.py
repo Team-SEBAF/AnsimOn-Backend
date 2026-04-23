@@ -89,10 +89,6 @@ EVIDENCE_DOCUMENT_ALLOWED_TYPES = {
     # Word
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    # HWP (windows only)
-    "application/x-hwp",
-    "application/haansofthwp",
-    "application/vnd.hancom.hwp",
     # TXT
     "text/plain",
 }

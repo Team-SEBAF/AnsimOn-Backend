@@ -122,7 +122,7 @@ def post_document_download_zip(
 
 @router.post(
     "/{complaint_id}/all/download/zip",
-    summary="통합 ZIP(타임라인·고소장·진술서) presigned URL",
+    summary="통합 ZIP(타임라인·고소장·진술서) presigned URL 발급",
     description="다운로드 ZIP(대조 증거 모음 + 타임라인 PDF + 고소장 + 진술서) 생성 후 S3 업로드, presigned URL 반환.",
 )
 def post_all_download_zip(
