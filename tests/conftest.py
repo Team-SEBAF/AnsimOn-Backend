@@ -79,6 +79,9 @@ class TestLogManager:
 def pytest_configure(config: pytest.Config) -> None:
     global _test_log_manager
 
+    if bool(getattr(config.option, "collectonly", False)):
+        return
+
     target = str(config.getoption("--target")).lower()
     _test_log_manager = TestLogManager(target=target)
     log_path = _test_log_manager.setup()
