@@ -99,6 +99,15 @@ def pytest_unconfigure(config: pytest.Config) -> None:
     _test_log_manager = None
 
 
+# 실패 리포트도 로그 파일에 남김
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    if not report.failed:
+        return
+    logger.error("테스트 실패: nodeid=%s, phase=%s", report.nodeid, report.when)
+    if report.longreprtext:
+        logger.error("실패 상세:\n%s", report.longreprtext)
+
+
 @dataclass
 class TestEnvConfig:
     target: str
