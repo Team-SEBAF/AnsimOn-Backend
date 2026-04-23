@@ -1,5 +1,5 @@
 import logging
-import shutil
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -21,9 +21,13 @@ TEST_ENV_FILE = Path(__file__).resolve().parents[1] / ".env.test"
 AWS_REGION = "ap-northeast-2"
 INTEGRATION_DATASET_PREFIX = "integration_test_set/"
 INTEGRATION_DATASET_DOWNLOAD_DIR = Path(__file__).resolve().parent / "integration_test_set"
+TEST_LOG_DIR = Path(__file__).resolve().parent / "logs"
 DB_CONNECT_TIMEOUT_SECONDS = 5
 
+_test_log_manager: "TestLogManager | None" = None
 
+
+# pytest 커스텀 CLI 옵션 추가: --target local|dev|prod
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--target",
@@ -32,6 +36,64 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         choices=["local", "dev", "prod"],
         help="integration target environment",
     )
+
+
+class TestLogManager:
+    def __init__(self, target: str):
+        self.target = target
+        self.handler: logging.Handler | None = None
+
+    def _next_log_index(self) -> int:
+        pattern = re.compile(rf"^{re.escape(self.target)}_test_(\d+)\.log$")
+        max_index = 0
+        for path in TEST_LOG_DIR.glob(f"{self.target}_test_*.log"):
+            match = pattern.match(path.name)
+            if not match:
+                continue
+            max_index = max(max_index, int(match.group(1)))
+        return max_index + 1
+
+    def setup(self) -> Path:
+        TEST_LOG_DIR.mkdir(parents=True, exist_ok=True)
+        log_index = self._next_log_index()
+        log_path = TEST_LOG_DIR / f"{self.target}_test_{log_index}.log"
+
+        handler = logging.FileHandler(log_path, encoding="utf-8")
+        handler.setLevel(logging.INFO)
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+        )
+        logging.getLogger().addHandler(handler)
+        self.handler = handler
+        return log_path
+
+    def teardown(self) -> None:
+        if self.handler is None:
+            return
+        logging.getLogger().removeHandler(self.handler)
+        self.handler.close()
+        self.handler = None
+
+
+# pytest 훅: 테스트 시작 시 자동 호출됨
+def pytest_configure(config: pytest.Config) -> None:
+    global _test_log_manager
+
+    target = str(config.getoption("--target")).lower()
+    _test_log_manager = TestLogManager(target=target)
+    log_path = _test_log_manager.setup()
+
+    logging.getLogger(__name__).info("test log file: %s", log_path)
+
+
+# pytest 훅: 테스트 종료 시 자동 호출됨
+def pytest_unconfigure(config: pytest.Config) -> None:
+    del config
+    global _test_log_manager
+    if _test_log_manager is None:
+        return
+    _test_log_manager.teardown()
+    _test_log_manager = None
 
 
 @dataclass
@@ -105,6 +167,7 @@ class IntegrationTestSetup:
         db_status = server_cost_db_service.get_db_connection_status(self.db).status
         if db_status != "available":
             logger.warning("DB를 먼저 켜주세요")
+            # 실패 처리 대신 "스킵"으로 표시하고 테스트를 중단
             pytest.skip("DB를 먼저 켜주세요")
         logger.info("(1) 완료")
 
@@ -149,11 +212,31 @@ class IntegrationTestSetup:
         self.storage.delete_objects_by_prefix(f"{user_sub}/")
         logger.info("(3) 완료")
 
+    def add_user(self, auth_context: dict[str, str]) -> dict[str, str]:
+        logger.info("(4) DB에 유저 새로 추가 시작")
+        access_token = auth_context["access_token"]
+        me_response = self.client.get(
+            self.config.url("/api/v1/users/me"),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        me_data = me_response.json()
+
+        updated_context = {
+            **auth_context,
+            "user_sub": me_data["user_sub"],
+            "complaint_id": str(me_data["complaint_id"]),
+        }
+        logger.info("(4) 완료")
+        logger.info("user_sub=%s", updated_context["user_sub"])
+        logger.info("complaint_id=%s", updated_context["complaint_id"])
+        return updated_context
+
     def download_integration_dataset(self) -> None:
-        logger.info("(4) 테스트 데이터셋 다운로드 시작")
+        logger.info("(5) 테스트 데이터셋 다운로드 시작")
 
         if INTEGRATION_DATASET_DOWNLOAD_DIR.exists():
-            shutil.rmtree(INTEGRATION_DATASET_DOWNLOAD_DIR)
+            logger.info("(5) 기존 데이터셋 폴더가 있어 다운로드를 건너뜁니다.")
+            return
         INTEGRATION_DATASET_DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
         downloaded_count = 0
@@ -163,7 +246,7 @@ class IntegrationTestSetup:
             start=1,
         ):
             page_files = page.get("Contents", [])
-            logger.info("(4) 다운로드 진행중 - page=%s, page_files=%s", page_index, len(page_files))
+            logger.info("(5) 다운로드 진행중 - page=%s, page_files=%s", page_index, len(page_files))
 
             for obj in page_files:
                 key = obj["Key"]
@@ -180,16 +263,16 @@ class IntegrationTestSetup:
                 downloaded_count += 1
 
                 if downloaded_count % 10 == 0:
-                    logger.info("(4) 다운로드 진행중 - downloaded_files=%s", downloaded_count)
+                    logger.info("(5) 다운로드 진행중 - downloaded_files=%s", downloaded_count)
 
             logger.info(
-                "(4) 페이지 완료 - page=%s, downloaded_files=%s",
+                "(5) 페이지 완료 - page=%s, downloaded_files=%s",
                 page_index,
                 downloaded_count,
             )
 
         logger.info(
-            "(4) 테스트 데이터셋 다운로드 완료 (files=%s, dir=%s)",
+            "(5) 테스트 데이터셋 다운로드 완료 (files=%s, dir=%s)",
             downloaded_count,
             INTEGRATION_DATASET_DOWNLOAD_DIR,
         )
@@ -198,10 +281,12 @@ class IntegrationTestSetup:
         self.ensure_db_available()
         auth_context = self.fetch_auth_context()
         self.reset_existing_data(auth_context["user_sub"])
+        auth_context = self.add_user(auth_context)
         self.download_integration_dataset()
         return auth_context
 
 
+# session scope: pytest 1회 실행 동안 한 번만 생성/재사용
 @pytest.fixture(scope="session")
 def test_config(request: pytest.FixtureRequest) -> TestEnvConfig:
     config = TestEnvConfig.from_request(request)
