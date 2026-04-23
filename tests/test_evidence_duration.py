@@ -14,7 +14,7 @@ class EvidenceDurationTestRunner(BaseEvidenceRunner):
     def run(self, spec: EvidenceApiSpec) -> None:
         logger.info("=== [%s] duration 검증 테스트 시작 ===", spec.evidence_type)
         files = self.dataset_files(spec, label="duration 테스트")
-        presigned_items = self.build_presigned_items(files, include_duration=True)
+        presigned_items = self.build_presigned_items(files)
         presigned_result = self.request_presigned_url(spec, presigned_items)
         register_items, requested_evidence_ids = self.upload_and_build_register_items(
             spec, files, presigned_result

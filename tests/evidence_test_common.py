@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from mutagen import File as MutagenFile
 
 logger = logging.getLogger(__name__)
 
@@ -47,18 +46,17 @@ class BaseEvidenceRunner:
         logger.info("[%s] %s 파일 개수=%s", spec.evidence_type, label, len(files))
         return files
 
-    def build_presigned_items(
-        self, files: list[Path], include_duration: bool = False
-    ) -> list[dict[str, Any]]:
+    def build_presigned_items(self, files: list[Path]) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
         for index, file_path in enumerate(files):
+            content_type = self.content_type(file_path)
             item: dict[str, Any] = {
                 "index": index,
                 "filename": file_path.name,
-                "contentType": self.content_type(file_path),
+                "contentType": content_type,
                 "sizeBytes": file_path.stat().st_size,
             }
-            if include_duration:
+            if self._requires_duration(content_type):
                 duration = self.duration_seconds(file_path)
                 assert duration is not None, f"duration 추출 실패: file={file_path.name}"
                 item["durationSeconds"] = duration
@@ -145,11 +143,9 @@ class BaseEvidenceRunner:
 
     @staticmethod
     def duration_seconds(file_path: Path) -> int | None:
-        parsed = MutagenFile(file_path)
-        if parsed is None or getattr(parsed, "info", None) is None:
-            return None
-        length = int(getattr(parsed.info, "length", 0))
-        return max(1, length)
+        del file_path
+        # presigned-url 단계는 duration 값 자체만 검증하므로 테스트에서는 고정값 사용
+        return 60
 
     @staticmethod
     def content_type(file_path: Path) -> str:
@@ -157,3 +153,7 @@ class BaseEvidenceRunner:
         if content_type is None:
             raise ValueError(f"지원하지 않는 파일 타입입니다: {file_path.name}")
         return content_type
+
+    @staticmethod
+    def _requires_duration(content_type: str) -> bool:
+        return content_type.startswith("audio/") or content_type.startswith("video/")

@@ -12,7 +12,7 @@ class EvidenceUploadTestRunner(BaseEvidenceRunner):
     def run(self, spec: EvidenceApiSpec) -> None:
         logger.info("=== [%s] 업로드 테스트 시작 ===", spec.evidence_type)
         files = self.dataset_files(spec, label="테스트")
-        presigned_items = self.build_presigned_items(files, include_duration=False)
+        presigned_items = self.build_presigned_items(files)
         presigned_result = self.request_presigned_url(spec, presigned_items)
         register_items, _ = self.upload_and_build_register_items(spec, files, presigned_result)
 
