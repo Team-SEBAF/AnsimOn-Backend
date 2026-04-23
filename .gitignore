@@ -43,5 +43,6 @@ ffmpeg-layer.zip
 requirements.txt
 requirements.layer.txt
 
-# ---- tests ----
-/tests
+# ---- integration test set ----
+tests/integration_test_set/
+tests/logs

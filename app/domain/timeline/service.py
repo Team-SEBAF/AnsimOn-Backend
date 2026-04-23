@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.base.base_error import CodeException
 from app.core.aws import delete_s3_by_prefixes, download_s3_object, upload_fileobj
 from app.core.settings import settings
-from app.domain.complaint import Complaint
+from app.domain.complaint import Complaint, ComplaintStep
 from app.domain.evidence.constant import (
     EVIDENCE_IMAGE_RESTRICT,
     EVIDENCE_VIDEO_RESTRICT,
@@ -102,6 +102,7 @@ class TimelineService:
         """complaint_id에 해당하는 timeline row 없을 때 default JSON + evidences insert."""
         timeline_repo = TimelineRepository(db)
         timeline_evidence_repo = TimelineEvidenceRepository(db)
+        complaint = db.get(Complaint, complaint_id)
 
         timeline = Timeline(
             complaint_id=complaint_id,
@@ -129,6 +130,8 @@ class TimelineService:
                     else file_type_val,
                 )
             )
+
+        complaint.step = ComplaintStep.TIMELINE
         db.commit()
         db.refresh(timeline)
         return timeline
