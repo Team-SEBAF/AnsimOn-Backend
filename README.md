@@ -157,19 +157,26 @@ poetry run alembic upgrade head
 Run tests from the project root:
 
 ```bash
-poetry run pytest
+poetry run pytest --target local
 ```
 
 Run with logs:
 
 ```bash
-poetry run pytest --log-cli-level=INFO
+poetry run pytest --target local --log-cli-level=INFO
 ```
 
 Run only a specific file:
 
 ```bash
-poetry run pytest tests/test_integration_setup.py
+poetry run pytest --target local tests/test_integration_setup.py
+```
+
+Run against Dev/Prod resources:
+
+```bash
+AWS_PROFILE=ansimon-dev-local poetry run pytest --target dev
+AWS_PROFILE=ansimon-dev-local poetry run pytest --target prod
 ```
 
 ---

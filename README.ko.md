@@ -157,19 +157,26 @@ poetry run alembic upgrade head
 프로젝트 루트에서 아래 명령어로 테스트를 실행합니다.
 
 ```bash
-poetry run pytest
+poetry run pytest --target local
 ```
 
 로그까지 확인하려면:
 
 ```bash
-poetry run pytest --log-cli-level=INFO
+poetry run pytest --target local --log-cli-level=INFO
 ```
 
 특정 파일만 실행하려면:
 
 ```bash
-poetry run pytest tests/test_integration_setup.py
+poetry run pytest --target local tests/test_integration_setup.py
+```
+
+Dev/Prod 리소스를 대상으로 실행하려면:
+
+```bash
+AWS_PROFILE=ansimon-dev-local poetry run pytest --target dev
+AWS_PROFILE=ansimon-dev-local poetry run pytest --target prod
 ```
 
 ---
