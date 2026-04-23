@@ -45,3 +45,4 @@ requirements.layer.txt
 
 # ---- integration test set ----
 tests/integration_test_set/
+tests/logs
