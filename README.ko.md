@@ -169,7 +169,7 @@ poetry run pytest --target local --log-cli-level=INFO
 특정 파일만 실행하려면:
 
 ```bash
-poetry run pytest --target local tests/test_integration_setup.py
+poetry run pytest --target local tests/test_evidence_upload.py
 ```
 
 Dev/Prod 리소스를 대상으로 실행하려면:

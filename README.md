@@ -169,7 +169,7 @@ poetry run pytest --target local --log-cli-level=INFO
 Run only a specific file:
 
 ```bash
-poetry run pytest --target local tests/test_integration_setup.py
+poetry run pytest --target local tests/test_evidence_upload.py
 ```
 
 Run against Dev/Prod resources:
