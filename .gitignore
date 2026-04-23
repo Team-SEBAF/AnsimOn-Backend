@@ -42,3 +42,6 @@ lambda.zip
 ffmpeg-layer.zip
 requirements.txt
 requirements.layer.txt
+
+# ---- tests ----
+/tests

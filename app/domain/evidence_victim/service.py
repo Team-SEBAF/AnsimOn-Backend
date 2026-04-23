@@ -1,4 +1,3 @@
-from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from uuid import UUID
 
@@ -193,8 +192,7 @@ class EvidenceVictimService(EvidenceTypeService):
                 "_file_bytes": file_bytes,
             }, None
 
-        with ThreadPoolExecutor(max_workers=max(1, min(len(valid_metadata), 5))) as executor:
-            results = list(executor.map(_process_victim_item, valid_metadata))
+        results = [_process_victim_item(m) for m in valid_metadata]
 
         rows = [r for r, _ in results if r is not None]
         content_type_extraction_failed_evidence_ids = [eid for _, eid in results if eid is not None]
@@ -234,8 +232,7 @@ class EvidenceVictimService(EvidenceTypeService):
             )
             return r
 
-        with ThreadPoolExecutor(max_workers=max(1, min(len(rows), 5))) as executor:
-            rows = list(executor.map(_upload_victim_thumbnails, rows))
+        rows = [_upload_victim_thumbnails(r) for r in rows]
         db.bulk_insert_mappings(EvidenceVictim, rows)
         TimelineRepository(db).set_regeneration_flags(
             complaint.complaint_id, need_timeline_regeneration=True
