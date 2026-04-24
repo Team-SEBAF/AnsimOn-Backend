@@ -8,6 +8,6 @@ class SseServerUrlResponse(BaseResponse):
 
     base_url: str = Field(
         ...,
-        description="SSE 서버 베이스 URL (예: http://1.2.3.4:8000)",
-        examples=["http://15.164.95.247:8000"],
+        description="SSE 서버 베이스 URL (dev: http://{ip}:{port}, prod: https://prod.ansimon-sse.com)",
+        examples=["http://15.164.95.247:8000", "https://prod.ansimon-sse.com"],
     )
