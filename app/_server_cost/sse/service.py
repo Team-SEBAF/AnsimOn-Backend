@@ -1,10 +1,17 @@
 from app._server_cost.schemas import InfraStatusResponse
 from app._server_cost.sse import utils as sse_utils
+from app.core.settings import settings
+from app.sse.service import get_sse_public_ip
 
 
 class ServerCostSseService:
     def start_sse(self) -> None:
         sse_utils.set_desired_count(1)
+        if settings.env == "prod":
+            try:
+                sse_utils.request_upsert_prod_sse_record()
+            except Exception as e:
+                print(f"[warn] prod sse route53 upsert request failed: {e}")
 
     def stop_sse(self) -> None:
         sse_utils.set_desired_count(0)
@@ -13,6 +20,16 @@ class ServerCostSseService:
         if sse_utils.ecs_running_count_at_least_one():
             return InfraStatusResponse(status="available")
         return InfraStatusResponse(status="unavailable")
+
+    def get_prod_sse_network_sync(self) -> tuple[str | None, str | None, str | None, bool]:
+        try:
+            actual_ip = get_sse_public_ip()
+        except Exception:
+            actual_ip = None
+        route53_ip = sse_utils.get_route53_record_ip()
+        dns_ip = sse_utils.resolve_dns_ip()
+        synced = bool(actual_ip and route53_ip and dns_ip and actual_ip == route53_ip == dns_ip)
+        return actual_ip, route53_ip, dns_ip, synced
 
 
 server_cost_sse_service = ServerCostSseService()

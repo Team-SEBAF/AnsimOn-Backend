@@ -14,10 +14,6 @@ def _ec2_client():
     return boto3.client("ec2", region_name=settings.AWS_REGION)
 
 
-def _route53_client():
-    return boto3.client("route53", region_name=settings.AWS_REGION)
-
-
 def _eni_id_from_task(task: dict) -> str | None:
     for att in task.get("attachments") or []:
         if att.get("type") != "ElasticNetworkInterface":
@@ -28,7 +24,7 @@ def _eni_id_from_task(task: dict) -> str | None:
     return None
 
 
-def _get_sse_public_ip() -> str:
+def get_sse_public_ip() -> str:
     """
     ECS Fargate 서비스의 RUNNING 태스크 1개의 Public IP를 반환.
     """
@@ -128,68 +124,10 @@ def _get_sse_public_ip() -> str:
     return public_ip
 
 
-def _ensure_prod_sse_domain_points_to_ip(public_ip: str) -> None:
-    route53 = _route53_client()
-    record_name = "prod.ansimon-sse.com"
-    zone_name = "ansimon-sse.com"
-
-    try:
-        zones = route53.list_hosted_zones_by_name(DNSName=zone_name).get("HostedZones") or []
-    except ClientError as e:
-        raise CodeException(
-            code=SseUrlErrorCode.SSE_NOT_CONFIGURED,
-            message="Route53 호스팅 영역 조회에 실패했습니다.",
-            debug_message=str(e),
-            status_code=503,
-        ) from e
-
-    hosted_zone_id = ""
-    for zone in zones:
-        if zone.get("Name") == zone_name:
-            hosted_zone_id = str(zone.get("Id", "")).split("/")[-1]
-            break
-
-    if not hosted_zone_id:
-        raise CodeException(
-            code=SseUrlErrorCode.SSE_NOT_CONFIGURED,
-            message="SSE Route53 호스팅 영역을 찾을 수 없습니다.",
-            debug_message=f"zone_name={zone_name}",
-            status_code=503,
-        )
-
-    try:
-        route53.change_resource_record_sets(
-            HostedZoneId=hosted_zone_id,
-            ChangeBatch={
-                "Comment": "Sync SSE prod domain to latest ECS public IP",
-                "Changes": [
-                    {
-                        "Action": "UPSERT",
-                        "ResourceRecordSet": {
-                            "Name": record_name,
-                            "Type": "A",
-                            "TTL": 300,
-                            "ResourceRecords": [{"Value": public_ip}],
-                        },
-                    }
-                ],
-            },
-        )
-    except ClientError as e:
-        raise CodeException(
-            code=SseUrlErrorCode.SSE_NOT_CONFIGURED,
-            message="Route53 레코드 갱신에 실패했습니다.",
-            debug_message=str(e),
-            status_code=503,
-        ) from e
-
-
 def get_sse_server_url() -> str:
-    public_ip = _get_sse_public_ip()
-
     if settings.env == "prod":
-        _ensure_prod_sse_domain_points_to_ip(public_ip)
         return "https://prod.ansimon-sse.com"
 
+    public_ip = get_sse_public_ip()
     port = settings.SSE_SERVER_PORT
     return f"http://{public_ip}:{port}"
