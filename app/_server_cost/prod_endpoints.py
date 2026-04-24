@@ -18,7 +18,7 @@ router = APIRouter(
 
 @router.post(
     "/on",
-    summary="Prod 서버 시작 (대략 3~6분 소요)",
+    summary="Prod 서버 시작 (대략 8~12분 소요)",
     response_model=BaseSuccessResponse,
 )
 async def server_on():
