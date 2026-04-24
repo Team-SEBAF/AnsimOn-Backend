@@ -27,6 +27,7 @@ class TaskStatus(str, Enum):
     PROCESSING = "PROCESSING"
     DONE = "DONE"
     FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
 
 
 class LLMType(str, Enum):
