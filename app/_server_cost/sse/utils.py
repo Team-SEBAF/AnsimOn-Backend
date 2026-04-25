@@ -96,7 +96,7 @@ def _find_hosted_zone_id(zone_name: str) -> str | None:
 
 def request_upsert_prod_sse_record() -> None:
     record_name = settings.SSE_RECORD_NAME
-    zone_name = settings.DOMAIN_ZONE_NAME
+    zone_name = settings.ANSIMON_ZONE_NAME
     try:
         public_ip = get_sse_public_ip()
     except Exception:
@@ -137,7 +137,7 @@ def request_upsert_prod_sse_record() -> None:
 
 def get_route53_record_ip() -> str | None:
     record_name = settings.SSE_RECORD_NAME
-    zone_name = settings.DOMAIN_ZONE_NAME
+    zone_name = settings.ANSIMON_ZONE_NAME
     hosted_zone_id = _find_hosted_zone_id(zone_name)
     if not hosted_zone_id:
         return None

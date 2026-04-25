@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     AI_WORKER_WARM_MIN_TASKS: int = 2
 
     SSE_RECORD_NAME: str | None = None
-    DOMAIN_ZONE_NAME: str | None = None
+    ANSIMON_ZONE_NAME: str | None = None
 
 
 settings = Settings()
