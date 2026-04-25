@@ -126,7 +126,7 @@ def get_sse_public_ip() -> str:
 
 def get_sse_server_url() -> str:
     if settings.env == "prod":
-        return "https://prod.ansimon-sse.com"
+        return f"https://{settings.SSE_RECORD_NAME}"
 
     public_ip = get_sse_public_ip()
     port = settings.SSE_SERVER_PORT
