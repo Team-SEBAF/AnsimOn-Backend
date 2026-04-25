@@ -1,8 +1,8 @@
 import socket
 import time
+import urllib.request
 
 import boto3
-import httpx
 from botocore.exceptions import ClientError
 from fastapi import HTTPException
 
@@ -178,7 +178,8 @@ def resolve_dns_ip() -> str | None:
 def is_record_url_reachable() -> bool:
     record_name = settings.SSE_RECORD_NAME
     try:
-        response = httpx.get(f"https://{record_name}/docs", timeout=5.0)
-        return response.status_code < 500
-    except httpx.HTTPError:
+        with urllib.request.urlopen(f"https://{record_name}/docs", timeout=5.0) as response:
+            status_code = getattr(response, "status", 200)
+            return status_code < 500
+    except Exception:
         return False
