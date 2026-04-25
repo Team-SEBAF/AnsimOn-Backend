@@ -36,7 +36,7 @@ class AIService:
                 status_code=404,
             )
         document = DocumentRepository(db).get_by_complaint_id(complaint_id)
-        need_to_generate = document is None or timeline.need_timeline_pdf_regeneration
+        need_to_generate = document is None or document.created_at < timeline.updated_at
         return NeedToGenerateResponse(need_to_generate=need_to_generate)
 
     def get_current_task_id(
