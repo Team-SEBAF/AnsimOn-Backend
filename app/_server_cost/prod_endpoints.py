@@ -42,8 +42,9 @@ def server_status(db: Session = Depends(get_db)):
     sse_st = server_cost_sse_service.get_sse_status()
     ai_ok = server_cost_ai_worker_service.running_count_at_least_warm_min()
 
-    _, _, _, dns_synced = server_cost_sse_service.get_prod_sse_network_sync()
-    sse_available = sse_st.status == "available" and dns_synced
+    network_sync = server_cost_sse_service.get_prod_sse_network_sync()
+    sse_synced = network_sync[3]
+    sse_available = sse_st.status == "available" and sse_synced
     return ProdServerCostStatusResponse(
         db=db_st.status,
         sse="available" if sse_available else "unavailable",
