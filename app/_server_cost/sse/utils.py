@@ -1,6 +1,8 @@
 import socket
+import time
 
 import boto3
+import httpx
 from botocore.exceptions import ClientError
 from fastapi import HTTPException
 
@@ -65,6 +67,17 @@ def ecs_running_count_at_least_one() -> bool:
     return running_count >= 1
 
 
+def wait_until_running_task_exists(
+    timeout_seconds: int = 120, interval_seconds: float = 5.0
+) -> bool:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        if ecs_running_count_at_least_one():
+            return True
+        time.sleep(interval_seconds)
+    return ecs_running_count_at_least_one()
+
+
 def _find_hosted_zone_id(zone_name: str) -> str | None:
     route53 = get_route53_client()
     try:
@@ -82,8 +95,8 @@ def _find_hosted_zone_id(zone_name: str) -> str | None:
 
 
 def request_upsert_prod_sse_record() -> None:
-    record_name = "prod.ansimon-sse.com"
-    zone_name = "ansimon-sse.com"
+    record_name = settings.SSE_RECORD_NAME
+    zone_name = settings.DOMAIN_ZONE_NAME
     try:
         public_ip = get_sse_public_ip()
     except Exception:
@@ -123,8 +136,8 @@ def request_upsert_prod_sse_record() -> None:
 
 
 def get_route53_record_ip() -> str | None:
-    record_name = "prod.ansimon-sse.com"
-    zone_name = "ansimon-sse.com"
+    record_name = settings.SSE_RECORD_NAME
+    zone_name = settings.DOMAIN_ZONE_NAME
     hosted_zone_id = _find_hosted_zone_id(zone_name)
     if not hosted_zone_id:
         return None
@@ -157,6 +170,15 @@ def get_route53_record_ip() -> str | None:
 
 def resolve_dns_ip() -> str | None:
     try:
-        return socket.gethostbyname("prod.ansimon-sse.com")
+        return socket.gethostbyname(settings.SSE_RECORD_NAME)
     except OSError:
         return None
+
+
+def is_record_url_reachable() -> bool:
+    record_name = settings.SSE_RECORD_NAME
+    try:
+        response = httpx.get(f"https://{record_name}/docs", timeout=5.0)
+        return response.status_code < 500
+    except httpx.HTTPError:
+        return False

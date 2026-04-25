@@ -36,5 +36,8 @@ class Settings(BaseSettings):
     AI_WORKER_AUTOSCALING_MAX_CAPACITY: int = 5
     AI_WORKER_WARM_MIN_TASKS: int = 2
 
+    SSE_RECORD_NAME: str | None = None
+    DOMAIN_ZONE_NAME: str | None = None
+
 
 settings = Settings()
