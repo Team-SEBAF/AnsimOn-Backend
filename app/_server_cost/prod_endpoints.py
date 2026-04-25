@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -14,6 +15,7 @@ router = APIRouter(
     prefix="/api/v1/server_cost",
     tags=["Server On/Off (배포 웹사이트 사용하기 전, Prod 서버 실행 필요)"],
 )
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -22,13 +24,20 @@ router = APIRouter(
     response_model=BaseSuccessResponse,
 )
 async def server_on():
-    await asyncio.gather(
-        asyncio.to_thread(server_cost_db_service.start_db),
-        asyncio.to_thread(server_cost_sse_service.start_sse),
-        asyncio.to_thread(server_cost_ai_worker_service.raise_min_for_warm_pool),
-    )
+    try:
+        results = await asyncio.gather(
+            asyncio.to_thread(server_cost_db_service.start_db),
+            asyncio.to_thread(server_cost_sse_service.start_sse),
+            asyncio.to_thread(server_cost_ai_worker_service.raise_min_for_warm_pool),
+            return_exceptions=True,
+        )
+        for idx, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.warning("server_on partial failure index=%s error=%s", idx, result)
+    except Exception as e:
+        logger.exception("server_on unexpected failure: %s", e)
     return BaseSuccessResponse(
-        message="Prod 서버 시작 요청을 보냈습니다. 대략 3~6분 소요될 수 있습니다."
+        message="Prod 서버 시작 요청을 보냈습니다. 대략 8~12분 소요될 수 있습니다. 시작 중에는 status API에서 unavailable로 나타날 수 있습니다."
     )
 
 

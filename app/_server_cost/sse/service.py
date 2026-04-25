@@ -1,7 +1,11 @@
+import logging
+
 from app._server_cost.schemas import InfraStatusResponse
 from app._server_cost.sse import utils as sse_utils
 from app.core.settings import settings
 from app.sse.service import get_sse_public_ip
+
+logger = logging.getLogger(__name__)
 
 
 class ServerCostSseService:
@@ -11,11 +15,11 @@ class ServerCostSseService:
             try:
                 ready = sse_utils.wait_until_running_task_exists()
                 if not ready:
-                    print("[warn] prod sse task is not running yet; skip route53 upsert request")
+                    logger.warning("prod sse task is not running yet; skip route53 upsert request")
                     return
                 sse_utils.request_upsert_prod_sse_record()
             except Exception as e:
-                print(f"[warn] prod sse route53 upsert request failed: {e}")
+                logger.warning("prod sse route53 upsert request failed: %s", e)
 
     def stop_sse(self) -> None:
         sse_utils.set_desired_count(0)
