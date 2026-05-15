@@ -37,5 +37,5 @@ def extract_event_item_data(time: str, evidence: dict) -> dict:
         "time_text": time,
         "title": title,
         "description": description,
-        "evidence_text": "증거 번호 " + evidence_text,
+        "evidence_text": "증거 번호 " + evidence_text if evidence_text else "참조 증거 없음",
     }
