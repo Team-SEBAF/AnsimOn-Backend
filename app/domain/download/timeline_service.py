@@ -1,4 +1,3 @@
-import mimetypes
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from datetime import datetime
@@ -21,6 +20,7 @@ from app.core.aws import (
 from app.core.settings import settings
 from app.doc_generator.timeline_pdf.builder import build_timeline_pdf_bytes
 from app.domain.complaint import Complaint
+from app.domain.download.utils import prepare_evidence_bytes_for_zip
 from app.domain.evidence.constant import EvidenceType
 from app.domain.evidence_incident_log.models.evidence_incident_log_model import (
     EvidenceIncidentLogType,
@@ -54,16 +54,6 @@ def _format_evidence_numstring(date: str, time: str, index: int, sub_index: int)
     date_compact = date.replace("-", "") if date else ""
     time_compact = time.replace(":", "") if time else ""
     return f"{date_compact}-{time_compact}-{index}-{sub_index}"
-
-
-def _ext_from_content_type(content_type: str | None, default: str = ".bin") -> str:
-    """Content-Type에서 확장자 추출. audio/mp4a-latm은 mimetypes 미지원이라 fallback."""
-    if not content_type:
-        return default
-    ct = content_type.split(";")[0].strip().lower()
-    if ct == "audio/mp4a-latm":
-        return ".m4a"
-    return mimetypes.guess_extension(ct) or default
 
 
 def _is_zip_content(data: bytes) -> bool:
@@ -220,10 +210,11 @@ class TimelineDownloadService:
                             entries.append((numstring, s3_info))
         return entries
 
-    def _download_one(self, s3_key: str) -> tuple[str, bytes, str | None]:
-        """S3에서 단일 객체 다운로드. (s3_key, bytes, content_type) 반환."""
+    def _download_one(self, s3_key: str) -> tuple[str, bytes, str]:
+        """S3에서 단일 객체 다운로드 후 ZIP용 바이트·확장자 반환."""
         data, meta = download_s3_object_with_metadata(settings.S3_BUCKET_NAME, s3_key)
-        return s3_key, data, meta.get("ContentType")
+        data, ext = prepare_evidence_bytes_for_zip(data, meta.get("ContentType"))
+        return s3_key, data, ext
 
     # def get_timeline_pdf_preview(self, complaint: Complaint, author: str, db: Session) -> None:
     #     """
@@ -330,8 +321,7 @@ class TimelineDownloadService:
                 futures = {executor.submit(self._download_one, k): k for k in ev_s3_keys}
                 for future in as_completed(futures):
                     try:
-                        k, data, ct = future.result()
-                        ext = _ext_from_content_type(ct)
+                        k, data, ext = future.result()
                         s3_key_to_bytes_and_ext[k] = (data, ext)
                     except Exception:
                         raise
